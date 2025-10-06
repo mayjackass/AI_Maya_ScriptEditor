@@ -1,18 +1,53 @@
-# AI Script Editor for Maya 
+# AI Script Editor v2.0 — Personal Edition
 
-A modular, PySide6-based script editor for Autodesk Maya with built-in OpenAI integration (GPT-powered coding assistant).  
-Supports secure local encryption of API keys, live code execution, syntax highlighting, and Copilot-style inline completions.
+**Developed by:** [Mayj Amilano](https://github.com/mayjackass)  
+**Built for:** Autodesk Maya 2026  
+**Framework:** PySide6 / OpenAI API v1.x  
+
+---
+
+## Overview
+
+**AI Script Editor** is a lightweight, modern Python editor built directly for **Maya’s embedded Python environment**.  
+It combines the comfort of a mini-IDE with the power of **AI-assisted coding**, offering smart completions, linting, and contextual chat—all inside Maya’s UI.
+
+The tool is designed for **Technical Directors**, **Pipeline TDs**, and **Maya tool developers** who want a fast, native alternative to VS Code or PyCharm inside Maya.
+
+---
 
 ## Features
-- Line numbering, syntax highlighting, dark theme (Charcoal 2)
-- Run & lint scripts inside Maya
-- Secure local OpenAI key encryption
-- Integrated AI chat and code suggestions
-- Tabbed editor, explorer, and output console
+
+### Code Editing
+- Syntax highlighting (VS Code Dark+ style)
+- Line numbers and current-line highlighting
+- Smart indentation and tab spacing
+- Real-time syntax linting (`ast`-based)
+
+### AI Copilot
+- Integrated **OpenAI GPT-4o mini** chat dock
+- Context-aware suggestions using your active code
+- Inline “ghost” completions triggered by `Ctrl + Space`
+- Optional **Apply Suggestion** button to insert AI-generated code directly
+
+### Explorer & Navigation
+- Dockable file/folder explorer
+- Auto-parses folders → files → classes/functions
+- Double-click to open symbols in new tabs
+- Recent-file and folder memory
+
+### Execution & Output
+- Run active script directly in Maya with `Ctrl + Enter`
+- Output console dock for live logs and tracebacks
+- Safe `stdout`/`stderr` redirection
+
+### Interface & Theming
+- Custom charcoal dark theme
+- Tabbed editor workspace
+- Search bar (`Ctrl + F`) and toolbar actions
+- Menu-bar shortcuts similar to VS Code
+
+---
 
 ## Installation
-1. Copy the `ai_script_editor` folder into your Maya `scripts/` directory.
-2. Launch from Maya Script Editor:
-   ```python
-   import ai_script_editor.ai_script_editor as aise
-   aise.launch_ai_script_editor()
+
+1. **Copy** the project folder into your Maya scripts directory, e.g.  
