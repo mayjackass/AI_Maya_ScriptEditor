@@ -641,9 +641,15 @@ class AiScriptEditor(QtWidgets.QMainWindow):
 
         # --- Toolbar with Run/Lint
         tb = self.addToolBar("Tools")
+
         run_act = tb.addAction("Run")
-        lint_act = tb.addAction("Lint")
+        run_act.setShortcut(QtGui.QKeySequence("Ctrl+Return"))
+        run_act.setStatusTip("Run current script (Ctrl+Enter)")
         run_act.triggered.connect(self._run_script)
+
+        lint_act = tb.addAction("Lint")
+        lint_act.setShortcut(QtGui.QKeySequence("Ctrl+Shift+L"))
+        lint_act.setStatusTip("Lint script for syntax errors (Ctrl+Shift+L)")
         lint_act.triggered.connect(self._lint_script)
 
         # ------------------------------------------------------------------
@@ -684,20 +690,19 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         editMenu.addAction(selectAllAct)
     
         # === Help menu ===
-        helpMenu = mb.addMenu("&Help")
+        help_menu = mb.addMenu("&Help")
+        about_act = help_menu.addAction("About")
+        github_act = help_menu.addAction("Visit GitHub")
+        key_act = help_menu.addAction("Set API Key…")
 
-        aboutAct = QtGui.QAction("About AI Script Editor", self)
-        aboutAct.triggered.connect(self._show_about_dialog)
-
-        docsAct = QtGui.QAction("Documentation", self)
-        docsAct.triggered.connect(lambda: QtGui.QDesktopServices.openUrl(QtCore.QUrl("https://github.com/YOUR_GITHUB_USERNAME/")))
-
-        githubAct = QtGui.QAction("View on GitHub", self)
-        githubAct.triggered.connect(lambda: QtGui.QDesktopServices.openUrl(QtCore.QUrl("https://github.com/YOUR_GITHUB_USERNAME/ai-script-editor")))
-
-        helpMenu.addAction(aboutAct)
-        helpMenu.addAction(docsAct)
-        helpMenu.addAction(githubAct)
+        about_act.triggered.connect(lambda: QtWidgets.QMessageBox.information(
+            self, "About AI Script Editor",
+            "AI Script Editor v3\nMaya 2026 / PySide6\n\nDeveloped by Mayj Amilano\n© 2025 All rights reserved."
+        ))
+        github_act.triggered.connect(lambda: QtGui.QDesktopServices.openUrl(
+            QtCore.QUrl("https://github.com/mayjackass/AI_Maya_ScriptEditor/tree/main")  # update soon
+        ))
+        key_act.triggered.connect(lambda: show_key_dialog(self))
 
 
         # --- Explorer Dock (Left)
