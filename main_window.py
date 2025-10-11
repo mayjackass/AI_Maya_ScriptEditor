@@ -48,11 +48,11 @@ QTabBar::tab:selected { background: #3E3E42; }
 
 
 class AiScriptEditor(QtWidgets.QMainWindow):
-    """AI Script Editor - Refactored with Manager Pattern"""
+    """NEO Script Editor - Modern Maya script editor with Morpheus AI"""
     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("🚀 NEO Script Editor v2.2 - Refactored Modular")
+        self.setWindowTitle("�️ NEO Script Editor v3.0 - Morpheus AI")
         self.resize(1200, 700)
         self.setStyleSheet(DARK_STYLE)
 
