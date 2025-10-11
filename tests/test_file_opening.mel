@@ -1,0 +1,22 @@
+// MEL Test File for Explorer Double-Click
+// This file tests MEL syntax highlighting when opened from explorer
+
+global proc testMelFunction() {
+    print("Hello from MEL test file!\n");
+    string $testVar = "MEL string test";
+    float $numbers[] = {1.0, 2.0, 3.0};
+    
+    // Test Maya commands
+    polyCube -name "testCube";
+    move 0 5 0 "testCube";
+    
+    // Test conditional
+    if (size($numbers) > 0) {
+        print("Array has elements\n");
+    }
+    
+    return;
+}
+
+// Call the function
+testMelFunction();

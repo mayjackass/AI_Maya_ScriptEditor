@@ -48,6 +48,12 @@ config.json
 *.mb
 *.mel.backup
 
+# Local development only (not on GitHub)
+docs/
+archive/
+tests/
+SIMPLE_GITHUB_UPDATE.md
+
 # Test outputs
 test_output/
 temp_files/
