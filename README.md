@@ -1,4 +1,4 @@
-# NEO Script Editor 🕶️
+# NEO Script Editor
 ### *"I can only show you the door. You're the one that has to walk through it."*
 
 **Developed by:** [Mayj Amilano](https://github.com/mayjackass)  
@@ -9,7 +9,7 @@ A next-generation Maya script editor with **Morpheus AI** - your philosophical m
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # Launch NEO Script Editor
@@ -24,7 +24,7 @@ python launch.py
 2. Open the Morpheus AI chat (toolbar icon or `Ctrl+Shift+M`)
 3. Start coding with AI guidance
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 ai_script_editor/
@@ -63,16 +63,16 @@ ai_script_editor/
     └── *.py              # Other archived files
 ```
 
-## ✨ Key Features
+## Key Features
 
-### 🤖 Morpheus AI - Your Coding Mentor
+### Morpheus AI - Your Coding Mentor
 - **Matrix-Inspired Personality**: Philosophical, mentor-like guidance for your code
 - **Dual AI Support**: Choose between OpenAI GPT-4o or Anthropic Claude Sonnet
 - **Context-Aware Chat**: Morpheus analyzes your current code and provides enlightened solutions
 - **Code Suggestions**: Copy, Apply, or Keep AI-generated code with interactive buttons
 - **Custom Morpheus Icon**: Authentic Matrix branding throughout the interface
 
-### 💻 Professional Code Editor
+### Professional Code Editor
 - **Advanced Syntax Highlighting**: VS Code-style dark theme for Python and MEL
 - **Multi-Error Detection**: Finds ALL syntax errors, not just the first one
 - **Visual Error Indicators**: Red wavy underlines with detailed problem descriptions
@@ -80,7 +80,7 @@ ai_script_editor/
 - **Smart Indentation**: Auto-indent with Tab/Shift+Tab support
 - **Undo/Redo**: Full edit history management
 
-### 🔍 Intelligent Tools
+### Intelligent Tools
 - **Problems Panel**: Real-time error reporting with line numbers
 - **Find & Replace**: `Ctrl+F` / `Ctrl+H` with regex support
 - **File Explorer**: Dockable folder browser with double-click to open
@@ -88,14 +88,14 @@ ai_script_editor/
 - **Syntax Checker**: Manual validation with `F7` shortcut
 - **Script Runner**: Execute code directly in Maya with `F5`
 
-### 🎨 Modern Interface
+### Modern Interface
 - **Dockable Panels**: Explorer, Morpheus AI Chat, Output Console, Problems
 - **Tabbed Editor**: Multiple files with auto-save prompts
 - **Custom Toolbar**: Quick access to New, Open, Save, AI Chat, and more
 - **Keyboard Shortcuts**: Full VS Code-style navigation
 - **Dark Theme**: Easy on the eyes during long coding sessions
 
-## 🛠️ Installation
+## Installation
 
 ### Requirements
 - **Python 3.8+** (built-in with Maya 2020+)
@@ -162,7 +162,7 @@ setup_neo_editor()
 
 Then in Maya, just run: `launch_neo_editor()`
 
-📖 **See [MAYA_SETUP.md](MAYA_SETUP.md) for detailed Maya integration guide**
+**See [MAYA_SETUP.md](MAYA_SETUP.md) for detailed Maya integration guide**
 
 ### Running Tests
 ```bash
@@ -173,7 +173,7 @@ python run_all_tests.py
 ```
 > **Note:** The `tests/` directory is for development only and not included in releases.
 
-## ⌨️ Keyboard Shortcuts
+## Keyboard Shortcuts
 
 | Action | Shortcut |
 |--------|----------|
@@ -193,7 +193,7 @@ python run_all_tests.py
 | Output Console | `Ctrl+Shift+C` |
 | Problems Panel | `Ctrl+Shift+U` |
 
-## 🎯 Morpheus AI Tips
+## Morpheus AI Tips
 
 **Ask Morpheus:**
 - "How do I create a sphere in Maya?"
@@ -208,7 +208,7 @@ python run_all_tests.py
 - Practical Python/MEL solutions
 - Interactive code blocks you can Copy/Apply/Keep
 
-## 📚 Documentation
+## Documentation
 
 Comprehensive guides in the `docs/` folder:
 - `MORPHEUS_AI.md` - AI system configuration
@@ -217,7 +217,7 @@ Comprehensive guides in the `docs/` folder:
 - `PROJECT_STRUCTURE.md` - Codebase architecture
 - Feature implementation docs and performance notes
 
-## 🔧 Configuration
+## Configuration
 
 Settings stored via QSettings (`AI_Script_Editor/settings`):
 - **API Keys**: OpenAI and Anthropic credentials (encrypted)
@@ -225,7 +225,7 @@ Settings stored via QSettings (`AI_Script_Editor/settings`):
 - **Editor Preferences**: Theme, font size, tab width
 - **Window Layout**: Panel positions and visibility
 
-## 🤝 Contributing
+## Contributing
 
 Contributions welcome! This project uses:
 - **Manager Pattern Architecture** for clean separation of concerns
@@ -240,13 +240,13 @@ Contributions welcome! This project uses:
 4. Document new features in `docs/`
 5. Submit a pull request
 
-## 📄 License
+## License
 
 MIT License - Free to use and modify.
 
 ---
 
-## 🌟 Credits
+## Credits
 
 **Created by:** [Mayj Amilano](https://github.com/mayjackass)  
 **Inspired by:** The Matrix (1999) - *"Free your mind"*  
@@ -254,6 +254,6 @@ MIT License - Free to use and modify.
 
 ---
 
-### *"Remember... all I'm offering is the truth. Nothing more."* 💊
+### *"Remember... all I'm offering is the truth. Nothing more."*
 
-[⬆ Back to Top](#neo-script-editor-)
+[Back to Top](#neo-script-editor)
