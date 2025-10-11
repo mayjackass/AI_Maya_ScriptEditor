@@ -129,14 +129,40 @@ C:\Users\<username>\Documents\maya\scripts\ai_script_editor\
 - Enter your OpenAI or Anthropic API key
 - Select your preferred AI provider and model
 
-4. **Optional: Maya Integration**
-Add to your `userSetup.py` for Maya startup:
+4. **Optional: Maya Auto-Launch Setup**
+Create a `userSetup.py` in your Maya scripts folder to auto-load NEO on Maya startup:
 ```python
+"""
+Place this file at: C:\Users\<username>\Documents\maya\scripts\userSetup.py
+"""
 import sys
-sys.path.append(r"C:\Users\<username>\Documents\maya\scripts")
-from ai_script_editor import main_window
-# Launch with: main_window.AiScriptEditor()
+import os
+
+def setup_neo_editor():
+    """Setup NEO Script Editor for Maya"""
+    neo_path = os.path.join(os.path.dirname(__file__), 'ai_script_editor')
+    if neo_path not in sys.path:
+        sys.path.insert(0, neo_path)
+        print("[NEO] ✓ Script Editor ready")
+    
+    # Create launcher function
+    def launch_neo_editor():
+        """Launch NEO Script Editor"""
+        from main_window import AiScriptEditor
+        window = AiScriptEditor()
+        window.show()
+        return window
+    
+    # Make it globally available in Maya
+    import __main__
+    __main__.launch_neo_editor = launch_neo_editor
+
+setup_neo_editor()
 ```
+
+Then in Maya, just run: `launch_neo_editor()`
+
+📖 **See [MAYA_SETUP.md](MAYA_SETUP.md) for detailed Maya integration guide**
 
 ### Running Tests
 ```bash
@@ -145,6 +171,7 @@ python test_morpheus_chat.py
 python test_syntax_checker.py
 python run_all_tests.py
 ```
+> **Note:** The `tests/` directory is for development only and not included in releases.
 
 ## ⌨️ Keyboard Shortcuts
 

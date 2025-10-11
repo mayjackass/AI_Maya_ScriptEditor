@@ -4,15 +4,51 @@
 
 ### Method 1: Using userSetup.py (Automatic on Maya Startup)
 
-1. **Copy `userSetup.py` to Maya scripts folder:**
+1. **Create or edit your `userSetup.py` in Maya scripts folder:**
    ```
-   Copy: C:\Users\Burn\Documents\maya\scripts\ai_script_editor\userSetup.py
-   To:   C:\Users\Burn\Documents\maya\scripts\
+   Location: C:\Users\<YourUsername>\Documents\maya\scripts\userSetup.py
+   ```
+   
+   **Copy and paste this code into your userSetup.py:**
+   ```python
+   """
+   NEO Script Editor Auto-Setup for Maya
+   """
+   import sys
+   import os
+
+   def setup_neo_editor():
+       """Setup NEO Script Editor for Maya"""
+       # Add the ai_script_editor directory to Python path
+       neo_path = os.path.join(os.path.dirname(__file__), 'ai_script_editor')
+       
+       if neo_path not in sys.path:
+           sys.path.insert(0, neo_path)
+           print("[NEO] ✓ Script Editor path added")
+       
+       # Create launcher function
+       def launch_neo_editor():
+           """Launch NEO Script Editor in Maya"""
+           try:
+               from main_window import AiScriptEditor
+               window = AiScriptEditor()
+               window.show()
+               return window
+           except Exception as e:
+               print(f"[NEO] Launch failed: {e}")
+               return None
+       
+       # Make it globally available in Maya
+       import __main__
+       __main__.launch_neo_editor = launch_neo_editor
+       print("[NEO] ✓ Ready! Use: launch_neo_editor()")
+
+   setup_neo_editor()
    ```
 
 2. **Restart Maya**
 
-3. **Launch from Maya Script Editor:**
+3. **Launch from Maya Script Editor (Python tab):**
    ```python
    launch_neo_editor()
    ```
