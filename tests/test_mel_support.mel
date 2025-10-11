@@ -1,0 +1,86 @@
+/*
+    Comprehensive MEL syntax highlighting test
+    Demonstrates all major MEL constructs and Maya commands
+*/
+
+// ================================================================
+// Variables and Data Types
+// ================================================================
+
+string $name = "Maya Scene";
+int $count = 42;
+float $pi = 3.14159;
+vector $position = <<1.0, 2.5, -3.7>>;
+string $objects[] = {"pCube1", "pSphere1", "pCylinder1"};
+
+// ================================================================
+// Control Flow
+// ================================================================
+
+if ($count > 10) {
+    print("Count is greater than 10\n");
+} else {
+    print("Count is 10 or less\n");
+}
+
+for ($i = 0; $i < size($objects); $i++) {
+    print("Object: " + $objects[$i] + "\n");
+}
+
+// ================================================================
+// Procedures
+// ================================================================
+
+proc createBasicScene() {
+    string $cube[] = `polyCube -name "mainCube"`;
+    string $sphere[] = `polySphere -name "mainSphere"`;
+    move -absolute 0 0 0 $cube[0];
+    move -absolute 5 0 0 $sphere[0];
+}
+
+// ================================================================
+// Maya Commands Showcase
+// ================================================================
+
+// Geometry creation
+string $cube[] = `polyCube -width 2 -height 2 -depth 2 -name "testCube"`;
+string $sphere[] = `polySphere -radius 1.5 -subdivisionsX 20 -name "testSphere"`;
+string $cylinder[] = `polyCylinder -radius 1 -height 3 -name "testCylinder"`;
+
+// Transformations  
+move -relative 2 0 0 $cube[0];
+rotate -relative 0 45 0 $sphere[0];
+scale -relative 1.5 1 1.5 $cylinder[0];
+
+// Selection operations
+select -clear;
+select -add $cube[0] $sphere[0] $cylinder[0];
+string $group[] = `group -name "geometryGroup"`;
+
+// Attribute operations
+float $tx = `getAttr ($cube[0] + ".translateX")`;
+setAttr ($sphere[0] + ".translateY") 3.0;
+connectAttr ($cube[0] + ".translateX") ($sphere[0] + ".translateZ");
+
+// Move sphere to the side
+move -r 4 0 0 $sphere[0];
+print ("Moved sphere to X=4\n");
+
+// Create a material and assign it
+string $material = `shadingNode -asShader lambert`;
+string $sg = `sets -renderable true -noSurfaceShader true -empty`;
+connectAttr -f ($material + ".outColor") ($sg + ".surfaceShader");
+
+// Assign material to cube
+select -r $cube[0];
+sets -e -forceElement $sg;
+
+print ("Created and assigned material\n");
+
+// Print completion message
+print "MEL script executed successfully!\n";
+
+// Show a simple dialog
+confirmDialog -title "MEL Test" 
+             -message "MEL script completed! Check the viewport for created objects." 
+             -button "OK";

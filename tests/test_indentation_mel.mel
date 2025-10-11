@@ -1,0 +1,235 @@
+// MEL Indentation Guide Test
+// Test vertical indentation guides with MEL syntax
+
+// Global procedure with nested control structures
+global proc testMelIndentation() {
+    print("Testing MEL indentation guides\n");
+    
+    // Variable declarations with different types
+    string $objects[] = `ls -transforms`;
+    int $count = size($objects);
+    float $values[] = {1.0, 2.5, 3.14, 4.7, 5.2};
+    
+    // Nested if statements
+    if ($count > 0) {
+        print("Found objects in scene\n");
+        
+        if ($count > 10) {
+            print("Many objects found\n");
+            
+            if ($count > 50) {
+                print("Scene has lots of objects\n");
+                
+                if ($count > 100) {
+                    print("Very crowded scene\n");
+                    
+                    // Deep nesting level 5
+                    for ($i = 0; $i < 5; $i++) {
+                        string $obj = $objects[$i];
+                        print("Processing: " + $obj + "\n");
+                        
+                        // Check object type
+                        string $type = `objectType $obj`;
+                        if ($type == "transform") {
+                            print("Transform node found\n");
+                            
+                            // Get children
+                            string $children[] = `listRelatives -children $obj`;
+                            if (size($children) > 0) {
+                                print("Has children\n");
+                                
+                                for ($j = 0; $j < size($children); $j++) {
+                                    string $child = $children[$j];
+                                    print("Child: " + $child + "\n");
+                                    
+                                    if (`objectType $child` == "mesh") {
+                                        print("Mesh child found\n");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            print("Few objects in scene\n");
+        }
+    } else {
+        print("No objects found\n");
+    }
+    
+    // Switch statement with nested cases
+    int $mode = 2;
+    switch ($mode) {
+        case 1:
+            print("Mode 1 selected\n");
+            
+            // Nested operations for mode 1
+            for ($k = 0; $k < 3; $k++) {
+                string $cube[] = `polyCube -name ("cube" + $k)`;
+                move ($k * 2) 0 0 $cube[0];
+                
+                if ($k % 2 == 0) {
+                    scale 1.5 1.5 1.5 $cube[0];
+                }
+            }
+            break;
+            
+        case 2:
+            print("Mode 2 selected\n");
+            
+            // Nested operations for mode 2
+            for ($m = 0; $m < size($values); $m++) {
+                float $val = $values[$m];
+                string $sphere[] = `polySphere -name ("sphere" + $m) -radius $val`;
+                move 0 ($m * 3) 0 $sphere[0];
+                
+                // Color based on value
+                if ($val > 3.0) {
+                    // Create material
+                    string $mat = `shadingNode -asShader lambert -name ("mat" + $m)`;
+                    setAttr ($mat + ".color") 1.0 0.0 0.0;
+                    
+                    // Apply material
+                    select $sphere[0];
+                    hyperShade -assign $mat;
+                }
+            }
+            break;
+            
+        case 3:
+            print("Mode 3 selected\n");
+            
+            // Complex nested structure
+            string $groups[] = {};
+            for ($n = 0; $n < 3; $n++) {
+                string $groupName = "group" + $n;
+                group -empty -name $groupName;
+                $groups[size($groups)] = $groupName;
+                
+                for ($o = 0; $o < 4; $o++) {
+                    string $objName = $groupName + "_obj" + $o;
+                    
+                    // Create different object types
+                    if ($o == 0) {
+                        string $cube[] = `polyCube -name $objName`;
+                        parent $cube[0] $groupName;
+                    } else if ($o == 1) {
+                        string $sphere[] = `polySphere -name $objName`;
+                        parent $sphere[0] $groupName;
+                    } else if ($o == 2) {
+                        string $cylinder[] = `polyCylinder -name $objName`;
+                        parent $cylinder[0] $groupName;
+                    } else {
+                        string $cone[] = `polyCone -name $objName`;
+                        parent $cone[0] $groupName;
+                    }
+                    
+                    // Position objects
+                    move ($o * 2) ($n * 5) 0 $objName;
+                }
+            }
+            break;
+            
+        default:
+            print("Unknown mode\n");
+            break;
+    }
+    
+    // While loop with nested conditions
+    int $counter = 0;
+    while ($counter < 10) {
+        print("Counter: " + $counter + "\n");
+        
+        if ($counter % 3 == 0) {
+            print("Divisible by 3\n");
+            
+            if ($counter != 0) {
+                // Do something special
+                string $marker[] = `polyCube -name ("marker" + $counter)`;
+                move $counter 10 0 $marker[0];
+                
+                if ($counter == 6) {
+                    scale 2 2 2 $marker[0];
+                    rotate 45 45 45 $marker[0];
+                }
+            }
+        }
+        
+        $counter++;
+    }
+}
+
+// Procedure with parameters and return value
+global proc string processObjectName(string $baseName, int $index, string $suffix) {
+    string $result = $baseName;
+    
+    if ($index > 0) {
+        $result += "_" + $index;
+        
+        if ($suffix != "") {
+            $result += "_" + $suffix;
+            
+            // Validate name
+            if (size($result) > 20) {
+                $result = `substring $result 1 20`;
+                print("Name truncated: " + $result + "\n");
+            }
+        }
+    }
+    
+    return $result;
+}
+
+// Procedure with array processing
+global proc processArrayData(float $data[]) {
+    print("Processing array data\n");
+    
+    int $arraySize = size($data);
+    if ($arraySize > 0) {
+        float $sum = 0.0;
+        float $min = $data[0];
+        float $max = $data[0];
+        
+        for ($i = 0; $i < $arraySize; $i++) {
+            float $current = $data[$i];
+            $sum += $current;
+            
+            if ($current < $min) {
+                $min = $current;
+            }
+            
+            if ($current > $max) {
+                $max = $current;
+            }
+            
+            // Print statistics every 5 elements
+            if (($i + 1) % 5 == 0) {
+                float $average = $sum / ($i + 1);
+                print("Progress: " + ($i + 1) + " elements processed\n");
+                print("Current average: " + $average + "\n");
+                
+                if ($average > 5.0) {
+                    print("High average detected\n");
+                }
+            }
+        }
+        
+        float $finalAverage = $sum / $arraySize;
+        print("Final statistics:\n");
+        print("Sum: " + $sum + "\n");
+        print("Average: " + $finalAverage + "\n");
+        print("Min: " + $min + "\n");
+        print("Max: " + $max + "\n");
+    }
+}
+
+// Call the test procedure
+testMelIndentation();
+
+// Test the other procedures
+string $testName = processObjectName("test", 5, "suffix");
+print("Generated name: " + $testName + "\n");
+
+float $testData[] = {1.5, 3.2, 7.8, 2.1, 9.4, 4.7, 6.3, 8.9, 1.2, 5.6};
+processArrayData($testData);
