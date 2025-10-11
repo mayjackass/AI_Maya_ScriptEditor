@@ -53,6 +53,7 @@ docs/
 archive/
 tests/
 SIMPLE_GITHUB_UPDATE.md
+userSetup.py
 
 # Test outputs
 test_output/
