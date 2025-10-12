@@ -60,6 +60,9 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         fm = QtGui.QFontMetrics(font)
         self.setTabStopDistance(4 * fm.horizontalAdvance(' '))
         
+        # Enable undo/redo
+        self.setUndoRedoEnabled(True)
+        
         # Syntax highlighting
         self.highlighter = None
         self.language = "python"  # Default language
