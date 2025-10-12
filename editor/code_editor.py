@@ -132,30 +132,33 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             return
             
         try:
-            # Multi-pass error detection
             errors = []
             
-            # Pass 1: Try to compile the whole file
+            # Pass 1: Try to compile the whole file to get the first error
             try:
                 compile(code, '<editor>', 'exec')
+                # No errors - we're done
+                self.errorsCleared.emit()
+                self.lintProblemsFound.emit([])
+                return
             except SyntaxError as e:
                 if e.lineno:
                     errors.append({
                         'line': e.lineno,
                         'column': e.offset or 1,
-                        'message': str(e.msg or 'Syntax error'),
+                        'message': str(e.msg or 'invalid syntax'),
                         'type': 'SyntaxError'
                     })
             except Exception as e:
                 errors.append({
                     'line': 1,
                     'column': 1, 
-                    'message': f"Compilation error: {str(e)}",
-                    'type': 'CompilationError'
+                    'message': f"Error: {str(e)}",
+                    'type': 'Error'
                 })
                 
-            # Pass 2: Line-by-line validation to find ALL errors
-            # This catches errors that compile() misses after the first error
+            # Pass 2: Check each line individually to find MORE errors
+            # This is what allows us to detect multiple errors at once
             lines = code.splitlines()
             for line_num, line in enumerate(lines, 1):
                 line_stripped = line.strip()
@@ -168,20 +171,8 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                 if any(err['line'] == line_num for err in errors):
                     continue
                 
-                # Check for obvious syntax errors
-                # Unmatched/incomplete syntax
-                if line_stripped.endswith(':') and line_stripped.count(':') > 1:
-                    # Multiple colons (likely incomplete statement)
-                    errors.append({
-                        'line': line_num,
-                        'column': 1,
-                        'message': 'invalid syntax',
-                        'type': 'SyntaxError'
-                    })
-                    continue
-                
-                # Check for invalid standalone syntax
-                invalid_starts = [';', ':', ',', ')', ']', '}']
+                # Check for obvious invalid syntax patterns
+                invalid_starts = [';', ',', ')' , ']', '}']
                 if any(line_stripped.startswith(c) for c in invalid_starts):
                     errors.append({
                         'line': line_num,
@@ -191,21 +182,20 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                     })
                     continue
                 
-                # Try to compile individual line to catch more errors
+                # Try to parse the line as a statement
                 try:
-                    # Add pass to make incomplete statements valid
-                    test_code = line + "\n    pass" if line_stripped.endswith(':') else line
-                    compile(test_code, f'<line {line_num}>', 'exec')
+                    # Try to compile the line as a single statement
+                    compile(line.strip(), f'<line {line_num}>', 'exec')
                 except SyntaxError as e:
-                    # Only add if not a continuation error (IndentationError from our test)
-                    if not isinstance(e, IndentationError) or 'pass' not in str(e.msg):
-                        errors.append({
-                            'line': line_num,
-                            'column': e.offset or 1,
-                            'message': str(e.msg or 'invalid syntax'),
-                            'type': 'SyntaxError'
-                        })
+                    # Found a syntax error on this line
+                    errors.append({
+                        'line': line_num,
+                        'column': e.offset or 1,
+                        'message': str(e.msg or 'invalid syntax'),
+                        'type': 'SyntaxError'
+                    })
                 except:
+                    # Ignore other exceptions (like NameError, etc.)
                     pass
                     
             # Store and highlight errors
@@ -217,7 +207,6 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                 self._highlight_error_line(error['line'], error['message'])
                 self.errorDetected.emit(error['line'], error['message'])
                 
-                # Add to problems list with proper format
                 problems.append({
                     'type': 'Error',
                     'message': error['message'],
@@ -225,15 +214,13 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                     'file': 'Current File'
                 })
             
-            # Emit all problems at once for the problems window
+            # Emit all problems at once
             self.lintProblemsFound.emit(problems)
-                
-            if not errors:
-                self.errorsCleared.emit()
-                self.lintProblemsFound.emit([])  # Clear problems window
                 
         except Exception as e:
             print(f"Error in syntax checking: {e}")
+            import traceback
+            traceback.print_exc()
             
     def _check_line_syntax_issues(self, line, line_num, existing_errors):
         """Check for line-specific syntax issues."""
