@@ -132,10 +132,10 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             return
             
         try:
-            # Multi-pass error detection like VSCode
+            # Multi-pass error detection
             errors = []
             
-            # Pass 1: Basic compilation
+            # Pass 1: Try to compile the whole file
             try:
                 compile(code, '<editor>', 'exec')
             except SyntaxError as e:
@@ -147,7 +147,6 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                         'type': 'SyntaxError'
                     })
             except Exception as e:
-                # Other compilation errors
                 errors.append({
                     'line': 1,
                     'column': 1, 
@@ -155,32 +154,59 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                     'type': 'CompilationError'
                 })
                 
-            # Pass 2: AST parsing for more detailed errors
-            try:
-                ast.parse(code)
-            except SyntaxError as e:
-                if e.lineno and not any(err['line'] == e.lineno for err in errors):
+            # Pass 2: Line-by-line validation to find ALL errors
+            # This catches errors that compile() misses after the first error
+            lines = code.splitlines()
+            for line_num, line in enumerate(lines, 1):
+                line_stripped = line.strip()
+                
+                # Skip empty lines and comments
+                if not line_stripped or line_stripped.startswith('#'):
+                    continue
+                
+                # Skip if we already found an error on this line
+                if any(err['line'] == line_num for err in errors):
+                    continue
+                
+                # Check for obvious syntax errors
+                # Unmatched/incomplete syntax
+                if line_stripped.endswith(':') and line_stripped.count(':') > 1:
+                    # Multiple colons (likely incomplete statement)
                     errors.append({
-                        'line': e.lineno,
-                        'column': e.offset or 1,
-                        'message': str(e.msg or 'Syntax error'),
+                        'line': line_num,
+                        'column': 1,
+                        'message': 'invalid syntax',
                         'type': 'SyntaxError'
                     })
-            except Exception:
-                pass  # AST parsing failed, basic compile() already caught it
+                    continue
                 
-            # Pass 3: Line-by-line analysis for common issues
-            # DISABLED - Too many false positives. Python's compile() and AST are sufficient.
-            # The line-by-line checker doesn't understand multi-line contexts properly.
-            # lines = code.splitlines()
-            # for line_num, line in enumerate(lines, 1):
-            #     line_stripped = line.strip()
-            #     if not line_stripped or line_stripped.startswith('#'):
-            #         continue
-            #     
-            #     # Check for common Python syntax issues
-            #     if self._check_line_syntax_issues(line, line_num, errors):
-            #         continue
+                # Check for invalid standalone syntax
+                invalid_starts = [';', ':', ',', ')', ']', '}']
+                if any(line_stripped.startswith(c) for c in invalid_starts):
+                    errors.append({
+                        'line': line_num,
+                        'column': 1,
+                        'message': 'invalid syntax',
+                        'type': 'SyntaxError'
+                    })
+                    continue
+                
+                # Try to compile individual line to catch more errors
+                try:
+                    # Add pass to make incomplete statements valid
+                    test_code = line + "\n    pass" if line_stripped.endswith(':') else line
+                    compile(test_code, f'<line {line_num}>', 'exec')
+                except SyntaxError as e:
+                    # Only add if not a continuation error (IndentationError from our test)
+                    if not isinstance(e, IndentationError) or 'pass' not in str(e.msg):
+                        errors.append({
+                            'line': line_num,
+                            'column': e.offset or 1,
+                            'message': str(e.msg or 'invalid syntax'),
+                            'type': 'SyntaxError'
+                        })
+                except:
+                    pass
                     
             # Store and highlight errors
             self.syntax_errors = errors
