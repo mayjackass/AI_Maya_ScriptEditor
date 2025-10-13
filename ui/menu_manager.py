@@ -40,6 +40,10 @@ class MenuManager:
         open_action.triggered.connect(lambda: self.parent.file_manager.open_file())
         file_menu.addAction(open_action)
         
+        # Open Recent submenu
+        self.recent_menu = file_menu.addMenu("Open &Recent")
+        self.update_recent_files_menu()
+        
         open_folder_action = QtGui.QAction("Open &Folder...", self.parent)
         open_folder_action.setShortcut("Ctrl+Shift+O")
         open_folder_action.triggered.connect(lambda: self.parent.file_manager.open_folder())
@@ -167,6 +171,28 @@ class MenuManager:
         show_all_action.setShortcut("Ctrl+Shift+A")
         show_all_action.triggered.connect(lambda: self.parent.dock_manager.show_all_panels())
         view_menu.addAction(show_all_action)
+        
+        # Debug Menu
+        debug_menu = menubar.addMenu("&Debug")
+        
+        run_debug_action = QtGui.QAction("Run with &Breakpoints", self.parent)
+        run_debug_action.setShortcut("F5")
+        run_debug_action.setToolTip("Execute code and pause at breakpoints")
+        run_debug_action.triggered.connect(self._run_with_breakpoints)
+        debug_menu.addAction(run_debug_action)
+        
+        debug_menu.addSeparator()
+        
+        toggle_breakpoint_action = QtGui.QAction("Toggle &Breakpoint", self.parent)
+        toggle_breakpoint_action.setShortcut("F9")
+        toggle_breakpoint_action.setToolTip("Add/remove breakpoint at current line")
+        toggle_breakpoint_action.triggered.connect(self._toggle_breakpoint)
+        debug_menu.addAction(toggle_breakpoint_action)
+        
+        clear_breakpoints_action = QtGui.QAction("&Clear All Breakpoints", self.parent)
+        clear_breakpoints_action.setShortcut("Ctrl+Shift+F9")
+        clear_breakpoints_action.triggered.connect(self._clear_all_breakpoints)
+        debug_menu.addAction(clear_breakpoints_action)
         
         # Tools Menu
         tools_menu = menubar.addMenu("&Tools")
@@ -561,4 +587,50 @@ class MenuManager:
         
         # Show dialog
         dialog.exec()
-
+    
+    def update_recent_files_menu(self):
+        """Update the Open Recent submenu with current recent files"""
+        self.recent_menu.clear()
+        
+        recent_files = self.parent.file_manager.get_recent_files()
+        
+        if not recent_files:
+            no_recent_action = QtGui.QAction("No Recent Files", self.parent)
+            no_recent_action.setEnabled(False)
+            self.recent_menu.addAction(no_recent_action)
+        else:
+            for i, file_path in enumerate(recent_files):
+                # Show just filename with shortcut number
+                filename = QtCore.QFileInfo(file_path).fileName()
+                action = QtGui.QAction(f"{i+1}. {filename}", self.parent)
+                action.setToolTip(file_path)  # Show full path in tooltip
+                action.triggered.connect(lambda checked, fp=file_path: self.parent.file_manager.open_recent_file(fp))
+                self.recent_menu.addAction(action)
+            
+            # Add separator and Clear Recent
+            self.recent_menu.addSeparator()
+            clear_action = QtGui.QAction("Clear Recent Files", self.parent)
+            clear_action.triggered.connect(self.parent.file_manager.clear_recent_files)
+            self.recent_menu.addAction(clear_action)
+    
+    # Debug menu actions
+    def _run_with_breakpoints(self):
+        """Run code with breakpoints (F5)."""
+        self.parent.debug_manager.run_with_breakpoints()
+    
+    def _toggle_breakpoint(self):
+        """Toggle breakpoint at current line (F9)."""
+        editor = self.parent.debug_manager.get_current_editor()
+        if editor:
+            cursor = editor.textCursor()
+            line_number = cursor.blockNumber() + 1
+            editor.toggle_breakpoint(line_number)
+        else:
+            QtWidgets.QMessageBox.warning(
+                self.parent, "No Editor",
+                "No active editor found."
+            )
+    
+    def _clear_all_breakpoints(self):
+        """Clear all breakpoints (Ctrl+Shift+F9)."""
+        self.parent.debug_manager.clear_all_breakpoints()

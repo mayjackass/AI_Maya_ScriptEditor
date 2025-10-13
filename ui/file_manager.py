@@ -22,6 +22,10 @@ class FileManager:
         self.tab_widget = tab_widget
         self.language_combo = language_combo
         
+        # Recent files tracking
+        self.settings = QtCore.QSettings("NEO", "ScriptEditor")
+        self.max_recent_files = 10
+        
         # Create icons for Python and MEL
         self._create_language_icons()
     
@@ -121,11 +125,13 @@ class FileManager:
         self._set_tab_icon(index, language)
         self.tab_widget.setCurrentIndex(index)
     
-    def open_file(self):
+    def open_file(self, file_path=None):
         """Open file"""
-        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self.parent, "Open File", "", "All Files (*)"
-        )
+        if not file_path:
+            file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
+                self.parent, "Open File", "", "All Files (*)"
+            )
+        
         if file_path:
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
@@ -155,6 +161,9 @@ class FileManager:
                 index = self.tab_widget.addTab(editor, tab_name)
                 self._set_tab_icon(index, language)
                 self.tab_widget.setCurrentIndex(index)
+                
+                # Add to recent files
+                self.add_recent_file(file_path)
                 
                 # Force rehighlight after tab is shown to ensure proper state tracking
                 # Use QTimer to delay rehighlight until after the event loop processes the tab change
@@ -354,3 +363,54 @@ class FileManager:
                 
             except Exception as e:
                 print(f"Explorer file open error: {e}")
+    
+    def get_recent_files(self):
+        """Get list of recent files"""
+        recent = self.settings.value("recent_files", [])
+        if not isinstance(recent, list):
+            recent = []
+        # Filter out files that no longer exist
+        return [f for f in recent if os.path.exists(f)]
+    
+    def add_recent_file(self, file_path):
+        """Add file to recent files list"""
+        if not file_path or not os.path.exists(file_path):
+            return
+        
+        recent = self.get_recent_files()
+        
+        # Remove if already exists
+        if file_path in recent:
+            recent.remove(file_path)
+        
+        # Add to front
+        recent.insert(0, file_path)
+        
+        # Keep only max recent files
+        recent = recent[:self.max_recent_files]
+        
+        # Save
+        self.settings.setValue("recent_files", recent)
+        
+        # Update menu
+        if hasattr(self.parent, 'menu_manager'):
+            self.parent.menu_manager.update_recent_files_menu()
+    
+    def clear_recent_files(self):
+        """Clear all recent files"""
+        self.settings.setValue("recent_files", [])
+        if hasattr(self.parent, 'menu_manager'):
+            self.parent.menu_manager.update_recent_files_menu()
+    
+    def open_recent_file(self, file_path):
+        """Open a file from recent files list"""
+        if os.path.exists(file_path):
+            self.open_file(file_path)
+        else:
+            # File no longer exists, remove from recent
+            recent = self.get_recent_files()
+            if file_path in recent:
+                recent.remove(file_path)
+                self.settings.setValue("recent_files", recent)
+                if hasattr(self.parent, 'menu_manager'):
+                    self.parent.menu_manager.update_recent_files_menu()

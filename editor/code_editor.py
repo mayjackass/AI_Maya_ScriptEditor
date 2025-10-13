@@ -33,10 +33,16 @@ class _LineNumberArea(QtWidgets.QWidget):
                 bottom = top + int(self.code_editor.blockBoundingRect(block).height())
                 
                 if event.pos().y() >= top and event.pos().y() <= bottom:
-                    # Check if click is in fold indicator area (leftmost 12 pixels)
-                    if event.pos().x() <= 12:
-                        line_number = block.blockNumber() + 1
+                    line_number = block.blockNumber() + 1
+                    click_x = event.pos().x()
+                    
+                    # Check if click is in fold indicator area (leftmost 8 pixels)
+                    if click_x <= 8:
                         self.code_editor.toggle_fold(line_number)
+                        break
+                    # Check if click is in breakpoint area (8-17 pixels from left)
+                    elif 8 < click_x <= 17:
+                        self.code_editor.toggle_breakpoint(line_number)
                         break
                 
                 block = block.next()
@@ -95,10 +101,18 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         
         # Code folding state
         self.folded_blocks = set()  # Set of line numbers that are folded
+        self.enable_folding = True  # Re-enabled with lazy calculation
+        self._foldable_lines_cache = {}  # Cache: {line_number: (can_fold, is_folded)}
+        self._cache_valid = False  # Track if cache needs refresh
+        
+        # Breakpoints tracking (VSCode-style debugging)
+        self.breakpoints = set()  # Set of line numbers with breakpoints
+        self.current_debug_line = None  # Currently executing line during debug
         
         # Paint optimization for indentation guides
         self._skip_paint_count = 0
         self._cached_char_width = None
+        self.enable_indentation_guides = True  # Can be disabled for max performance
         
         # Real-time error checking
         self.error_timer = QtCore.QTimer()
@@ -274,6 +288,9 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         
     def _on_text_changed(self):
         """Handle text changes for real-time error checking."""
+        # Invalidate folding cache when text changes
+        self._cache_valid = False
+        
         # Debounce error checking - wait 500ms after user stops typing
         self.error_timer.stop()
         self.error_timer.start(500)
@@ -339,7 +356,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             
             # Pass 2: Pattern-based detection for common missing syntax
             # Only check lines that don't already have errors
-            # NOTE: Be conservative to avoid false positives
+            # NOTE: Be VERY conservative to avoid false positives - only check most obvious cases
             lines = code.split('\n')
             for i, line in enumerate(lines, 1):
                 if i in error_lines:
@@ -353,73 +370,14 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                 if '"""' in line or "'''" in line:
                     continue
                 
-                # Check for missing colons - but be more careful
-                # Only flag if it's clearly a statement that needs a colon
-                if (line_stripped.startswith(('if ', 'elif ', 'for ', 'while ', 'def ', 'class ')) and 
-                    not line_stripped.endswith(':') and 
-                    not line_stripped.endswith('\\') and
-                    not line_stripped.endswith(',') and  # Continuation
-                    not line_stripped.endswith(('and', 'or')) and  # Boolean continuation
-                    not '(' in line_stripped.split()[-1]):  # Function call might continue
-                    # Additional check: make sure it's not part of a multi-line expression
-                    if i > 1:
-                        prev_line = lines[i-2].rstrip() if i-2 < len(lines) else ""
-                        if prev_line.endswith(('(', '[', '{', ',', '\\', 'and', 'or')):
-                            continue
-                    # Check if next line is a continuation (starts with 'and', 'or', or is indented more)
-                    if i < len(lines):
-                        next_line = lines[i].strip() if i < len(lines) else ""
-                        if next_line.startswith(('and ', 'or ', 'not ')):
-                            continue
-                    errors.append({
-                        'line': i,
-                        'column': len(line_stripped),
-                        'message': 'Missing colon at end of statement',
-                        'type': 'SyntaxError'
-                    })
-                    error_lines.add(i)
-                
-                # Special check for 'else', 'try', 'except', 'finally' without colon
-                elif (line_stripped in ('else', 'try', 'finally') or 
-                      line_stripped.startswith('except ')) and not line_stripped.endswith(':'):
-                    # Check if it's a continuation
-                    if i < len(lines):
-                        next_line = lines[i].strip() if i < len(lines) else ""
-                        if next_line.startswith(('and ', 'or ')):
-                            continue
-                    errors.append({
-                        'line': i,
-                        'column': len(line_stripped),
-                        'message': 'Missing colon at end of statement',
-                        'type': 'SyntaxError'
-                    })
-                    error_lines.add(i)
-                
-                # Check for incomplete expressions - only at end of file or before non-indented line
-                elif (line_stripped.endswith((' +', ' -', ' *', ' /', ' =', ' ==', 
-                                              ' +=', ' -=', ' *=', ' /=')) and
-                      not line_stripped.endswith('\\')):
-                    # Check if next line exists and is properly indented (continuation)
-                    if i < len(lines):
-                        next_line = lines[i].strip() if i < len(lines) else ""
-                        if next_line and not next_line.startswith('#'):
-                            # Looks like continuation, don't flag as error
-                            continue
-                    errors.append({
-                        'line': i,
-                        'column': len(line_stripped),
-                        'message': 'Incomplete expression',
-                        'type': 'SyntaxError'
-                    })
-                    error_lines.add(i)
-                
-                # Check for standalone keywords - only the most obvious cases
-                elif line_stripped in ('def', 'class', 'if', 'for', 'while', 'try', 
-                                       'import', 'from'):
+                # Check for standalone keywords ONLY - no other pattern checks to avoid false positives
+                # These are lines that are JUST the keyword with nothing else
+                if line_stripped in ('def', 'class', 'if', 'elif', 'for', 'while', 'try', 'else', 'finally',
+                                    'import', 'from', 'except'):
                     errors.append({
                         'line': i,
                         'column': 1,
-                        'message': f'Invalid standalone keyword: {line_stripped}',
+                        'message': f'Incomplete statement: {line_stripped}',
                         'type': 'SyntaxError'
                     })
                     error_lines.add(i)
@@ -489,11 +447,11 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         self.errorsCleared.emit()
         
     def _number_area_width(self):
-        """Calculate line number area width."""
+        """Calculate line number area width (ultra-compact VSCode-style)."""
         digits = len(str(max(1, self.blockCount())))
-        # Ensure minimum width of 50 pixels for visibility
-        width = 15 + self.fontMetrics().horizontalAdvance('9') * max(digits, 3)
-        return max(width, 50)
+        # Ultra-compact: fold(8px) + breakpoint(10px) + line_number + padding(2px)
+        width = 20 + self.fontMetrics().horizontalAdvance('9') * digits
+        return width
         
     def _update_number_area_width(self):
         """Update line number area width."""
@@ -523,6 +481,10 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
     def paintEvent(self, event):
         """Paint indentation guides like VSCode - optimized."""
         super().paintEvent(event)
+        
+        # Skip if indentation guides are disabled (for max performance)
+        if not self.enable_indentation_guides:
+            return
         
         # Skip indentation guides if typing (performance optimization)
         if hasattr(self, '_skip_paint_count') and self._skip_paint_count > 0:
@@ -570,22 +532,32 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             block_top = block_bottom
     
     def _can_fold_line(self, line_number):
-        """Check if a line can be folded and if it's currently folded."""
-        # Get the block for this line
+        """Check if a line can be folded and if it's currently folded - OPTIMIZED with caching."""
+        # Return cached result if available and cache is valid
+        if self._cache_valid and line_number in self._foldable_lines_cache:
+            return self._foldable_lines_cache[line_number]
+        
+        # Calculate fold state
         block = self.document().findBlockByNumber(line_number - 1)
         if not block.isValid():
-            return False, False
+            result = (False, False)
+            self._foldable_lines_cache[line_number] = result
+            return result
         
         text = block.text()
         # Only allow folding for lines that end with ':' (Python) or '{' (MEL-style)
         stripped = text.rstrip()
         if not (stripped.endswith(':') or stripped.endswith('{')):
-            return False, False
+            result = (False, False)
+            self._foldable_lines_cache[line_number] = result
+            return result
         
         # Check if next line exists and is more indented
         next_block = block.next()
         if not next_block.isValid():
-            return False, False
+            result = (False, False)
+            self._foldable_lines_cache[line_number] = result
+            return result
         
         # Calculate indentation levels
         current_indent = self._get_indent_level(text)
@@ -593,9 +565,36 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         
         if next_indent > current_indent:
             is_folded = line_number in self.folded_blocks
-            return True, is_folded
+            result = (True, is_folded)
+            self._foldable_lines_cache[line_number] = result
+            return result
         
-        return False, False
+        result = (False, False)
+        self._foldable_lines_cache[line_number] = result
+        return result
+    
+    def _build_fold_cache_for_visible_lines(self):
+        """Build folding cache for currently visible lines only - OPTIMIZED."""
+        if self._cache_valid:
+            return  # Cache already valid
+        
+        # Clear old cache
+        self._foldable_lines_cache.clear()
+        
+        # Only cache visible lines
+        block = self.firstVisibleBlock()
+        viewport_height = self.viewport().height()
+        top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
+        
+        while block.isValid() and top <= viewport_height:
+            line_number = block.blockNumber() + 1
+            # This will cache the result
+            self._can_fold_line(line_number)
+            
+            block = block.next()
+            top += int(self.blockBoundingRect(block).height()) if block.isValid() else 0
+        
+        self._cache_valid = True
     
     def _get_indent_level(self, text):
         """Get the indentation level of a line."""
@@ -649,6 +648,9 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         
         # Mark as folded
         self.folded_blocks.add(line_number)
+        
+        # Invalidate cache since fold state changed
+        self._cache_valid = False
     
     def _unfold_line(self, line_number):
         """Unfold (expand) a block of code."""
@@ -676,8 +678,52 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         # Mark as unfolded
         self.folded_blocks.discard(line_number)
         
+        # Invalidate cache since fold state changed
+        self._cache_valid = False
+    
+    def toggle_breakpoint(self, line_number):
+        """Toggle breakpoint on/off for a line (VSCode-style) - OPTIMIZED."""
+        if line_number in self.breakpoints:
+            self.breakpoints.remove(line_number)
+        else:
+            self.breakpoints.add(line_number)
+        
+        # Only update line number area, not entire viewport (performance)
+        self.line_number_area.update()
+    
+    def clear_all_breakpoints(self):
+        """Clear all breakpoints - OPTIMIZED."""
+        if self.breakpoints:  # Only update if there were breakpoints
+            self.breakpoints.clear()
+            self.line_number_area.update()
+    
+    def get_breakpoints(self):
+        """Get list of all breakpoint line numbers."""
+        return sorted(list(self.breakpoints))
+    
+    def set_current_debug_line(self, line_number):
+        """Set the currently executing line during debugging - OPTIMIZED."""
+        old_line = self.current_debug_line
+        self.current_debug_line = line_number
+        
+        # Only update if changed
+        if old_line != line_number:
+            self.line_number_area.update()
+        
+        # Scroll to the line
+        if line_number:
+            cursor = QtGui.QTextCursor(self.document().findBlockByNumber(line_number - 1))
+            self.setTextCursor(cursor)
+            self.centerCursor()
+    
+    def clear_current_debug_line(self):
+        """Clear the current debug line indicator - OPTIMIZED."""
+        if self.current_debug_line is not None:
+            self.current_debug_line = None
+            self.line_number_area.update()
+        
     def _paint_line_numbers(self, event):
-        """Paint line numbers with VSCode-style error indicators."""
+        """Paint line numbers with VSCode-style error indicators and breakpoints - OPTIMIZED."""
         painter = QtGui.QPainter(self.line_number_area)
         # Use slightly lighter background than editor for visibility
         painter.fillRect(event.rect(), QtGui.QColor(37, 37, 38))
@@ -686,37 +732,56 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         painter.setPen(QtGui.QColor(45, 45, 45))
         painter.drawLine(event.rect().topRight(), event.rect().bottomRight())
         
+        # Build folding cache for visible lines if needed (lazy evaluation)
+        if self.enable_folding and not self._cache_valid:
+            self._build_fold_cache_for_visible_lines()
+        
+        # Pre-convert sets to optimize lookups
+        breakpoints = self.breakpoints  # Direct reference
+        has_breakpoints = len(breakpoints) > 0
+        has_errors = len(self.syntax_errors) > 0
+        current_debug = self.current_debug_line
+        
+        # Build error line set for O(1) lookup instead of O(n) list comprehension
+        if has_errors:
+            error_lines = {error['line'] for error in self.syntax_errors}
+        else:
+            error_lines = set()
+        
         block = self.firstVisibleBlock()
         block_number = block.blockNumber()
         top = int(self.blockBoundingGeometry(block).translated(
             self.contentOffset()).top())
         bottom = top + int(self.blockBoundingRect(block).height())
         
-        # Setup fonts and colors
+        # Setup fonts and colors once
         font = QtGui.QFont("Consolas", 9)
         painter.setFont(font)
+        font_height = self.fontMetrics().height()
         
         while block.isValid() and top <= event.rect().bottom():
             if block.isVisible() and bottom >= event.rect().top():
                 line_number = block_number + 1
-                number = str(line_number)
                 
-                # Check if this line has an error
-                has_error = any(error['line'] == line_number for error in self.syntax_errors)
+                # Fast O(1) lookups
+                has_error = line_number in error_lines if has_errors else False
+                has_breakpoint = line_number in breakpoints if has_breakpoints else False
+                is_debug_line = line_number == current_debug
                 
-                # Check if this line can be folded (has indented content below)
-                can_fold, is_folded = self._can_fold_line(line_number)
+                # Skip expensive folding checks completely unless enabled
+                can_fold = False
+                is_folded = False
+                if self.enable_folding:
+                    can_fold, is_folded = self._can_fold_line(line_number)
                 
+                # Draw current debug line background (yellow) - full width
+                if is_debug_line:
+                    debug_rect = QtCore.QRect(0, top, self.line_number_area.width(), font_height)
+                    painter.fillRect(debug_rect, QtGui.QColor(200, 200, 0, 50))
+                
+                # Set color based on error status (no visual indicator to avoid confusion with breakpoints)
                 if has_error:
-                    # Draw error indicator (red background)
-                    error_rect = QtCore.QRect(0, top, self.line_number_area.width(), 
-                                            self.fontMetrics().height())
-                    painter.fillRect(error_rect, QtGui.QColor(80, 20, 20, 100))
-                    painter.setPen(QtGui.QColor(255, 100, 100))  # Light red text
-                    
-                    # Draw error icon (small circle)
-                    icon_rect = QtCore.QRect(2, top + 2, 8, 8)
-                    painter.fillRect(icon_rect, QtGui.QColor(255, 0, 0))
+                    painter.setPen(QtGui.QColor(255, 100, 100))  # Light red text for line numbers with errors
                 else:
                     painter.setPen(QtGui.QColor(100, 100, 100))  # Normal gray
                 
@@ -744,10 +809,19 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                     painter.drawPolygon(points)
                     painter.setBrush(QtCore.Qt.NoBrush)
                 
-                # Draw line number
-                text_rect = QtCore.QRect(12, top, self.line_number_area.width() - 17, 
-                                       self.fontMetrics().height())
-                painter.drawText(text_rect, QtCore.Qt.AlignRight, number)
+                # Draw breakpoint (red circle) - ultra-compact spacing
+                if has_breakpoint:
+                    painter.setPen(QtCore.Qt.NoPen)
+                    painter.setBrush(QtGui.QColor(220, 60, 60))
+                    center_y = top + font_height // 2
+                    # Position breakpoint very close to line numbers
+                    painter.drawEllipse(QtCore.QPoint(13, center_y), 3, 3)
+                    painter.setBrush(QtCore.Qt.NoBrush)
+                    painter.setPen(QtGui.QColor(100, 100, 100))
+                
+                # Draw line number - minimal spacing
+                painter.drawText(18, top, self.line_number_area.width() - 20, 
+                               font_height, QtCore.Qt.AlignRight, str(line_number))
                                
             block = block.next()
             top = bottom
@@ -757,7 +831,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
     def keyPressEvent(self, event):
         """Enhanced key press handling with smart indentation and auto-completion."""
         # Skip paint events during rapid typing (performance optimization)
-        self._skip_paint_count = 2  # Skip next 2 paint events
+        self._skip_paint_count = 5  # Skip next 5 paint events for smoother typing
         
         # Handle completer popup
         if self.completer and self.completer.popup().isVisible():

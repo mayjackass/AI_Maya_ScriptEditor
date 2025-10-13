@@ -1,0 +1,381 @@
+================================================================================
+              NEO SCRIPT EDITOR - INSTALLATION & TESTING GUIDE
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1. Quick Start (5 Minutes)
+2. Detailed Installation Steps
+3. Testing the Installation
+4. Features Overview
+5. Troubleshooting
+6. Beta Information
+7. Support
+
+
+================================================================================
+1. QUICK START (5 MINUTES)
+================================================================================
+
+STEP 1: EXTRACT THE ZIP FILE
+-----------------------------
+1. Download NEO_Script_Editor_v3.0-beta.zip
+2. Extract to: C:\Users\<YourName>\Documents\maya\scripts\
+3. Final path: C:\Users\<YourName>\Documents\maya\scripts\ai_script_editor\
+
+
+STEP 2: INSTALL DEPENDENCIES
+-----------------------------
+Open Command Prompt or PowerShell:
+
+    cd C:\Users\<YourName>\Documents\maya\scripts\ai_script_editor
+    pip install PySide6
+
+OR if you have multiple Python versions:
+
+    python -m pip install PySide6
+
+OR use Maya's Python:
+
+    mayapy -m pip install PySide6
+
+
+STEP 3: SET UP YOUR OPENAI API KEY (Optional)
+----------------------------------------------
+1. Get your API key from: https://platform.openai.com/api-keys
+2. Open ai/__init__.py in the ai_script_editor folder
+3. Find this line: OPENAI_API_KEY = ""
+4. Replace with: OPENAI_API_KEY = "sk-your-actual-key-here"
+5. Save the file
+
+Note: This is only needed for Morpheus AI assistant. Basic editor works without it.
+
+
+STEP 4: LAUNCH IN MAYA
+-----------------------
+Open Maya, then open Script Editor (Windows > General Editors > Script Editor)
+
+In Python Tab, paste and run:
+
+    import sys
+    import os
+    
+    # Add the script path
+    script_path = r"C:\Users\<YourName>\Documents\maya\scripts\ai_script_editor"
+    if script_path not in sys.path:
+        sys.path.insert(0, script_path)
+    
+    # Import and launch
+    from main_window import AiScriptEditor
+    
+    # Create window
+    neo_window = AiScriptEditor()
+    neo_window.show()
+
+That's it! The NEO Script Editor window should appear!
+
+
+================================================================================
+2. DETAILED INSTALLATION STEPS
+================================================================================
+
+REQUIREMENTS
+------------
+- Maya: 2022 or newer (tested on 2022, 2023, 2024, 2025)
+- Python: 3.7+ (included with Maya)
+- PySide6: Qt framework for UI
+- OpenAI API Key: For Morpheus AI assistant (optional)
+
+
+METHOD 1: MAYA SCRIPTS DIRECTORY (RECOMMENDED)
+-----------------------------------------------
+1. Extract ZIP to Maya scripts folder:
+   
+   Windows: C:\Users\<YourName>\Documents\maya\scripts\ai_script_editor\
+   Mac:     ~/Library/Preferences/Autodesk/maya/scripts/ai_script_editor/
+   Linux:   ~/maya/scripts/ai_script_editor/
+
+2. Install PySide6:
+   
+   Windows:
+   mayapy -m pip install PySide6
+   
+   Mac/Linux:
+   mayapy -m pip install PySide6
+
+3. Configure API Key (optional):
+   - Open ai/__init__.py
+   - Set OPENAI_API_KEY = "your-key-here"
+
+4. Launch from Maya:
+   
+   import sys
+   sys.path.insert(0, r"C:\Users\<YourName>\Documents\maya\scripts\ai_script_editor")
+   from main_window import AiScriptEditor
+   neo_window = AiScriptEditor()
+   neo_window.show()
+
+
+METHOD 2: CUSTOM LOCATION
+--------------------------
+1. Extract ZIP to any folder (e.g., D:\Maya\Tools\)
+2. Install dependencies (same as above)
+3. Launch with full path:
+   
+   import sys
+   sys.path.insert(0, r"D:\Maya\Tools\ai_script_editor")
+   from main_window import AiScriptEditor
+   neo_window = AiScriptEditor()
+   neo_window.show()
+
+
+METHOD 3: USERSETUP.PY (AUTO-LAUNCH)
+-------------------------------------
+Create or edit userSetup.py in your Maya scripts folder:
+
+Location: C:\Users\<YourName>\Documents\maya\scripts\userSetup.py
+
+Add this code:
+
+    import maya.cmds as cmds
+    
+    def launch_neo_editor():
+        """Launch NEO Script Editor"""
+        import sys
+        script_path = r"C:\Users\<YourName>\Documents\maya\scripts\ai_script_editor"
+        if script_path not in sys.path:
+            sys.path.insert(0, script_path)
+        
+        from main_window import AiScriptEditor
+        global neo_window
+        neo_window = AiScriptEditor()
+        neo_window.show()
+        print("NEO Script Editor loaded!")
+    
+    # Optional: Launch on Maya startup
+    # cmds.evalDeferred(launch_neo_editor)
+
+
+================================================================================
+3. TESTING THE INSTALLATION
+================================================================================
+
+TEST 1: BASIC LAUNCH
+--------------------
+Run the launch code in Maya Script Editor. You should see:
+
+    NEO Script Editor launched successfully!
+    Window should now be visible
+
+
+TEST 2: CODE EDITOR
+-------------------
+1. In the main editor window, type some Python code:
+   
+   print("Hello from NEO!")
+   import maya.cmds as cmds
+   cmds.sphere()
+
+2. Click Run or press Ctrl+Enter
+3. A sphere should appear in Maya viewport
+
+
+TEST 3: MEL SUPPORT
+-------------------
+1. Switch to MEL mode (dropdown at top)
+2. Type MEL code:
+   
+   sphere;
+   print("MEL works!\n");
+
+3. Run it - another sphere should appear
+
+
+TEST 4: FILE EXPLORER
+---------------------
+1. Check the Explorer dock (left side)
+2. Browse your Maya scripts directory
+3. Click files to open them in the editor
+
+
+TEST 5: SYNTAX HIGHLIGHTING
+----------------------------
+1. Type Python code - should see colors:
+   - Keywords (blue): def, class, import
+   - Strings (green): "text"
+   - Comments (gray): # comment
+   - Functions (yellow): print()
+
+
+TEST 6: MORPHEUS AI (Optional - Requires API Key)
+--------------------------------------------------
+1. Click Morpheus AI tab (right side)
+2. Type a question: "How do I create a cube in Maya?"
+3. Morpheus should respond with Maya commands
+
+
+================================================================================
+4. FEATURES OVERVIEW
+================================================================================
+
+VSCODE-STYLE INTERFACE
+----------------------
+- Dark theme with professional code highlighting
+- Multiple docks: Explorer, Console, Problems, Morpheus AI
+- Tabbed editing: Open multiple files at once
+- Line numbers with code folding (click triangle icons)
+
+
+CODE INTELLIGENCE
+-----------------
+- Syntax highlighting for Python and MEL
+- Auto-indentation (smart tab handling)
+- Find & Replace with regex support
+- Error detection (real-time syntax checking)
+- Indentation guides (vertical lines)
+- Code folding (collapse functions/classes)
+
+
+AI ASSISTANT (MORPHEUS)
+------------------------
+- Natural language code generation
+- Context-aware suggestions for Maya
+- Code explanations and debugging help
+- Powered by GPT-4 (requires OpenAI API key)
+
+
+MAYA INTEGRATION
+----------------
+- Execute in Maya: Run code directly in viewport
+- Output console: See results and errors
+- History tracking: Browse previous commands
+- MEL support: Full MEL language support
+
+
+KEYBOARD SHORTCUTS
+------------------
+Ctrl+Enter - Execute selected code
+Ctrl+F     - Find in file
+Ctrl+H     - Find & Replace
+Ctrl+S     - Save file (if editing a file)
+Ctrl+/     - Toggle comment
+Tab        - Auto-indent
+
+
+================================================================================
+5. TROUBLESHOOTING
+================================================================================
+
+ISSUE: "ModuleNotFoundError: No module named 'PySide6'"
+-------------------------------------------------------
+SOLUTION:
+    mayapy -m pip install PySide6
+    
+    OR
+    
+    python -m pip install PySide6
+
+
+ISSUE: "ImportError: cannot import name 'AiScriptEditor'"
+----------------------------------------------------------
+SOLUTION: Check your path is correct:
+    
+    import sys
+    print(sys.path)  # Verify path is included
+
+
+ISSUE: "Morpheus AI not responding"
+------------------------------------
+SOLUTIONS:
+1. Check API key in ai/__init__.py
+2. Verify internet connection
+3. Check OpenAI account has credits: https://platform.openai.com/usage
+
+
+ISSUE: "Window appears but is blank"
+-------------------------------------
+SOLUTION: Update PySide6:
+    
+    mayapy -m pip install --upgrade PySide6
+
+
+ISSUE: "Code doesn't execute"
+------------------------------
+SOLUTION: Check Maya Script Editor for errors
+(Windows > General Editors > Script Editor)
+
+
+ISSUE: "Beta expired message"
+------------------------------
+SOLUTION: This is a time-limited beta.
+Contact mayjackass@example.com for the full version.
+
+
+================================================================================
+6. BETA INFORMATION
+================================================================================
+
+Version:     3.0-beta
+Expiry Date: January 31, 2026
+Contact:     mayjackass@example.com
+
+BETA LIMITATIONS:
+- Time-limited until Jan 31, 2026
+- All features fully functional during beta period
+- Warning notifications 14 days before expiry
+
+AFTER BETA EXPIRES:
+- Contact for full version upgrade
+- Email: mayjackass@example.com
+- GitHub: https://github.com/mayjackass/AI_Maya_ScriptEditor
+
+
+================================================================================
+7. SUPPORT
+================================================================================
+
+ISSUES OR QUESTIONS?
+--------------------
+GitHub: https://github.com/mayjackass/AI_Maya_ScriptEditor/issues
+Email:  mayjackass@example.com
+
+FEATURE REQUESTS:
+-----------------
+- Open an issue on GitHub
+- Tag with "enhancement"
+
+BUG REPORTS:
+------------
+Please include:
+- Maya version
+- Error messages
+- Steps to reproduce
+
+
+================================================================================
+
+QUICK TIPS
+----------
+- Click triangle icons next to line numbers to collapse/expand code blocks
+- Open multiple files from Explorer - they appear as tabs at the top
+- Use Morpheus AI for help: "Create a cube at position 0,5,0"
+- Right-click in editor for context menu options
+
+
+NEXT STEPS
+----------
+1. Install and launch NEO Script Editor
+2. Test basic features (code execution, file opening)
+3. Configure Morpheus AI (optional)
+4. Create shelf button for easy access (see MAYA_SETUP.md)
+5. Explore VSCode-style features
+6. Provide feedback!
+
+
+Enjoy your enhanced Maya scripting experience!
+
+
+================================================================================
+              NEO Script Editor v3.0 Beta - (c) 2025
+              All Rights Reserved
+================================================================================

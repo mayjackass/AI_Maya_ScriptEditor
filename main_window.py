@@ -28,6 +28,7 @@ try:
     from ui.dock_manager import DockManager
     from ui.chat_manager import ChatManager
     from ui.file_manager import FileManager
+    from ui.debug_manager import DebugManager
     
     # Import beta/license manager
     from license.beta_manager import BetaManager
@@ -237,6 +238,7 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         self.dock_manager = DockManager(self)
         self.file_manager = FileManager(self, self.tabWidget, self.languageCombo)
         self.find_replace_manager = FindReplaceManager(self, self.tabWidget)
+        self.debug_manager = DebugManager(self)
         self.menu_manager = MenuManager(self)
         self.chat_manager = ChatManager(self)
         
