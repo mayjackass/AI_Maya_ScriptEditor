@@ -40,6 +40,10 @@ except ImportError as e:
 DARK_STYLE = """
 QWidget { background: #1E1E1E; color: #DDD; font-family: Segoe UI, Consolas; }
 QMenuBar, QMenu, QToolBar { font-size: 11pt; background-color:#2D2D30; }
+QMenuBar::item:selected { background: #00ff41; color: #000; }
+QMenuBar::item:hover { background: #00ff41; color: #000; }
+QMenu::item:selected { background: #00ff41; color: #000; }
+QMenu::item:hover { background: #00ff41; color: #000; }
 QTextBrowser, QTextEdit { border: 1px solid #333; border-radius: 4px; }
 QPushButton { background: #2D2D30; color: #EEE; border-radius: 4px; padding: 4px 8px; }
 QPushButton:hover { background: #3E3E42; }
