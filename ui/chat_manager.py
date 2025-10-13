@@ -752,33 +752,80 @@ class ChatManager:
             self.parent.dock_manager.console.append_tagged("ERROR", f"Failed to apply fix: {e}", "#dc3545")
     
     def find_code_to_replace(self, current_code, suggested_code):
-        """Find the best matching code section to replace"""
+        """Find the best matching code section to replace - optimized for targeted fixes"""
         import difflib
         
         current_lines = current_code.split('\n')
         suggested_lines = suggested_code.split('\n')
         
-        # Use difflib to find similar sections
+        # Strategy 1: Try exact substring match (for small targeted fixes)
+        suggested_text = suggested_code.strip()
+        if suggested_text in current_code:
+            # Find the position of the exact match
+            start_pos = current_code.find(suggested_text)
+            lines_before = current_code[:start_pos].count('\n')
+            lines_in_match = suggested_text.count('\n') + 1
+            
+            return {
+                'start_line': lines_before,
+                'end_line': lines_before + lines_in_match,
+                'old_code': suggested_text,  # Exact match, so old = new
+                'match_quality': 1.0  # Perfect match
+            }
+        
+        # Strategy 2: Use difflib to find similar sections (for modified fixes)
         matcher = difflib.SequenceMatcher(None, current_lines, suggested_lines)
         
         # Find the longest matching block
         match = matcher.find_longest_match(0, len(current_lines), 0, len(suggested_lines))
         
-        if match.size > 2:  # At least 3 lines match
+        # Lower threshold for small fixes (AI now returns only the problem area)
+        min_match_size = min(2, len(suggested_lines) - 1)  # At least 2 lines or suggested-1
+        
+        if match.size >= min_match_size:  
             # Found a section to replace
             start_line = match.a
             end_line = start_line + match.size
             
-            # Expand to include context around the match
-            context_start = max(0, start_line - 2)
-            context_end = min(len(current_lines), end_line + 2)
+            # For small suggested fixes, don't expand context too much
+            if len(suggested_lines) <= 5:
+                # Small fix - minimal context
+                context_start = max(0, start_line)
+                context_end = min(len(current_lines), end_line + 1)
+            else:
+                # Larger fix - include more context
+                context_start = max(0, start_line - 2)
+                context_end = min(len(current_lines), end_line + 2)
             
             return {
                 'start_line': context_start,
                 'end_line': context_end,
                 'old_code': '\n'.join(current_lines[context_start:context_end]),
-                'match_quality': match.size / len(suggested_lines)
+                'match_quality': match.size / max(len(suggested_lines), 1)
             }
+        
+        # Strategy 3: Try fuzzy matching for single-line or very small fixes
+        if len(suggested_lines) <= 3:
+            best_match_ratio = 0
+            best_match_line = -1
+            
+            for i, current_line in enumerate(current_lines):
+                # Compare each line
+                ratio = difflib.SequenceMatcher(None, current_line.strip(), suggested_lines[0].strip()).ratio()
+                if ratio > best_match_ratio and ratio > 0.6:  # 60% similarity threshold
+                    best_match_ratio = ratio
+                    best_match_line = i
+            
+            if best_match_line >= 0:
+                # Found a fuzzy match
+                return {
+                    'start_line': best_match_line,
+                    'end_line': best_match_line + len(suggested_lines),
+                    'old_code': '\n'.join(current_lines[best_match_line:best_match_line + len(suggested_lines)]),
+                    'match_quality': best_match_ratio
+                }
+        
+        return None
         
         return None
     
