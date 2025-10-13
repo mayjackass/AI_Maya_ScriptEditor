@@ -1,4 +1,4 @@
-# ⚡ NEO Script Editor v3.0 Beta
+# NEO Script Editor v3.0 Beta
 ### *"I can only show you the door. You're the one that has to walk through it."*
 
 [![Version](https://img.shields.io/badge/version-3.0--beta-orange.svg)](https://github.com/mayjackass/AI_Maya_ScriptEditor)
@@ -11,58 +11,44 @@
 **Framework:** PySide6 (Qt6) | Python 3.9+  
 **Release Date:** October 13, 2025  
 **Beta Expires:** January 31, 2026  
-**Status:** 🧪 Free Beta Testing
+**Status:** Free Beta Testing
 
-> ⚠️ **BETA NOTICE**: This is a time-limited beta release for testing and evaluation. Beta testers receive **50% OFF** the full version after January 31, 2026. Please report issues on [GitHub Issues](https://github.com/mayjackass/AI_Maya_ScriptEditor/issues).
+> **BETA NOTICE**: This is a time-limited beta release for testing and evaluation. Please report issues on [GitHub Issues](https://github.com/mayjackass/AI_Maya_ScriptEditor/issues).
 
 A next-generation AI-powered Maya script editor with **Morpheus AI** integration, VSCode-style features, and real-time code intelligence. Experience coding like using GitHub Copilot, but built specifically for Maya Python and MEL.
 
 ---
 
-## 🎁 Beta Tester Benefits
+## Key Features
 
-**FREE until January 31, 2026** | Full access to all features
-
-✨ **What You Get:**
-- 🆓 3.5 months of free access to all premium features
-- 💰 **50% discount** on the full version after beta ($49 instead of $99)
-- 🎯 Direct influence on development priorities
-- 🏆 Early access to new features
-- 💬 Direct communication with the developer
-
-[📋 Read Full Beta License](BETA_LICENSE.md) | [🐛 Report Bugs](https://github.com/mayjackass/AI_Maya_ScriptEditor/issues)
-
----
-
-## ✨ Key Features
-
-🤖 **Morpheus AI Assistant**
+**Morpheus AI Assistant**
 - Auto-context detection (sees your code automatically)
 - Multi-model support (OpenAI GPT-4, Anthropic Claude)
 - Conversation history with persistent storage
 - Smart code suggestions with inline diff preview
+- Offline mode toggle for working without API connection
 
-⚡ **VSCode-Style Editor**
+**VSCode-Style Editor**
 - Inline diff preview with red/green highlighting
 - Real-time error detection (up to 10 errors)
 - Advanced autocomplete with Tab confirmation
 - Syntax highlighting for Python & MEL
 
-🎯 **Smart Code Analysis**
+**Smart Code Analysis**
 - Multi-pass error detection algorithm
 - Column-based error positioning
 - Tab-focused problems panel
 - False positive reduction
 
-🎨 **Modern Interface**
+**Modern Interface**
 - GitHub Dark theme with gradient backgrounds
-- Emoji tab icons (🐍 Python, 📜 MEL)
+- Custom Python/MEL tab icons
 - Customizable dock widgets
 - Professional release-quality UI
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # Clone the repository
@@ -80,10 +66,11 @@ python run.py
 1. Set your OpenAI or Anthropic API key in `Tools → Settings`
 2. Open Morpheus chat from the toolbar or `View → Morpheus Chat`
 3. Start coding - Morpheus automatically sees your code!
+4. Toggle offline mode if you want to work without API connection
 
 ---
 
-## 📦 Project Structure
+## Project Structure
 
 ```
 ai_script_editor/
