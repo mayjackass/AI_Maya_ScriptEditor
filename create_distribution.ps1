@@ -84,9 +84,7 @@ $excludePatterns = @(
     ".idea",
     "*.log",
     ".DS_Store",
-    "Thumbs.db",
-    ".devmode",           # Developer mode file - MUST exclude!
-    "DEV_MODE_GUIDE.md"   # Developer documentation
+    "Thumbs.db"
 )
 
 foreach ($pattern in $excludePatterns) {

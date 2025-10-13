@@ -19,54 +19,26 @@ class BetaManager:
     WARNING_DAYS = 14  # Start showing warnings 2 weeks before expiry
     URGENT_DAYS = 7    # Urgent warnings 1 week before expiry
     
-    # Developer Override
-    # Set environment variable to bypass beta expiration:
-    # Windows: set NEO_DEV_MODE=1
-    # Mac/Linux: export NEO_DEV_MODE=1
-    # Or create a .devmode file in the project root
-    DEV_MODE_ENV = "NEO_DEV_MODE"
-    DEV_MODE_FILE = ".devmode"
-    
     def __init__(self):
         self.settings = QtCore.QSettings("NEO_Script_Editor", "license")
         self.expiry_date = datetime.strptime(self.BETA_EXPIRY_DATE, "%Y-%m-%d")
-        self.dev_mode = self._check_dev_mode()
-        
-        if self.dev_mode:
-            print("[DEV MODE] Beta expiration bypassed for development")
-    
-    def _check_dev_mode(self):
-        """Check if developer mode is enabled"""
-        # Check environment variable
-        if os.environ.get(self.DEV_MODE_ENV) == "1":
-            return True
-        
-        # Check for .devmode file in project root or parent directories
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        for _ in range(3):  # Check up to 3 levels up
-            devmode_path = os.path.join(current_dir, self.DEV_MODE_FILE)
-            if os.path.exists(devmode_path):
-                return True
-            current_dir = os.path.dirname(current_dir)
-        
-        return False
     
     def is_expired(self):
         """Check if beta has expired"""
-        if not self.IS_BETA or self.dev_mode:
+        if not self.IS_BETA:
             return False
         return datetime.now() > self.expiry_date
     
     def days_remaining(self):
         """Get number of days remaining in beta"""
-        if not self.IS_BETA or self.dev_mode:
+        if not self.IS_BETA:
             return None
         delta = self.expiry_date - datetime.now()
         return max(0, delta.days)
     
     def should_show_warning(self):
         """Check if we should show expiration warning"""
-        if not self.IS_BETA or self.is_expired() or self.dev_mode:
+        if not self.IS_BETA or self.is_expired():
             return False
         days = self.days_remaining()
         return days is not None and days <= self.WARNING_DAYS
@@ -86,8 +58,6 @@ class BetaManager:
         """Get suffix to add to window title"""
         if not self.IS_BETA:
             return ""
-        if self.dev_mode:
-            return " - BETA (DEV MODE)"
         if self.is_expired():
             return " - BETA EXPIRED"
         days = self.days_remaining()
@@ -383,8 +353,6 @@ class BetaManager:
         """Get message to show in status bar"""
         if not self.IS_BETA:
             return ""
-        if self.dev_mode:
-            return "🔧 Developer Mode - Beta checks disabled"
         if self.is_expired():
             return "⚠️ Beta expired - Please upgrade"
         days = self.days_remaining()
