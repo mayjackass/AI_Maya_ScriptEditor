@@ -8,17 +8,39 @@ from .highlighter import PythonHighlighter, MELHighlighter
 
 
 class _LineNumberArea(QtWidgets.QWidget):
-    """Minimal line number area."""
+    """Minimal line number area with fold indicators."""
     
     def __init__(self, editor):
         super().__init__(editor)
         self.code_editor = editor
+        self.setMouseTracking(True)  # Enable hover detection
 
     def sizeHint(self):
         return QtCore.QSize(self.code_editor._number_area_width(), 0)
 
     def paintEvent(self, event):
         self.code_editor._paint_line_numbers(event)
+    
+    def mousePressEvent(self, event):
+        """Handle clicks on fold indicators."""
+        if event.button() == QtCore.Qt.LeftButton:
+            # Calculate which line was clicked
+            block = self.code_editor.firstVisibleBlock()
+            top = int(self.code_editor.blockBoundingGeometry(block).translated(
+                self.code_editor.contentOffset()).top())
+            
+            while block.isValid():
+                bottom = top + int(self.code_editor.blockBoundingRect(block).height())
+                
+                if event.pos().y() >= top and event.pos().y() <= bottom:
+                    # Check if click is in fold indicator area (leftmost 12 pixels)
+                    if event.pos().x() <= 12:
+                        line_number = block.blockNumber() + 1
+                        self.code_editor.toggle_fold(line_number)
+                        break
+                
+                block = block.next()
+                top = bottom
 
 
 class CodeEditor(QtWidgets.QPlainTextEdit):
@@ -70,6 +92,9 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         # Error tracking
         self.syntax_errors = []
         self.error_highlights = []
+        
+        # Code folding state
+        self.folded_blocks = set()  # Set of line numbers that are folded
         
         # Real-time error checking
         self.error_timer = QtCore.QTimer()
@@ -490,6 +515,162 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             QtCore.QRect(cr.left(), cr.top(), 
                         self._number_area_width(), cr.height())
         )
+    
+    def paintEvent(self, event):
+        """Paint indentation guides like VSCode."""
+        super().paintEvent(event)
+        
+        # Draw indentation guides
+        painter = QtGui.QPainter(self.viewport())
+        painter.setPen(QtGui.QPen(QtGui.QColor(45, 45, 45), 1))  # Subtle gray lines
+        
+        # Get font metrics for calculating character width
+        fm = self.fontMetrics()
+        char_width = fm.horizontalAdvance(' ')
+        indent_width = 4 * char_width  # 4 spaces per indent level
+        
+        # Get visible blocks
+        block = self.firstVisibleBlock()
+        block_top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
+        
+        while block.isValid():
+            block_bottom = block_top + int(self.blockBoundingRect(block).height())
+            
+            # Only paint visible blocks
+            if block_bottom >= 0 and block_top <= self.viewport().height():
+                text = block.text()
+                
+                # Calculate indentation level
+                indent_count = 0
+                for char in text:
+                    if char == ' ':
+                        indent_count += 1
+                    elif char == '\t':
+                        indent_count += 4  # Treat tab as 4 spaces
+                    else:
+                        break
+                
+                # Draw vertical lines for each indentation level
+                indent_levels = indent_count // 4
+                for level in range(indent_levels):
+                    x = int(level * indent_width)
+                    # Draw line from top to bottom of block
+                    painter.drawLine(x, block_top, x, block_bottom)
+            
+            # Move to next block
+            block = block.next()
+            block_top = block_bottom
+            
+            # Stop if we're past the visible area
+            if block_top > self.viewport().height():
+                break
+    
+    def _can_fold_line(self, line_number):
+        """Check if a line can be folded and if it's currently folded."""
+        # Get the block for this line
+        block = self.document().findBlockByNumber(line_number - 1)
+        if not block.isValid():
+            return False, False
+        
+        text = block.text()
+        # Only allow folding for lines that end with ':' (Python) or '{' (MEL-style)
+        stripped = text.rstrip()
+        if not (stripped.endswith(':') or stripped.endswith('{')):
+            return False, False
+        
+        # Check if next line exists and is more indented
+        next_block = block.next()
+        if not next_block.isValid():
+            return False, False
+        
+        # Calculate indentation levels
+        current_indent = self._get_indent_level(text)
+        next_indent = self._get_indent_level(next_block.text())
+        
+        if next_indent > current_indent:
+            is_folded = line_number in self.folded_blocks
+            return True, is_folded
+        
+        return False, False
+    
+    def _get_indent_level(self, text):
+        """Get the indentation level of a line."""
+        indent = 0
+        for char in text:
+            if char == ' ':
+                indent += 1
+            elif char == '\t':
+                indent += 4
+            else:
+                break
+        return indent // 4
+    
+    def toggle_fold(self, line_number):
+        """Toggle folding for a line."""
+        can_fold, is_folded = self._can_fold_line(line_number)
+        if not can_fold:
+            return
+        
+        if is_folded:
+            self._unfold_line(line_number)
+        else:
+            self._fold_line(line_number)
+        
+        # Update display
+        self.viewport().update()
+        self.line_number_area.update()
+    
+    def _fold_line(self, line_number):
+        """Fold (collapse) a block of code."""
+        block = self.document().findBlockByNumber(line_number - 1)
+        if not block.isValid():
+            return
+        
+        # Get the indentation level of the fold line
+        fold_indent = self._get_indent_level(block.text())
+        
+        # Hide all subsequent blocks that are more indented
+        next_block = block.next()
+        while next_block.isValid():
+            next_indent = self._get_indent_level(next_block.text())
+            next_text = next_block.text().strip()
+            
+            # Stop if we reach a line with same or less indentation (and it's not blank)
+            if next_text and next_indent <= fold_indent:
+                break
+            
+            # Hide this block
+            next_block.setVisible(False)
+            next_block = next_block.next()
+        
+        # Mark as folded
+        self.folded_blocks.add(line_number)
+    
+    def _unfold_line(self, line_number):
+        """Unfold (expand) a block of code."""
+        block = self.document().findBlockByNumber(line_number - 1)
+        if not block.isValid():
+            return
+        
+        # Get the indentation level of the fold line
+        fold_indent = self._get_indent_level(block.text())
+        
+        # Show all subsequent blocks that were hidden
+        next_block = block.next()
+        while next_block.isValid():
+            next_indent = self._get_indent_level(next_block.text())
+            next_text = next_block.text().strip()
+            
+            # Stop if we reach a line with same or less indentation (and it's not blank)
+            if next_text and next_indent <= fold_indent:
+                break
+            
+            # Show this block
+            next_block.setVisible(True)
+            next_block = next_block.next()
+        
+        # Mark as unfolded
+        self.folded_blocks.discard(line_number)
         
     def _paint_line_numbers(self, event):
         """Paint line numbers with VSCode-style error indicators."""
@@ -519,6 +700,9 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                 # Check if this line has an error
                 has_error = any(error['line'] == line_number for error in self.syntax_errors)
                 
+                # Check if this line can be folded (has indented content below)
+                can_fold, is_folded = self._can_fold_line(line_number)
+                
                 if has_error:
                     # Draw error indicator (red background)
                     error_rect = QtCore.QRect(0, top, self.line_number_area.width(), 
@@ -531,6 +715,30 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                     painter.fillRect(icon_rect, QtGui.QColor(255, 0, 0))
                 else:
                     painter.setPen(QtGui.QColor(100, 100, 100))  # Normal gray
+                
+                # Draw fold indicator if line can be folded
+                if can_fold:
+                    # Draw clickable fold icon (triangle)
+                    painter.setPen(QtGui.QPen(QtGui.QColor(150, 150, 150), 1))
+                    painter.setBrush(QtGui.QColor(150, 150, 150))
+                    
+                    center_y = top + self.fontMetrics().height() // 2
+                    if is_folded:
+                        # Right-pointing triangle (collapsed)
+                        points = [
+                            QtCore.QPoint(3, center_y - 3),
+                            QtCore.QPoint(3, center_y + 3),
+                            QtCore.QPoint(8, center_y)
+                        ]
+                    else:
+                        # Down-pointing triangle (expanded)
+                        points = [
+                            QtCore.QPoint(3, center_y - 2),
+                            QtCore.QPoint(8, center_y - 2),
+                            QtCore.QPoint(5, center_y + 2)
+                        ]
+                    painter.drawPolygon(points)
+                    painter.setBrush(QtCore.Qt.NoBrush)
                 
                 # Draw line number
                 text_rect = QtCore.QRect(12, top, self.line_number_area.width() - 17, 

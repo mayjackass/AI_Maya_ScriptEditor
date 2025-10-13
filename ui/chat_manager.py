@@ -452,7 +452,9 @@ class ChatManager:
             icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "morpheus.png")
             if os.path.exists(icon_path):
                 # Create small icon HTML for chat messages
-                self.morpheus_icon_html = f'<img src="file:///{icon_path}" width="16" height="16" style="vertical-align: middle; margin-right: 4px;">'
+                # Convert Windows backslashes to forward slashes for HTML file URL
+                icon_url = icon_path.replace('\\', '/')
+                self.morpheus_icon_html = f'<img src="file:///{icon_url}" width="16" height="16" style="vertical-align: middle; margin-right: 4px;">'
             else:
                 self.morpheus_icon_html = "🤖"
             

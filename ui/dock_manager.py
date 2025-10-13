@@ -3,7 +3,174 @@ Dock Manager
 Handles all dock widget creation and visibility management
 """
 import os
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtWidgets, QtCore, QtGui
+
+
+class VSCodeStyleDelegate(QtWidgets.QStyledItemDelegate):
+    """Custom delegate for VSCode-style tree items with file type icons"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        # Load icons from assets folder
+        assets_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
+        
+        # Load actual icon files from assets
+        self.python_icon = QtGui.QIcon(os.path.join(assets_path, "python.png"))
+        self.mel_icon = QtGui.QIcon(os.path.join(assets_path, "mel.png"))
+        self.markdown_icon = QtGui.QIcon(os.path.join(assets_path, "mark-down.png"))
+        self.image_icon = QtGui.QIcon(os.path.join(assets_path, "image.png"))
+        self.file_icon = QtGui.QIcon(os.path.join(assets_path, "file.png"))  # Default file icon
+        self.archive_icon = QtGui.QIcon(os.path.join(assets_path, "archive.png"))  # Archive files
+        self.exe_icon = QtGui.QIcon(os.path.join(assets_path, "exe.png"))  # Executable files
+        
+        # VSCode-style file type icons (using Unicode symbols for types without custom icons)
+        self.file_icons = {
+            '.json': ('{}', QtGui.QColor(255, 215, 0)),     # JSON
+            '.xml': ('<>', QtGui.QColor(255, 140, 0)),      # XML
+            '.html': ('🌐', QtGui.QColor(227, 76, 38)),     # HTML
+            '.css': ('🎨', QtGui.QColor(86, 156, 214)),     # CSS
+            '.js': ('JS', QtGui.QColor(240, 219, 79)),      # JavaScript
+            '.ps1': ('💻', QtGui.QColor(0, 122, 204)),      # PowerShell
+            '.sh': ('💻', QtGui.QColor(76, 175, 80)),       # Shell
+        }
+    
+    def paint(self, painter, option, index):
+        """Custom paint with chevrons and file type icons"""
+        # Get the model
+        model = index.model()
+        
+        # Check if this is a directory
+        file_info = model.fileInfo(index)
+        is_dir = file_info.isDir()
+        
+        # Draw background
+        if option.state & QtWidgets.QStyle.State_Selected:
+            painter.fillRect(option.rect, QtGui.QColor(51, 51, 51))  # Gray selection
+        elif option.state & QtWidgets.QStyle.State_MouseOver:
+            painter.fillRect(option.rect, QtGui.QColor(42, 45, 46))  # VSCode hover color
+        
+        # Setup text color
+        painter.setPen(QtGui.QColor(204, 204, 204))  # VSCode text color
+        
+        left_offset = 2
+        
+        # Draw chevron for directories (no folder icon)
+        if is_dir:
+            tree_view = option.widget
+            is_expanded = tree_view.isExpanded(index) if tree_view else False
+            
+            # Draw chevron (▶ or ▼)
+            chevron_rect = QtCore.QRect(option.rect.left() + left_offset, option.rect.top(), 16, option.rect.height())
+            painter.save()
+            painter.setPen(QtGui.QColor(150, 150, 150))
+            painter.setFont(QtGui.QFont("Segoe UI", 8))
+            
+            if is_expanded:
+                # Down chevron
+                painter.drawText(chevron_rect, QtCore.Qt.AlignCenter, "▼")
+            else:
+                # Right chevron
+                painter.drawText(chevron_rect, QtCore.Qt.AlignCenter, "▶")
+            
+            painter.restore()
+            
+            text_offset = 20
+        else:
+            # Get file extension and corresponding icon
+            filename = file_info.fileName()
+            ext = os.path.splitext(filename)[1].lower()
+            
+            icon_rect = QtCore.QRect(option.rect.left() + left_offset + 16, option.rect.top() + 3, 16, 16)
+            
+            # Check for files with custom icons from assets
+            if ext == '.py':
+                # Python icon
+                self.python_icon.paint(painter, icon_rect)
+                text_offset = 38
+            elif ext == '.mel':
+                # MEL icon
+                self.mel_icon.paint(painter, icon_rect)
+                text_offset = 38
+            elif ext == '.md':
+                # Markdown icon
+                self.markdown_icon.paint(painter, icon_rect)
+                text_offset = 38
+            elif ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.ico']:
+                # Image icon
+                self.image_icon.paint(painter, icon_rect)
+                text_offset = 38
+            elif ext in ['.txt', '.log', '.ini', '.cfg', '.conf']:
+                # Generic file icon for text files
+                self.file_icon.paint(painter, icon_rect)
+                text_offset = 38
+            elif ext in ['.zip', '.rar', '.7z', '.tar', '.gz', '.bz2']:
+                # Archive icon
+                self.archive_icon.paint(painter, icon_rect)
+                text_offset = 38
+            elif ext in ['.exe', '.bat', '.cmd', '.msi']:
+                # Executable icon
+                self.exe_icon.paint(painter, icon_rect)
+                text_offset = 38
+            elif ext in self.file_icons:
+                # Use Unicode icon for special file types
+                icon_data = self.file_icons[ext]
+                icon_char, icon_color = icon_data
+                
+                icon_rect_text = QtCore.QRect(option.rect.left() + left_offset + 16, option.rect.top(), 18, option.rect.height())
+                painter.save()
+                painter.setPen(icon_color)
+                painter.setFont(QtGui.QFont("Segoe UI", 10))
+                painter.drawText(icon_rect_text, QtCore.Qt.AlignCenter, icon_char)
+                painter.restore()
+                
+                text_offset = 38
+            else:
+                # Default file icon for unknown types
+                self.file_icon.paint(painter, icon_rect)
+                text_offset = 38
+        
+        # Draw text (filename)
+        text_rect = QtCore.QRect(option.rect.left() + text_offset, option.rect.top(), 
+                                option.rect.width() - text_offset, option.rect.height())
+        text = index.data(QtCore.Qt.DisplayRole)
+        painter.setPen(QtGui.QColor(204, 204, 204))
+        painter.drawText(text_rect, QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter, text)
+    
+    def sizeHint(self, option, index):
+        """Return size hint for items"""
+        size = super().sizeHint(option, index)
+        size.setHeight(22)  # Fixed height like VSCode
+        return size
+
+
+class VSCodeTreeView(QtWidgets.QTreeView):
+    """Custom TreeView with VSCode-style click behavior"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMouseTracking(True)
+    
+    def mousePressEvent(self, event):
+        """Handle mouse press to toggle expand/collapse on single click"""
+        if event.button() == QtCore.Qt.LeftButton:
+            index = self.indexAt(event.pos())
+            if index.isValid():
+                model = self.model()
+                file_info = model.fileInfo(index)
+                
+                # If it's a directory, toggle expand/collapse
+                if file_info.isDir():
+                    if self.isExpanded(index):
+                        self.collapse(index)
+                    else:
+                        self.expand(index)
+                    # Still select the item
+                    self.setCurrentIndex(index)
+                    return
+        
+        # For files or other buttons, use default behavior
+        super().mousePressEvent(event)
 
 
 class DockManager:
@@ -95,17 +262,62 @@ class DockManager:
         self.parent.addDockWidget(QtCore.Qt.BottomDockWidgetArea, self.problems_dock)
         
     def build_explorer_dock(self):
-        """Build file explorer dock"""
+        """Build file explorer dock with VSCode-style hierarchy"""
         self.fileModel = QtWidgets.QFileSystemModel()
         self.fileModel.setRootPath("")
         
-        self.explorerView = QtWidgets.QTreeView()
+        # Use custom tree view with VSCode-style click behavior
+        self.explorerView = VSCodeTreeView()
         self.explorerView.setModel(self.fileModel)
         self.explorerView.setRootIndex(self.fileModel.index(os.getcwd()))
         
         self.explorerView.hideColumn(1)  # Size
         self.explorerView.hideColumn(2)  # Type  
         self.explorerView.hideColumn(3)  # Date Modified
+        
+        # Use custom delegate for VSCode-style appearance (no icons, custom chevrons)
+        self.explorerView.setItemDelegate(VSCodeStyleDelegate(self.explorerView))
+        
+        # Remove default icons
+        self.explorerView.setIconSize(QtCore.QSize(0, 0))
+        
+        # VSCode-style appearance
+        self.explorerView.setIndentation(16)  # Compact indentation like VSCode
+        self.explorerView.setAnimated(True)  # Smooth expand/collapse
+        self.explorerView.setHeaderHidden(True)  # Hide header for cleaner look
+        self.explorerView.setRootIsDecorated(False)  # Hide default arrows (we draw custom chevrons)
+        self.explorerView.setExpandsOnDoubleClick(False)  # Single-click to expand/collapse (like VSCode)
+        self.explorerView.setUniformRowHeights(True)  # Better performance
+        
+        # VSCode Dark+ theme styling with gray selection
+        self.explorerView.setStyleSheet("""
+            QTreeView {
+                background-color: #252526;
+                color: #cccccc;
+                border: none;
+                outline: none;
+                font-size: 13px;
+                font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;
+            }
+            QTreeView::item {
+                padding: 4px 4px;
+                border: none;
+                height: 22px;
+            }
+            QTreeView::item:hover {
+                background-color: #2a2d2e;
+            }
+            QTreeView::item:selected {
+                background-color: #333333;
+                color: #ffffff;
+            }
+            QTreeView::item:selected:active {
+                background-color: #333333;
+            }
+            QTreeView::item:selected:!active {
+                background-color: #2d2d2d;
+            }
+        """)
         
         self.explorer_dock = QtWidgets.QDockWidget("Explorer", self.parent)
         self.explorer_dock.setObjectName("ExplorerDock")
