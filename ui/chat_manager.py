@@ -503,8 +503,27 @@ class ChatManager:
                 language = current_editor.get_language()
                 lang = "python" if language == "python" else "mel"
                 
-                # Auto-include code context (like GitHub Copilot in VSCode)
-                context = f"[Current Editor Context - {tab_name} ({language.upper()})]\n\n```{lang}\n{code}\n```\n\n[User Question]\n{message}"
+                # Count lines for better AI instruction
+                line_count = len(code.split('\n'))
+                
+                # Auto-include code context with EXPLICIT instructions for targeted responses
+                context = f"""[Current Editor Context - {tab_name} ({language.upper()}) - {line_count} lines]
+
+⚠️ IMPORTANT: The code below is for REFERENCE ONLY.
+If the user asks to fix/review: ONLY return the 1-5 lines that need fixing.
+DO NOT return all {line_count} lines back - only return the problematic section.
+
+```{lang}
+{code}
+```
+
+[User Question]
+{message}
+
+[Response Instructions]
+- If fixing an error: Return ONLY the broken line(s) with the fix
+- If reviewing: Point out issues and show ONLY the fix
+- DO NOT echo back the entire {line_count} lines of code"""
 
         # Send to Morpheus
         if self.morpheus_manager:
