@@ -114,6 +114,11 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         # Restore previous session (tabs and files)
         QtCore.QTimer.singleShot(100, self._restore_session)
         
+        # Auto-save session every 30 seconds (for Maya stability)
+        self.auto_save_timer = QtCore.QTimer()
+        self.auto_save_timer.timeout.connect(self._save_session)
+        self.auto_save_timer.start(30000)  # 30 seconds
+        
         print("[OK] AI Script Editor initialized with refactored modular architecture!")
     
     def keyPressEvent(self, event):
@@ -196,6 +201,10 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         # Tab widget
         self.tabWidget = QtWidgets.QTabWidget()
         self.tabWidget.setTabsClosable(True)
+        
+        # Save session when tabs change (for Maya reliability)
+        self.tabWidget.tabCloseRequested.connect(lambda: QtCore.QTimer.singleShot(100, self._save_session))
+        
         centralLayout.addWidget(self.tabWidget)
         
         self.setCentralWidget(centralWidget)
@@ -602,8 +611,20 @@ class AiScriptEditor(QtWidgets.QMainWindow):
     
     def closeEvent(self, event):
         """Save session before closing"""
+        print("[Session] closeEvent triggered")
         self._save_session()
         event.accept()
+    
+    def hideEvent(self, event):
+        """Save session when window is hidden (important for Maya)"""
+        print("[Session] hideEvent triggered")
+        self._save_session()
+        super().hideEvent(event)
+    
+    def showEvent(self, event):
+        """Called when window is shown"""
+        super().showEvent(event)
+        # Don't restore here, only on init
     
     def _save_session(self):
         """Save current open tabs and content to settings"""
