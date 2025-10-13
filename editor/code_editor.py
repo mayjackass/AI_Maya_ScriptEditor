@@ -96,6 +96,10 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         # Code folding state
         self.folded_blocks = set()  # Set of line numbers that are folded
         
+        # Paint optimization for indentation guides
+        self._skip_paint_count = 0
+        self._cached_char_width = None
+        
         # Real-time error checking
         self.error_timer = QtCore.QTimer()
         self.error_timer.timeout.connect(self._check_syntax_errors)
@@ -517,53 +521,53 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         )
     
     def paintEvent(self, event):
-        """Paint indentation guides like VSCode."""
+        """Paint indentation guides like VSCode - optimized."""
         super().paintEvent(event)
+        
+        # Skip indentation guides if typing (performance optimization)
+        if hasattr(self, '_skip_paint_count') and self._skip_paint_count > 0:
+            self._skip_paint_count -= 1
+            return
         
         # Draw indentation guides
         painter = QtGui.QPainter(self.viewport())
         painter.setPen(QtGui.QPen(QtGui.QColor(45, 45, 45), 1))  # Subtle gray lines
         
-        # Get font metrics for calculating character width
-        fm = self.fontMetrics()
-        char_width = fm.horizontalAdvance(' ')
-        indent_width = 4 * char_width  # 4 spaces per indent level
+        # Cache font metrics
+        if self._cached_char_width is None:
+            fm = self.fontMetrics()
+            self._cached_char_width = fm.horizontalAdvance(' ')
+        
+        indent_width = 4 * self._cached_char_width  # 4 spaces per indent level
         
         # Get visible blocks
         block = self.firstVisibleBlock()
+        viewport_height = self.viewport().height()
         block_top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
         
-        while block.isValid():
+        while block.isValid() and block_top <= viewport_height:
             block_bottom = block_top + int(self.blockBoundingRect(block).height())
             
             # Only paint visible blocks
-            if block_bottom >= 0 and block_top <= self.viewport().height():
+            if block_bottom >= 0:
                 text = block.text()
                 
-                # Calculate indentation level
-                indent_count = 0
-                for char in text:
-                    if char == ' ':
-                        indent_count += 1
-                    elif char == '\t':
-                        indent_count += 4  # Treat tab as 4 spaces
-                    else:
-                        break
-                
-                # Draw vertical lines for each indentation level
-                indent_levels = indent_count // 4
-                for level in range(indent_levels):
-                    x = int(level * indent_width)
-                    # Draw line from top to bottom of block
-                    painter.drawLine(x, block_top, x, block_bottom)
+                # Fast indentation calculation
+                if text:
+                    indent_count = len(text) - len(text.lstrip(' \t'))
+                    if '\t' in text[:indent_count]:
+                        indent_count = text[:indent_count].count('\t') * 4 + text[:indent_count].count(' ')
+                    
+                    # Draw vertical lines for each indentation level
+                    indent_levels = indent_count // 4
+                    if indent_levels > 0:
+                        for level in range(min(indent_levels, 10)):  # Limit to 10 levels max
+                            x = int(level * indent_width)
+                            painter.drawLine(x, block_top, x, block_bottom)
             
             # Move to next block
             block = block.next()
             block_top = block_bottom
-            
-            # Stop if we're past the visible area
-            if block_top > self.viewport().height():
-                break
     
     def _can_fold_line(self, line_number):
         """Check if a line can be folded and if it's currently folded."""
@@ -752,6 +756,9 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             
     def keyPressEvent(self, event):
         """Enhanced key press handling with smart indentation and auto-completion."""
+        # Skip paint events during rapid typing (performance optimization)
+        self._skip_paint_count = 2  # Skip next 2 paint events
+        
         # Handle completer popup
         if self.completer and self.completer.popup().isVisible():
             # Tab accepts the completion
