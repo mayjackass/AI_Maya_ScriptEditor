@@ -115,8 +115,8 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         # Setup status bar with beta info
         self._setup_status_bar()
         
-        # Restore previous session (tabs and files)
-        QtCore.QTimer.singleShot(100, self._restore_session)
+        # Restore previous session (tabs and files) - DEFERRED for faster startup
+        QtCore.QTimer.singleShot(500, self._restore_session)
         
         # Auto-save session every 30 seconds (for Maya stability)
         self.auto_save_timer = QtCore.QTimer()
@@ -253,22 +253,42 @@ class AiScriptEditor(QtWidgets.QMainWindow):
     
     def _init_managers(self):
         """Initialize all manager modules"""
+        print("[Startup] Initializing managers...")
         # Initialize managers
         self.dock_manager = DockManager(self)
         self.file_manager = FileManager(self, self.tabWidget, self.languageCombo)
         self.find_replace_manager = FindReplaceManager(self, self.tabWidget)
         self.debug_manager = DebugManager(self)
         self.menu_manager = MenuManager(self)
+        
+        # DEFERRED: Initialize chat manager after window is visible (AI loading can be slow)
+        self.chat_manager = None
+    def _init_chat_manager_deferred(self):
+        """Initialize chat manager after UI is visible (AI loading is slow)"""
+        print("[Startup] Initializing chat manager (deferred)...")
+        from ui.chat_manager import ChatManager
         self.chat_manager = ChatManager(self)
         
-        print("[OK] All managers initialized")
+        # Setup chat dock
+        self.chat_manager.build_chat_dock()
+        
+        # Make chat manager widgets available on main window
+        self.chatHistory = self.chat_manager.chatHistory
+        self.chatInput = self.chat_manager.chatInput
+        self.sendBtn = self.chat_manager.sendBtn
+        self.morpheus = self.chat_manager.morpheus
+        self.morpheus_manager = self.chat_manager.morpheus_manager
+        self.chat_dock = self.dock_manager.chat_dock  # Store chat dock reference
+        
+        print("[Startup] Chat manager ready")
     
     def _setup_ui_with_managers(self):
         """Setup UI using manager modules"""
+        print("[Startup] Setting up UI...")
         # Setup find/replace widget (before docks so it's in correct position)
         self.find_replace_manager.setup_widget(self.centralLayout)
         
-        # Setup dock widgets (Console, Problems, Explorer)
+        # Setup dock widgets (Console, Problems, Explorer) - FAST
         self.dock_manager.setup_docks()
         
         # Make dock manager widgets available directly on main window for compatibility
@@ -280,16 +300,14 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         self.problems_dock = self.dock_manager.problems_dock
         self.explorer_dock = self.dock_manager.explorer_dock
         
-        # Setup chat dock (handled by ChatManager)
-        self.chat_manager.build_chat_dock()
-        
-        # Make chat manager widgets available on main window
-        self.chatHistory = self.chat_manager.chatHistory
-        self.chatInput = self.chat_manager.chatInput
-        self.sendBtn = self.chat_manager.sendBtn
-        self.morpheus = self.chat_manager.morpheus
-        self.morpheus_manager = self.chat_manager.morpheus_manager
-        self.chat_dock = self.dock_manager.chat_dock  # Store chat dock reference
+        # Chat dock will be setup by deferred _init_chat_manager_deferred()
+        # Placeholder attributes to prevent AttributeError
+        self.chatHistory = None
+        self.chatInput = None
+        self.sendBtn = None
+        self.morpheus = None
+        self.morpheus_manager = None
+        self.chat_dock = None
         
         # Setup menu system (must come after all managers are initialized)
         self.menu_manager.setup_menus()
@@ -297,6 +315,10 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         # Setup toolbar
         self._setup_toolbar()
         
+        # Setup connections
+        self._setup_connections()
+        
+        print("[Startup] UI setup complete (chat loading in background)")
         # Setup connections
         self._setup_connections()
         
