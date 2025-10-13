@@ -588,14 +588,31 @@ class ChatManager:
             # Store code
             self._code_blocks[block_id] = raw_code
             
-            # Format code block
+            # Determine if this is a targeted fix (≤10 lines) or full code
+            line_count = len(raw_code.split('\n'))
+            is_targeted = line_count <= 10
+            
+            # Format code block with indicator
             escaped_code = html.escape(raw_code)
             placeholder = f"___CODE_BLOCK_{block_id}___"
+            
+            # Different styling based on code size
+            if is_targeted:
+                code_type = "Targeted Fix"
+                code_type_color = "#238636"  # Green
+                badge_bg = "#1f2d1f"
+            else:
+                code_type = f"Full Code ({line_count} lines)"
+                code_type_color = "#1f6feb"  # Blue
+                badge_bg = "#1a2332"
             
             code_html = f'''
 <div style="margin: 16px 0; border: 1px solid #30363d; border-radius: 6px; background-color: #0d1117; font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;">
     <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; background-color: #161b22; border-bottom: 1px solid #30363d;">
-        <span style="color: #f0f6fc; font-size: 14px; font-weight: 600;">Python</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="color: #f0f6fc; font-size: 14px; font-weight: 600;">Python</span>
+            <span style="background: {badge_bg}; color: {code_type_color}; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">{code_type}</span>
+        </div>
         <div style="display: flex; gap: 16px;">
             <a href="fix_{block_id}" style="color: #238636; text-decoration: none; font-size: 14px;">Keep</a>
             <a href="copy_{block_id}" style="color: #00ff41; text-decoration: none; font-size: 14px;">Copy</a>
