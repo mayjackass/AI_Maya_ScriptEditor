@@ -5,15 +5,22 @@ Handles expiration checking, warnings, and upgrade prompts
 import os
 from datetime import datetime, timedelta
 from PySide6 import QtWidgets, QtCore, QtGui
+from .license_core import get_license, is_dev_mode
 
 
 class BetaManager:
     """Manages beta expiration and licensing for NEO Script Editor"""
     
+    # Development Mode - now requires both flag AND key
+    DEV_MODE = is_dev_mode()
+    
+    # Version Configuration
+    BASE_VERSION = "3.0"
+    DEV_ITERATION = os.environ.get('NEO_DEV_ITERATION', '1')
+    
     # Beta Configuration
-    VERSION = "3.0-beta"
-    IS_BETA = True
-    BETA_EXPIRY_DATE = "2026-01-31"  # 3.5 months from Oct 13, 2025
+    VERSION = f"{BASE_VERSION}-beta" if not DEV_MODE else f"{BASE_VERSION}-dev.{DEV_ITERATION}"
+    IS_BETA = True if not DEV_MODE else False
     
     # Warning thresholds
     WARNING_DAYS = 14  # Start showing warnings 2 weeks before expiry
@@ -21,20 +28,66 @@ class BetaManager:
     
     def __init__(self):
         self.settings = QtCore.QSettings("NEO_Script_Editor", "license")
-        self.expiry_date = datetime.strptime(self.BETA_EXPIRY_DATE, "%Y-%m-%d")
+        self.license = get_license()
+        
+        # Get expiry from secure license core
+        self.expiry_date = self.license.get_expiry_date()
+        self.BETA_EXPIRY_DATE = self.license.get_expiry_string()
+        
+        # Auto-increment dev iteration if in dev mode
+        if self.DEV_MODE:
+            self._update_dev_iteration()
+    
+    def _update_dev_iteration(self):
+        """Auto-increment dev iteration counter"""
+        # Get last saved iteration
+        last_iteration = self.settings.value("dev_iteration", 0, type=int)
+        
+        # Increment
+        current_iteration = last_iteration + 1
+        
+        # Save new iteration
+        self.settings.setValue("dev_iteration", current_iteration)
+        
+        # Update VERSION class variable dynamically
+        BetaManager.DEV_ITERATION = str(current_iteration)
+        BetaManager.VERSION = f"{self.BASE_VERSION}-dev.{current_iteration}"
+        
+        print(f"🔧 Dev Mode Iteration: {current_iteration}")
+    
+    def get_dev_iteration(self):
+        """Get current dev iteration number"""
+        if not self.DEV_MODE:
+            return None
+        return self.settings.value("dev_iteration", 0, type=int)
+    
+    def reset_dev_iteration(self):
+        """Reset dev iteration counter (useful for fresh start)"""
+        if self.DEV_MODE:
+            self.settings.setValue("dev_iteration", 0)
+            print("🔄 Dev iteration reset to 0")
+
+        
+        # Auto-increment dev iteration if in dev mode
+        if self.DEV_MODE:
+            self._update_dev_iteration()
     
     def is_expired(self):
         """Check if beta has expired"""
         if not self.IS_BETA:
             return False
-        return datetime.now() > self.expiry_date
+        
+        # Use secure license validation
+        if not self.license.validate():
+            return True  # Treat validation failure as expired
+        
+        return self.license.is_expired()
     
     def days_remaining(self):
         """Get number of days remaining in beta"""
         if not self.IS_BETA:
             return None
-        delta = self.expiry_date - datetime.now()
-        return max(0, delta.days)
+        return self.license.days_remaining()
     
     def should_show_warning(self):
         """Check if we should show expiration warning"""
@@ -56,6 +109,8 @@ class BetaManager:
     
     def get_title_suffix(self):
         """Get suffix to add to window title"""
+        if self.DEV_MODE:
+            return " - DEV MODE"
         if not self.IS_BETA:
             return ""
         if self.is_expired():
@@ -67,6 +122,10 @@ class BetaManager:
     
     def show_startup_notice(self, parent=None):
         """Show beta notice on startup if needed"""
+        # Dev mode bypasses all checks
+        if self.DEV_MODE:
+            return True
+        
         # Check if user dismissed notice today
         last_shown = self.settings.value("last_notice_date", "")
         today = datetime.now().strftime("%Y-%m-%d")
@@ -304,19 +363,29 @@ class BetaManager:
     
     def show_about_beta(self, parent=None):
         """Show beta information in Help menu"""
-        days = self.days_remaining()
-        
         msg_box = QtWidgets.QMessageBox(parent)
-        msg_box.setWindowTitle("Beta Information")
+        msg_box.setWindowTitle("Version Information")
         msg_box.setIcon(QtWidgets.QMessageBox.Information)
         
-        if self.is_expired():
+        if self.DEV_MODE:
+            iteration = self.get_dev_iteration()
+            msg_box.setText(f"NEO Script Editor {self.VERSION}")
+            msg_box.setInformativeText(
+                "Development Mode: Active\n"
+                f"Iteration: {iteration}\n\n"
+                "All beta restrictions are bypassed.\n"
+                "No expiration date.\n\n"
+                "Version auto-increments with each launch.\n"
+                "This is for development and testing purposes only."
+            )
+        elif self.is_expired():
             msg_box.setText("Beta Period Expired")
             msg_box.setInformativeText(
                 f"This beta version expired on {self.BETA_EXPIRY_DATE}.\n\n"
                 "Please contact mayjackass@example.com to upgrade to the full version."
             )
         else:
+            days = self.days_remaining()
             msg_box.setText(f"NEO Script Editor {self.VERSION}")
             msg_box.setInformativeText(
                 f"Beta Status: Active\n"
@@ -351,6 +420,8 @@ class BetaManager:
     
     def get_status_bar_message(self):
         """Get message to show in status bar"""
+        if self.DEV_MODE:
+            return "🔧 Development Mode - No Restrictions"
         if not self.IS_BETA:
             return ""
         if self.is_expired():

@@ -49,6 +49,14 @@ temp_neo_dist/
 temp_verify/
 MARKETPLACE_UPLOAD_GUIDE.md
 
+# Security & Dev Mode (Keep Local)
+license/license_core.py
+license/SECURITY.md
+run_dev.py
+maya_dev_launcher.py
+DEV_MODE.md
+SECURITY_IMPLEMENTATION.md
+
 # Maya
 *.ma
 *.mb
