@@ -54,7 +54,7 @@ Compress-Archive -Path ai_script_editor -DestinationPath NEO_Script_Editor_v3.0_
 
 **Beta Period:** Oct 13, 2025 - Jan 31, 2026
 
-## 🎁 Beta Tester Benefits
+## Beta Tester Benefits
 - Full access to all features for 3.5 months
 - 50% discount on full version after beta
 - Direct influence on development priorities
