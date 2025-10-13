@@ -43,6 +43,12 @@ Thumbs.db
 settings.ini
 config.json
 
+# Distribution
+temp_dist_*/
+temp_neo_dist/
+temp_verify/
+MARKETPLACE_UPLOAD_GUIDE.md
+
 # Maya
 *.ma
 *.mb
