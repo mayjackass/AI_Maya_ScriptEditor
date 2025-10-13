@@ -18,7 +18,6 @@ else:
 try:
     from editor.code_editor import CodeEditor
     from editor.highlighter import PythonHighlighter, MELHighlighter
-    from model.hierarchy import CodeHierarchyModel
     from ui.output_console import OutputConsole
     from ai.chat import AIMorpheus
     from ai.copilot_manager import MorpheusManager
@@ -101,9 +100,6 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         
         # Setup UI using managers
         self._setup_ui_with_managers()
-        
-        # Initialize hierarchy
-        self._init_hierarchy()
         
         # Show beta notice if needed (non-blocking)
         QtCore.QTimer.singleShot(500, lambda: self.beta_manager.show_startup_notice(self))
@@ -348,13 +344,6 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         # Create initial tab
         self.file_manager.new_file()
         
-    def _init_hierarchy(self):
-        """Initialize hierarchy model"""
-        try:
-            self.hierarchy_model = CodeHierarchyModel()
-        except Exception as e:
-            print(f"Hierarchy initialization warning: {e}")
-
     def _show_morpheus_chat(self):
         """Show Morpheus AI chat"""
         if hasattr(self.dock_manager, 'chat_dock') and self.dock_manager.chat_dock:
