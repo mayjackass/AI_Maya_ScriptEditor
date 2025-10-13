@@ -63,6 +63,12 @@ create_distribution_simple.ps1
 create_distribution.ps1
 DISTRIBUTION_GUIDE.md
 
+# Documentation (Keep Local)
+INSTALLATION_GUIDE.md
+INSTALLATION_GUIDE.txt
+QUICKSTART.md
+QUICKSTART.txt
+
 # Maya
 *.ma
 *.mb
