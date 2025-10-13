@@ -788,15 +788,48 @@ DO NOT return all {line_count} lines back - only return the problematic section.
             self.parent.dock_manager.console.append_tagged("ERROR", f"Failed to apply fix: {e}", "#dc3545")
     
     def find_code_to_replace(self, current_code, suggested_code):
-        """Find the best matching code section to replace - optimized for targeted fixes"""
+        """Find the best matching code section to replace - optimized for targeted fixes with context awareness"""
         import difflib
         
         current_lines = current_code.split('\n')
         suggested_lines = suggested_code.split('\n')
         
-        # Strategy 1: Try exact substring match (for small targeted fixes)
+        # Strategy 1: Smart line matching with context (for single-line fixes)
+        if len(suggested_lines) == 1:
+            # Single line fix - need to be smart about which occurrence
+            suggested_line = suggested_lines[0].strip()
+            
+            # Look for lines that are SIMILAR but not exact (the fixed version)
+            best_match_line = -1
+            best_similarity = 0
+            
+            for i, current_line in enumerate(current_lines):
+                # Skip exact matches (we want to find the broken version)
+                if current_line.strip() == suggested_line:
+                    continue
+                
+                # Calculate similarity (looking for "almost the same")
+                similarity = difflib.SequenceMatcher(None, 
+                    current_line.strip(), 
+                    suggested_line).ratio()
+                
+                # If very similar (70-95%), this is likely the broken line
+                if 0.7 <= similarity < 1.0 and similarity > best_similarity:
+                    best_match_line = i
+                    best_similarity = similarity
+            
+            if best_match_line >= 0:
+                # Found the broken line that needs fixing
+                return {
+                    'start_line': best_match_line,
+                    'end_line': best_match_line + 1,
+                    'old_code': current_lines[best_match_line],
+                    'match_quality': best_similarity
+                }
+        
+        # Strategy 2: Try exact substring match (for multi-line targeted fixes)
         suggested_text = suggested_code.strip()
-        if suggested_text in current_code:
+        if len(suggested_lines) > 1 and suggested_text in current_code:
             # Find the position of the exact match
             start_pos = current_code.find(suggested_text)
             lines_before = current_code[:start_pos].count('\n')
@@ -809,7 +842,7 @@ DO NOT return all {line_count} lines back - only return the problematic section.
                 'match_quality': 1.0  # Perfect match
             }
         
-        # Strategy 2: Use difflib to find similar sections (for modified fixes)
+        # Strategy 3: Use difflib to find similar sections (for modified fixes)
         matcher = difflib.SequenceMatcher(None, current_lines, suggested_lines)
         
         # Find the longest matching block
