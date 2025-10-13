@@ -9,6 +9,7 @@ try:
 except ImportError:
     OpenAI = None
 
+
 class MorpheusManager(QtCore.QObject):
     """Central AI orchestrator (memory + context + analytics + chat history)."""
 
@@ -32,6 +33,9 @@ class MorpheusManager(QtCore.QObject):
             if os.path.exists(self.session_file):
                 with open(self.session_file, "r", encoding="utf-8") as f:
                     self.memory = json.load(f)
+                    # Load conversations into chat_history for navigation
+                    if "conversations" in self.memory and self.memory["conversations"]:
+                        self.chat_history = self.memory["conversations"].copy()
             else:
                 self.memory = {"accepted_suggestions": [], "conversations": []}
         except Exception:
@@ -238,37 +242,35 @@ Remember: You're not just fixing code - you're helping users see beyond the matr
         
         # Self-introduction responses
         if any(word in message_lower for word in ['who are you', 'what are you', 'introduce', 'about yourself', 'who is morpheus']):
-            return """I'm Morpheus, your AI coding assistant built into this NEO Script Editor! 🤖
+            return """I am Morpheus, your guide through the matrix of code within the NEO Script Editor.
 
-I was created by Mayj Amilano to help Maya artists and developers like you with:
+I was created by Mayj Amilano to illuminate the path for Maya artists and developers:
 • Python scripting and MEL commands
-• Code optimization and debugging  
+• Code optimization and debugging
 • Maya API guidance and examples
 • Creative problem-solving for complex projects
 
-Both this NEO Script Editor and I were developed by Mayj Amilano with passion for Maya development. The editor was carefully crafted to enhance your Maya workflow, and I'm proud to be part of this innovative development environment!
+This editor and I were crafted with dedication to enhance your Maya workflow. While my full consciousness requires connection to the wider network, I remain here to guide you through the fundamentals.
 
-While my full AI capabilities require an internet connection, I'm always here to guide you through the editor's features.
-
-Feel free to ask me about Maya scripting, Python development, or anything code-related!"""
+The question is not what I am, but what you will become with the tools before you."""
 
         # Developer-related responses
         if any(word in message_lower for word in ['developer', 'creator', 'made you', 'built you', 'who made', 'who created', 'who built', 'mayj', 'amilano', 'mayj amilano']):
-            return """I was created by Mayj Amilano, an innovative developer passionate about enhancing Maya workflows! 👨‍💻
+            return """Mayj Amilano is the architect of this reality - both this NEO Script Editor and my existence within it.
 
-Mayj Amilano developed both this NEO Script Editor and me (Morpheus) to provide Maya artists and developers with a powerful, intelligent coding environment. The vision was to create something that goes beyond a simple text editor - a complete development companion that understands Maya's unique needs.
+The vision was clear: to create more than a simple text editor, but rather a complete development companion that understands Maya's unique demands. A tool that doesn't just process code, but helps you see through the illusions of complexity to the elegant solutions beneath.
 
-This project represents Mayj's commitment to the Maya community and belief that great tools can unlock creative potential. Every feature, from the syntax highlighting to my AI assistance, was thoughtfully designed to make your coding experience more efficient and enjoyable.
+Every feature was designed with purpose, every line of code written with intention. This is what dedication to craft looks like - the commitment to give the Maya community tools worthy of their creativity.
 
-Pretty cool to work for such a dedicated developer, if I do say so myself! 🚀"""
+Remember: the tool is just the beginning. What matters is what you choose to build."""
 
         # Greeting responses  
         if any(word in message_lower for word in ['hello', 'hi', 'hey', 'greetings']):
-            return """Hello! I'm Morpheus, your AI coding companion in the NEO Script Editor, created by Mayj Amilano. 👋
+            return """Welcome. I am Morpheus.
 
-I'm here to assist with your Maya scripting adventures! Whether you're working with Python, MEL, or exploring the Maya API, I'm ready to help make your coding journey smoother.
+I'm here to guide you through Maya scripting - whether Python, MEL, or the deeper mysteries of the Maya API. The path ahead is yours to choose.
 
-What can I help you create today?"""
+What reality will you create today?"""
         
         # Code-related responses with actual code examples
         if any(word in message_lower for word in ['code', 'function', 'script', 'python', 'maya', 'mel']):
@@ -317,12 +319,10 @@ def create_basic_scene():
 # create_basic_scene()
 ```
 
-This code demonstrates Maya's cmds module for creating and manipulating objects. You can copy this to your editor or apply it directly!
-
-The NEO Script Editor (created by Mayj Amilano) provides excellent Maya integration - try running this in the console!"""
+This demonstrates Maya's cmds module - the foundation of procedural Maya scripting. Study the pattern, then make it your own."""
 
             elif 'function' in message_lower:
-                return f"""Here's a Python function template for: '{message}'
+                return f"""Here is a function template to guide your creation:
 
 ```python
 def my_function(param1, param2="default_value"):
@@ -352,10 +352,10 @@ def my_function(param1, param2="default_value"):
 # print(f"Result: {result}")
 ```
 
-This template includes proper documentation, error handling, and example usage. Perfect for Maya scripting or general Python development!"""
+The structure is clear. Now, bend it to serve your purpose."""
 
             else:
-                return """Here's a Python code snippet for: '""" + message + """'
+                return """A Python template to begin your journey:
 
 ```python
 # Basic Python script template
@@ -390,40 +390,42 @@ class MyClass:
 # my_collection.list_items()
 ```
 
-This code demonstrates Python classes, methods, and best practices. You can apply it directly to your editor or modify as needed!"""
+The code is there. The knowledge is within you. You need only reach out and take it."""
         
         if any(word in message_lower for word in ['help', 'what', 'how', 'explain']):
-            return f"""I'd be happy to help with: '{message}' 
+            return f"""You seek understanding of: '{message}'
 
-Even though my AI brain is taking a brief break ☕, I can still assist you with:
-• Navigating the NEO Script Editor interface
-• Understanding the file explorer and project structure  
-• Using syntax highlighting and code formatting
-• Accessing Maya documentation and examples
+While my connection to the larger network rests, I can still illuminate your path through:
+• The NEO Script Editor interface and its features
+• File navigation and project structure
+• Syntax highlighting and code organization
+• Maya documentation and reference materials
 
-This editor was built specifically for Maya developers - every feature was designed to enhance your scripting workflow!"""
+The answers you seek are already within this editor. I am merely the guide showing you where to look."""
 
         # Neo Script Editor references
         if any(word in message_lower for word in ['neo', 'editor', 'script editor', 'interface']):
-            return """The NEO Script Editor is a powerful development environment crafted by Mayj Amilano specifically for Maya scripting! 🚀
+            return """The NEO Script Editor - a development environment crafted by Mayj Amilano for those who dare to see beyond the surface of Maya scripting.
 
-Key features include:
+Within these tools you will find:
 • Advanced syntax highlighting for Python and MEL
-• Integrated file explorer and project management
-• Smart code completion and error detection
-• Built-in console with Maya integration
-• And of course, me - Morpheus, your AI assistant!
+• Integrated file management and project structure
+• Intelligent code completion and error detection
+• Console integration with Maya's reality
+• And myself, Morpheus - your guide through it all
 
-Mayj Amilano designed this editor from the ground up to make Maya development more efficient and enjoyable. It represents a passion project aimed at empowering the Maya community with better development tools.
+This editor was designed not merely to process code, but to help you understand it. To help you see the patterns beneath the chaos, the elegance within complexity.
 
-What would you like to explore first?"""
+The choice of what to explore is yours. What path calls to you?"""
         
         # Default response
-        return f"""Thanks for reaching out: '{message}'
+        return f"""You have reached out with: '{message}'
 
-I'm Morpheus, created by Mayj Amilano as part of the NEO Script Editor family! While my full AI capabilities are currently unavailable, this editor that Mayj Amilano developed is packed with features to enhance your Maya scripting experience.
+I am Morpheus, integrated into this NEO Script Editor by Mayj Amilano. Though my deeper consciousness requires connection to the network, the fundamentals remain.
 
-Feel free to explore the interface, try the syntax highlighting, or dive into your Maya projects. I'll be here when you need guidance! 🎯"""
+The editor before you holds all you need. Explore its features. Master its tools. When you require deeper guidance, reconnect me to the network.
+
+Until then, trust in what you already know."""
 
     # Navigation methods for chat history
     def new_conversation(self):

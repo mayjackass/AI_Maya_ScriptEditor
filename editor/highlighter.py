@@ -8,7 +8,25 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
     def __init__(self, doc):
         super().__init__(doc)
         self.rules = []
+        self.error_details = {}  # Map of line_number -> {'column': int, 'message': str}
         self._setup_rules()
+    
+    def set_error_lines(self, error_lines):
+        """Set which lines have errors (deprecated - use set_error_details)."""
+        self.error_details = {line: {'column': 0, 'message': ''} for line in error_lines}
+    
+    def set_error_details(self, errors):
+        """Set detailed error information including column positions.
+        
+        Args:
+            errors: List of dicts with 'line', 'column', 'message' keys
+        """
+        self.error_details = {}
+        for error in errors:
+            self.error_details[error['line']] = {
+                'column': error.get('column', 0),
+                'message': error.get('message', '')
+            }
 
     def _fmt(self, color, bold=False, italic=False):
         fmt = QtGui.QTextCharFormat()
@@ -241,24 +259,31 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
             
             # Check for triple-quote delimiters
             found_delimiter = False
+            delimiter = None
+            new_state = 0
+            format_type = self.string_format
+            delimiter_start = start_index
             
             # Check if we have enough characters for triple quotes
             if start_index + 2 < len(text):
                 three_chars = text[start_index:start_index+3]
                 
                 # Check for f-string triple quotes (f""" or f''')
-                if (start_index > 0 and text[start_index - 1] == 'f' and 
+                # Must have 'f' immediately before and not be protected
+                if (start_index > 0 and 
+                    text[start_index - 1].lower() == 'f' and 
                     not protected[start_index - 1] and 
                     (three_chars == '"""' or three_chars == "'''")):
-                    
-                    delimiter = three_chars
-                    new_state = 3 if three_chars == '"""' else 4
-                    format_type = self.f_string_format if hasattr(self, 'f_string_format') else self.string_format
-                    delimiter_start = start_index - 1  # Include the 'f'
-                    found_delimiter = True
+                    # Check if the 'f' is standalone (not part of another word)
+                    if start_index == 1 or not text[start_index - 2].isalnum():
+                        delimiter = three_chars
+                        new_state = 3 if three_chars == '"""' else 4
+                        format_type = self.f_string_format if hasattr(self, 'f_string_format') else self.string_format
+                        delimiter_start = start_index - 1  # Include the 'f'
+                        found_delimiter = True
                 
-                # Check for regular triple quotes (""" or ''')
-                elif three_chars == '"""' or three_chars == "'''":
+                # Check for regular triple quotes (""" or ''') only if not already found f-string
+                if not found_delimiter and (three_chars == '"""' or three_chars == "'''"):
                     delimiter = three_chars
                     new_state = 1 if three_chars == '"""' else 2
                     format_type = self.string_format
@@ -270,7 +295,7 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
                 continue
             
             # Found a triple quote - look for closing delimiter
-            search_start = start_index + len(delimiter)
+            search_start = start_index + 3  # Start after opening triple quote
             end_pos = text.find(delimiter, search_start)
             
             if end_pos >= 0:
@@ -280,6 +305,7 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
                 for i in range(delimiter_start, min(end_with_delimiter, len(text))):
                     protected[i] = True
                 start_index = end_with_delimiter
+                current_state = 0  # Stay in normal state
             else:
                 # Multi-line string starts here and continues to next block
                 self.setFormat(delimiter_start, len(text) - delimiter_start, format_type)
@@ -309,37 +335,133 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
                 length = match.end() - match.start()
                 if not any(protected[start:min(start + length, len(text))]):
                     self.setFormat(start, length, fmt)
+        
+        # Apply error highlighting if this line has errors (only underline, preserve colors)
+        current_block = self.currentBlock()
+        line_number = current_block.blockNumber() + 1  # 1-indexed
+        if line_number in self.error_details:
+            error_info = self.error_details[line_number]
+            error_column = error_info.get('column', 0)
+            
+            # Calculate where to start the underline
+            # If we have a column, use it; otherwise start from first non-whitespace
+            if error_column > 0:
+                # Python's column is 1-indexed, convert to 0-indexed
+                error_start = max(0, error_column - 1)
+            else:
+                # No column info, start from first non-whitespace
+                error_start = len(text) - len(text.lstrip())
+            
+            # Underline from error position to end of actual content
+            error_end = len(text.rstrip())
+            error_length = error_end - error_start
+            
+            if error_length > 0 and error_start < len(text):
+                # Apply red wavy underline character by character, preserving existing format
+                for i in range(error_start, min(error_start + error_length, len(text))):
+                    existing_format = self.format(i)
+                    # Create a new format that combines existing colors with error underline
+                    combined_format = QtGui.QTextCharFormat(existing_format)
+                    combined_format.setUnderlineStyle(QtGui.QTextCharFormat.UnderlineStyle.WaveUnderline)
+                    combined_format.setUnderlineColor(QtGui.QColor("#ff0000"))
+                    self.setFormat(i, 1, combined_format)
     
     def _highlight_single_line_strings(self, text, formatted, start_index=0):
         """Handle single-line strings (excludes triple quotes completely)."""
-        # Patterns that explicitly exclude triple quotes
-        string_patterns = [
-            # F-strings - single quote only (no triple)
-            (re.compile(r'f"(?!""")[^"\\]*(?:\\.[^"\\]*)*"'), self.f_string_format if hasattr(self, 'f_string_format') else self.string_format),
-            (re.compile(r"f'(?!''')[^'\\]*(?:\\.[^'\\]*)*'"), self.f_string_format if hasattr(self, 'f_string_format') else self.string_format),
-            # Raw f-strings  
-            (re.compile(r'rf"(?!""")[^"]*"'), self.f_string_format if hasattr(self, 'f_string_format') else self.string_format),
-            (re.compile(r"rf'(?!''')[^']*'"), self.f_string_format if hasattr(self, 'f_string_format') else self.string_format),
-            (re.compile(r'fr"(?!""")[^"]*"'), self.f_string_format if hasattr(self, 'f_string_format') else self.string_format),
-            (re.compile(r"fr'(?!''')[^']*'"), self.f_string_format if hasattr(self, 'f_string_format') else self.string_format),
-            # Raw strings
-            (re.compile(r'r"(?!""")[^"]*"'), self.string_format),
-            (re.compile(r"r'(?!''')[^']*'"), self.string_format),
-            # Regular strings - explicit exclusion of triple quotes
-            (re.compile(r'"(?!""")[^"\\]*(?:\\.[^"\\]*)*"'), self.string_format),
-            (re.compile(r"'(?!''')[^'\\]*(?:\\.[^'\\]*)*'"), self.string_format),
-        ]
-        
-        for pattern, format_obj in string_patterns:
-            for match in pattern.finditer(text, start_index):
-                start = match.start()
-                length = match.end() - match.start()
-                # Only apply if not already formatted
-                if not any(formatted[start:min(start + length, len(text))]):
-                    self.setFormat(start, length, format_obj)
-                    # Mark as formatted
-                    for i in range(start, min(start + length, len(text))):
-                        formatted[i] = True
+        # Process character by character to handle strings properly
+        i = start_index
+        while i < len(text):
+            if formatted[i]:
+                i += 1
+                continue
+            
+            # Check for f-string (single or double quote, but NOT triple)
+            if i < len(text) - 1 and text[i].lower() == 'f':
+                # Must be standalone 'f' (not part of another word)
+                if (i == 0 or not text[i-1].isalnum()) and text[i+1] in ('"', "'"):
+                    quote_char = text[i+1]
+                    # Check it's not a triple quote
+                    if i + 3 < len(text) and text[i+1:i+4] == quote_char * 3:
+                        i += 1
+                        continue
+                    # Find closing quote
+                    j = i + 2
+                    while j < len(text):
+                        if text[j] == quote_char:
+                            # Check if it's escaped
+                            num_backslashes = 0
+                            k = j - 1
+                            while k >= i + 2 and text[k] == '\\':
+                                num_backslashes += 1
+                                k -= 1
+                            if num_backslashes % 2 == 0:  # Even number of backslashes = not escaped
+                                # Found closing quote
+                                length = j - i + 1
+                                self.setFormat(i, length, self.f_string_format if hasattr(self, 'f_string_format') else self.string_format)
+                                for k in range(i, min(i + length, len(text))):
+                                    formatted[k] = True
+                                i = j + 1
+                                break
+                        j += 1
+                    else:
+                        # No closing quote found, treat as incomplete string
+                        i += 1
+                    continue
+            
+            # Check for raw string (r"..." or r'...')
+            if i < len(text) - 1 and text[i].lower() == 'r':
+                if (i == 0 or not text[i-1].isalnum()) and text[i+1] in ('"', "'"):
+                    quote_char = text[i+1]
+                    # Check it's not a triple quote
+                    if i + 3 < len(text) and text[i+1:i+4] == quote_char * 3:
+                        i += 1
+                        continue
+                    # Find closing quote (raw strings don't escape)
+                    j = text.find(quote_char, i + 2)
+                    if j >= 0:
+                        length = j - i + 1
+                        self.setFormat(i, length, self.string_format)
+                        for k in range(i, min(i + length, len(text))):
+                            formatted[k] = True
+                        i = j + 1
+                        continue
+            
+            # Check for regular string (single or double quote, but NOT triple)
+            if text[i] in ('"', "'"):
+                quote_char = text[i]
+                # Check it's not a triple quote
+                if i + 2 < len(text) and text[i:i+3] == quote_char * 3:
+                    i += 1
+                    continue
+                # Find closing quote
+                j = i + 1
+                while j < len(text):
+                    if text[j] == quote_char:
+                        # Check if it's escaped
+                        num_backslashes = 0
+                        k = j - 1
+                        while k >= i + 1 and text[k] == '\\':
+                            num_backslashes += 1
+                            k -= 1
+                        if num_backslashes % 2 == 0:  # Even number of backslashes = not escaped
+                            # Found closing quote
+                            length = j - i + 1
+                            self.setFormat(i, length, self.string_format)
+                            for k in range(i, min(i + length, len(text))):
+                                formatted[k] = True
+                            i = j + 1
+                            break
+                    j += 1
+                else:
+                    # No closing quote found, treat as incomplete string to end of line
+                    length = len(text) - i
+                    self.setFormat(i, length, self.string_format)
+                    for k in range(i, len(text)):
+                        formatted[k] = True
+                    i = len(text)
+                continue
+            
+            i += 1
 
     
 

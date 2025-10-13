@@ -96,12 +96,12 @@ class MenuManager:
         
         edit_menu.addSeparator()
         
-        find_action = QtGui.QAction("🔍 &Find", self.parent)
+        find_action = QtGui.QAction("&Find", self.parent)
         find_action.setShortcut("Ctrl+F")
         find_action.triggered.connect(lambda: self.parent.find_replace_manager.show_find())
         edit_menu.addAction(find_action)
         
-        replace_action = QtGui.QAction("🔄 &Replace", self.parent)
+        replace_action = QtGui.QAction("&Replace", self.parent)
         replace_action.setShortcut("Ctrl+H")
         replace_action.triggered.connect(lambda: self.parent.find_replace_manager.show_replace())
         edit_menu.addAction(replace_action)
@@ -120,7 +120,7 @@ class MenuManager:
         view_menu = menubar.addMenu("&View")
         
         # Add dock panel visibility toggles
-        self.toggle_explorer_action = QtGui.QAction("📁 Explorer", self.parent)
+        self.toggle_explorer_action = QtGui.QAction("Explorer", self.parent)
         self.toggle_explorer_action.setCheckable(True)
         self.toggle_explorer_action.setChecked(True)
         self.toggle_explorer_action.setShortcut("Ctrl+Shift+E")
@@ -134,21 +134,21 @@ class MenuManager:
             morpheus_icon = QtGui.QIcon(morpheus_icon_path)
             self.toggle_morpheus_action = QtGui.QAction(morpheus_icon, "Morpheus AI Chat", self.parent)
         else:
-            self.toggle_morpheus_action = QtGui.QAction("🤖 Morpheus AI Chat", self.parent)
+            self.toggle_morpheus_action = QtGui.QAction("Morpheus AI Chat", self.parent)
         self.toggle_morpheus_action.setCheckable(True)
         self.toggle_morpheus_action.setChecked(True)
         self.toggle_morpheus_action.setShortcut("Ctrl+Shift+M")
         self.toggle_morpheus_action.triggered.connect(lambda: self.parent.dock_manager.toggle_dock("MorpheusDock"))
         view_menu.addAction(self.toggle_morpheus_action)
         
-        self.toggle_console_action = QtGui.QAction("📟 Output Console", self.parent)
+        self.toggle_console_action = QtGui.QAction("Output Console", self.parent)
         self.toggle_console_action.setCheckable(True)
         self.toggle_console_action.setChecked(True)
         self.toggle_console_action.setShortcut("Ctrl+Shift+C")
         self.toggle_console_action.triggered.connect(lambda: self.parent.dock_manager.toggle_dock("ConsoleDock"))
         view_menu.addAction(self.toggle_console_action)
         
-        self.toggle_problems_action = QtGui.QAction("⚠️ Problems", self.parent)
+        self.toggle_problems_action = QtGui.QAction("Problems", self.parent)
         self.toggle_problems_action.setCheckable(True)
         self.toggle_problems_action.setChecked(True)
         self.toggle_problems_action.setShortcut("Ctrl+Shift+U")
@@ -158,12 +158,12 @@ class MenuManager:
         view_menu.addSeparator()
         
         # Add "Hide All Panels" and "Show All Panels" options
-        hide_all_action = QtGui.QAction("🙈 Hide All Panels", self.parent)
+        hide_all_action = QtGui.QAction("Hide All Panels", self.parent)
         hide_all_action.setShortcut("Ctrl+Shift+H")
         hide_all_action.triggered.connect(lambda: self.parent.dock_manager.hide_all_panels())
         view_menu.addAction(hide_all_action)
         
-        show_all_action = QtGui.QAction("👁️ Show All Panels", self.parent)
+        show_all_action = QtGui.QAction("Show All Panels", self.parent)
         show_all_action.setShortcut("Ctrl+Shift+A")
         show_all_action.triggered.connect(lambda: self.parent.dock_manager.show_all_panels())
         view_menu.addAction(show_all_action)
@@ -172,7 +172,7 @@ class MenuManager:
         tools_menu = menubar.addMenu("&Tools")
         
         # Settings menu item
-        settings_action = QtGui.QAction("⚙️ &Settings", self.parent)
+        settings_action = QtGui.QAction("&Settings", self.parent)
         settings_action.triggered.connect(lambda: self.parent.chat_manager.show_settings_dialog())
         tools_menu.addAction(settings_action)
         
@@ -190,6 +190,22 @@ class MenuManager:
         
         # Help Menu
         help_menu = menubar.addMenu("&Help")
+        
+        beta_info_action = QtGui.QAction("Beta Information", self.parent)
+        beta_info_action.triggered.connect(self._show_beta_info)
+        help_menu.addAction(beta_info_action)
+        
+        help_menu.addSeparator()
+        
+        docs_action = QtGui.QAction("&Documentation", self.parent)
+        docs_action.triggered.connect(self._open_documentation)
+        help_menu.addAction(docs_action)
+        
+        github_action = QtGui.QAction("&GitHub Repository", self.parent)
+        github_action.triggered.connect(self._open_github)
+        help_menu.addAction(github_action)
+        
+        help_menu.addSeparator()
         
         about_action = QtGui.QAction("&About", self.parent)
         about_action.triggered.connect(self._show_about)
@@ -253,20 +269,296 @@ class MenuManager:
                 print(f"Execution error: {e}")
     
     # Help menu actions
+    def _show_beta_info(self):
+        """Show beta information dialog"""
+        if hasattr(self.parent, 'beta_manager'):
+            self.parent.beta_manager.show_about_beta(self.parent)
+    
+    def _open_documentation(self):
+        """Open documentation URL"""
+        import webbrowser
+        webbrowser.open("https://github.com/mayjackass/AI_Maya_ScriptEditor#readme")
+    
+    def _open_github(self):
+        """Open GitHub repository"""
+        import webbrowser
+        webbrowser.open("https://github.com/mayjackass/AI_Maya_ScriptEditor")
+    
     def _show_about(self):
-        """Show about dialog"""
-        QtWidgets.QMessageBox.about(self.parent, "About NEO Script Editor", 
-            """[NEO] Script Editor v2.2 - Complete Modular Edition
+        """Show enhanced about dialog"""
+        dialog = QtWidgets.QDialog(self.parent)
+        dialog.setWindowTitle("About NEO Script Editor")
+        dialog.setMinimumSize(600, 700)
+        dialog.setMaximumSize(600, 700)
+        
+        # Apply Matrix theme styling
+        dialog.setStyleSheet("""
+            QDialog {
+                background: #000000;
+                color: #ffffff;
+            }
+            QLabel {
+                color: #ffffff;
+            }
+            QPushButton {
+                background: #00ff41;
+                border: 1px solid #00ff41;
+                color: #000000;
+                padding: 8px 24px;
+                border-radius: 6px;
+                font-weight: 600;
+                font-size: 13px;
+                min-width: 100px;
+            }
+            QPushButton:hover {
+                background: #00cc33;
+                border: 1px solid #00cc33;
+            }
+            QTextBrowser {
+                background: #000000;
+                border: 1px solid #00ff41;
+                border-radius: 6px;
+                color: #ffffff;
+                padding: 12px;
+            }
+            QTextBrowser QScrollBar:vertical {
+                background: #000000;
+                border: 1px solid #00ff41;
+                width: 12px;
+                border-radius: 6px;
+            }
+            QTextBrowser QScrollBar::handle:vertical {
+                background: #00ff41;
+                border-radius: 5px;
+                min-height: 20px;
+            }
+            QTextBrowser QScrollBar::handle:vertical:hover {
+                background: #00cc33;
+            }
+            QTextBrowser QScrollBar::add-line:vertical,
+            QTextBrowser QScrollBar::sub-line:vertical {
+                background: none;
+                border: none;
+            }
+            QTextBrowser QScrollBar::add-page:vertical,
+            QTextBrowser QScrollBar::sub-page:vertical {
+                background: #000000;
+            }
+        """)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.setSpacing(16)
+        layout.setContentsMargins(30, 30, 30, 30)
+        
+        # Logo/Title Section
+        titleLayout = QtWidgets.QVBoxLayout()
+        titleLayout.setSpacing(8)
+        
+        # Title
+        titleLabel = QtWidgets.QLabel("⚡ NEO Script Editor")
+        titleLabel.setStyleSheet("""
+            font-size: 32px;
+            font-weight: bold;
+            color: #00ff41;
+            letter-spacing: 1px;
+        """)
+        titleLabel.setAlignment(QtCore.Qt.AlignCenter)
+        
+        # Version
+        versionLabel = QtWidgets.QLabel("Version 3.0 Beta • Testing Release")
+        versionLabel.setStyleSheet("""
+            font-size: 14px;
+            color: #00ff41;
+            font-weight: 600;
+        """)
+        versionLabel.setAlignment(QtCore.Qt.AlignCenter)
+        
+        # Tagline
+        taglineLabel = QtWidgets.QLabel("AI-Powered Maya Script Editor with VSCode-Style Features")
+        taglineLabel.setStyleSheet("""
+            font-size: 13px;
+            color: #888888;
+            font-style: italic;
+            margin-top: 4px;
+        """)
+        taglineLabel.setAlignment(QtCore.Qt.AlignCenter)
+        
+        # Beta warning
+        betaWarningLabel = QtWidgets.QLabel("⚠️ BETA RELEASE - For Testing Purposes Only")
+        betaWarningLabel.setStyleSheet("""
+            font-size: 12px;
+            color: #00ff41;
+            font-weight: 600;
+            background: rgba(0, 255, 65, 0.1);
+            border: 1px solid #00ff41;
+            border-radius: 4px;
+            padding: 6px 12px;
+            margin-top: 8px;
+        """)
+        betaWarningLabel.setAlignment(QtCore.Qt.AlignCenter)
+        
+        titleLayout.addWidget(titleLabel)
+        titleLayout.addWidget(versionLabel)
+        titleLayout.addWidget(taglineLabel)
+        titleLayout.addWidget(betaWarningLabel)
+        layout.addLayout(titleLayout)
+        
+        # Separator
+        separator1 = QtWidgets.QFrame()
+        separator1.setFrameShape(QtWidgets.QFrame.HLine)
+        separator1.setStyleSheet("background: #00ff41; max-height: 1px;")
+        layout.addWidget(separator1)
+        
+        # Author Section
+        authorLayout = QtWidgets.QVBoxLayout()
+        authorLayout.setSpacing(4)
+        
+        authorTitleLabel = QtWidgets.QLabel("DEVELOPED BY")
+        authorTitleLabel.setStyleSheet("""
+            font-size: 11px;
+            color: #00ff41;
+            font-weight: 600;
+            letter-spacing: 1px;
+        """)
+        authorTitleLabel.setAlignment(QtCore.Qt.AlignCenter)
+        
+        authorNameLabel = QtWidgets.QLabel("Mayj Amilano")
+        authorNameLabel.setStyleSheet("""
+            font-size: 18px;
+            color: #ffffff;
+            font-weight: 600;
+        """)
+        authorNameLabel.setAlignment(QtCore.Qt.AlignCenter)
+        
+        authorHandleLabel = QtWidgets.QLabel("(@mayjackass)")
+        authorHandleLabel.setStyleSheet("""
+            font-size: 13px;
+            color: #888888;
+            font-weight: 400;
+        """)
+        authorHandleLabel.setAlignment(QtCore.Qt.AlignCenter)
+        
+        githubLabel = QtWidgets.QLabel('🔗 <a href="https://github.com/mayjackass" style="color: #00ff41; text-decoration: none;">github.com/mayjackass</a>')
+        githubLabel.setStyleSheet("font-size: 12px;")
+        githubLabel.setAlignment(QtCore.Qt.AlignCenter)
+        githubLabel.setOpenExternalLinks(True)
+        
+        copyrightLabel = QtWidgets.QLabel("© 2025 • All Rights Reserved")
+        copyrightLabel.setStyleSheet("""
+            font-size: 11px;
+            color: #888888;
+            margin-top: 4px;
+        """)
+        copyrightLabel.setAlignment(QtCore.Qt.AlignCenter)
+        
+        authorLayout.addWidget(authorTitleLabel)
+        authorLayout.addWidget(authorNameLabel)
+        authorLayout.addWidget(authorHandleLabel)
+        authorLayout.addWidget(githubLabel)
+        authorLayout.addWidget(copyrightLabel)
+        layout.addLayout(authorLayout)
+        
+        # Separator
+        separator2 = QtWidgets.QFrame()
+        separator2.setFrameShape(QtWidgets.QFrame.HLine)
+        separator2.setStyleSheet("background: #00ff41; max-height: 1px;")
+        layout.addWidget(separator2)
+        
+        # Features Section
+        featuresLabel = QtWidgets.QLabel("KEY FEATURES")
+        featuresLabel.setStyleSheet("""
+            font-size: 11px;
+            color: #00ff41;
+            font-weight: 600;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        """)
+        layout.addWidget(featuresLabel)
+        
+        # Features list
+        featuresBrowser = QtWidgets.QTextBrowser()
+        featuresBrowser.setMaximumHeight(220)
+        featuresBrowser.setOpenExternalLinks(False)
+        
+        featuresBrowser.setHtml("""
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #000000; }
+                .feature { margin-bottom: 8px; line-height: 1.6; }
+                .feature-title { color: #00ff41; font-weight: 600; }
+                .text { color: #ffffff; font-size: 12px; }
+            </style>
+            <div class="feature">
+                <span class="feature-title">Morpheus AI</span> — 
+                <span class="text">Integrated AI assistant with OpenAI & Claude support, auto-context detection</span>
+            </div>
+            <div class="feature">
+                <span class="feature-title">VSCode-Style Editor</span> — 
+                <span class="text">Advanced syntax highlighting, autocomplete, inline diff preview</span>
+            </div>
+            <div class="feature">
+                <span class="feature-title">Real-Time Analysis</span> — 
+                <span class="text">Multi-pass error detection (up to 10 errors), instant syntax validation</span>
+            </div>
+            <div class="feature">
+                <span class="feature-title">Smart Code Matching</span> — 
+                <span class="text">Intelligent code replacement with visual diff preview</span>
+            </div>
+            <div class="feature">
+                <span class="feature-title">Python & MEL</span> — 
+                <span class="text">Dual language support with tab icons and language-specific features</span>
+            </div>
+            <div class="feature">
+                <span class="feature-title">Problems Panel</span> — 
+                <span class="text">Tab-focused error tracking, column-based error positioning</span>
+            </div>
+            <div class="feature">
+                <span class="feature-title">Modern UI</span> — 
+                <span class="text">Dark theme, customizable docks, clean GitHub-style interface</span>
+            </div>
+            <div class="feature">
+                <span class="feature-title">High Performance</span> — 
+                <span class="text">Optimized text rendering, lag-free typing, efficient syntax parsing</span>
+            </div>
+        """)
+        layout.addWidget(featuresBrowser)
+        
+        # Separator
+        separator3 = QtWidgets.QFrame()
+        separator3.setFrameShape(QtWidgets.QFrame.HLine)
+        separator3.setStyleSheet("background: #00ff41; max-height: 1px;")
+        layout.addWidget(separator3)
+        
+        # Tech Stack
+        techLabel = QtWidgets.QLabel("BUILT WITH")
+        techLabel.setStyleSheet("""
+            font-size: 11px;
+            color: #00ff41;
+            font-weight: 600;
+            letter-spacing: 1px;
+        """)
+        layout.addWidget(techLabel)
+        
+        techStackLabel = QtWidgets.QLabel("Python 3.9+ • PySide6/Qt • OpenAI API • Anthropic Claude • difflib")
+        techStackLabel.setStyleSheet("""
+            font-size: 12px;
+            color: #888888;
+            margin-bottom: 8px;
+        """)
+        techStackLabel.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(techStackLabel)
+        
+        # Close button
+        buttonLayout = QtWidgets.QHBoxLayout()
+        buttonLayout.addStretch()
+        
+        closeBtn = QtWidgets.QPushButton("Close")
+        closeBtn.clicked.connect(dialog.accept)
+        closeBtn.setCursor(QtCore.Qt.PointingHandCursor)
+        
+        buttonLayout.addWidget(closeBtn)
+        buttonLayout.addStretch()
+        layout.addLayout(buttonLayout)
+        
+        # Show dialog
+        dialog.exec()
 
-[*] Features:
-• Complete modular architecture with ALL original features
-• Enhanced syntax highlighting with PySide6/Qt support  
-• Real-time error detection with VSCode-style indicators
-• Comprehensive Maya Python API integration
-• Morpheus AI chat integration with OpenAI & Claude
-• Advanced code editor with VS Code-style find/replace
-• All dock widgets: Console, Problems, Explorer, Morpheus Chat
-• Complete menu system with all functionality
-• Clean, optimized, and maintainable codebase
-
-[SUCCESS] All functionalities preserved with clean, modular design!""")

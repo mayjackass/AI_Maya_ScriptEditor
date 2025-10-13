@@ -79,6 +79,14 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         # Connect text changed signal for real-time error checking
         self.textChanged.connect(self._on_text_changed)
         
+        # Autocomplete setup
+        self.completer = None
+        self._setup_autocomplete()
+        
+        # Inline diff manager for VSCode-style code replacements
+        from .inline_diff import InlineDiffManager
+        self.inline_diff_manager = InlineDiffManager(self)
+        
         # Enhanced line number area
         self.line_number_area = _LineNumberArea(self)
         self.line_number_area.show()  # Ensure it's visible
@@ -103,6 +111,10 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             
         if self.language == "python":
             self.highlighter = PythonHighlighter(self.document())
+            # Pass error lines to highlighter
+            if hasattr(self, 'syntax_errors'):
+                error_lines = {e['line'] for e in self.syntax_errors}
+                self.highlighter.set_error_lines(error_lines)
         elif self.language == "mel":
             self.highlighter = MELHighlighter(self.document())
         else:
@@ -110,6 +122,126 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             
         # Trigger immediate syntax check
         self._check_syntax_errors()
+    
+    def get_language(self):
+        """Get current language setting."""
+        return self.language
+    
+    def _setup_autocomplete(self):
+        """Setup autocomplete with Python/MEL keywords and common functions."""
+        # Python keywords and built-ins
+        python_completions = [
+            # Keywords
+            'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await',
+            'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except',
+            'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is',
+            'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return',
+            'try', 'while', 'with', 'yield',
+            # Common built-in functions
+            'print', 'input', 'len', 'range', 'str', 'int', 'float', 'list',
+            'dict', 'set', 'tuple', 'bool', 'type', 'isinstance', 'issubclass',
+            'open', 'read', 'write', 'close', 'enumerate', 'zip', 'map', 'filter',
+            'sorted', 'reversed', 'sum', 'min', 'max', 'abs', 'round', 'pow',
+            'all', 'any', 'dir', 'help', 'vars', 'locals', 'globals',
+            # Common modules
+            'os', 'sys', 'math', 'random', 'datetime', 'json', 'csv', 're',
+            'collections', 'itertools', 'functools', 'pathlib', 'argparse',
+            # PySide6/Qt
+            'QtCore', 'QtGui', 'QtWidgets', 'QApplication', 'QWidget', 'QMainWindow',
+            'QPushButton', 'QLabel', 'QLineEdit', 'QTextEdit', 'QVBoxLayout', 'QHBoxLayout',
+            # Maya commands (if available)
+            'cmds', 'mel', 'pm', 'pymel', 'polySphere', 'polyCube', 'select', 'ls',
+            'createNode', 'setAttr', 'getAttr', 'delete', 'duplicate', 'parent',
+        ]
+        
+        # MEL commands
+        mel_completions = [
+            'print', 'string', 'int', 'float', 'vector', 'matrix',
+            'polySphere', 'polyCube', 'polyCylinder', 'polyPlane',
+            'select', 'ls', 'delete', 'duplicate', 'parent', 'createNode',
+            'setAttr', 'getAttr', 'connectAttr', 'disconnectAttr',
+            'xform', 'move', 'rotate', 'scale', 'group', 'instance',
+            'file', 'newFile', 'openFile', 'saveFile', 'importFile',
+        ]
+        
+        # Create completer
+        self.python_model = QtCore.QStringListModel(python_completions)
+        self.mel_model = QtCore.QStringListModel(mel_completions)
+        
+        self.completer = QtWidgets.QCompleter(self.python_model, self)
+        self.completer.setWidget(self)
+        self.completer.setCompletionMode(QtWidgets.QCompleter.CompletionMode.PopupCompletion)
+        self.completer.setCaseSensitivity(QtCore.Qt.CaseSensitivity.CaseInsensitive)
+        self.completer.activated.connect(self._insert_completion)
+        
+        # Style the popup to match VSCode dark theme
+        popup = self.completer.popup()
+        popup.setStyleSheet("""
+            QListView {
+                background-color: #252526;
+                color: #cccccc;
+                border: 1px solid #454545;
+                selection-background-color: #094771;
+                selection-color: #ffffff;
+                font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+                font-size: 10pt;
+                padding: 2px;
+            }
+            QListView::item {
+                padding: 4px 8px;
+                border: none;
+            }
+            QListView::item:hover {
+                background-color: #2a2d2e;
+            }
+        """)
+    
+    def _insert_completion(self, completion):
+        """Insert the selected completion."""
+        cursor = self.textCursor()
+        extra = len(completion) - len(self.completer.completionPrefix())
+        cursor.insertText(completion[-extra:])
+        self.setTextCursor(cursor)
+    
+    def _get_text_under_cursor(self):
+        """Get the word under cursor for autocomplete."""
+        cursor = self.textCursor()
+        cursor.select(QtGui.QTextCursor.SelectionType.WordUnderCursor)
+        return cursor.selectedText()
+    
+    def _show_autocomplete(self):
+        """Show autocomplete popup."""
+        if not self.completer:
+            return
+        
+        # Update completer model based on language
+        if self.language == "python":
+            self.completer.setModel(self.python_model)
+        else:
+            self.completer.setModel(self.mel_model)
+        
+        # Get word under cursor
+        completion_prefix = self._get_text_under_cursor()
+        
+        # Only show if we have at least 1 character
+        if len(completion_prefix) < 1:
+            self.completer.popup().hide()
+            return
+        
+        # Set completion prefix
+        if completion_prefix != self.completer.completionPrefix():
+            self.completer.setCompletionPrefix(completion_prefix)
+            self.completer.popup().setCurrentIndex(
+                self.completer.completionModel().index(0, 0)
+            )
+        
+        # Show popup at cursor position
+        cursor_rect = self.cursorRect()
+        cursor_rect.setWidth(
+            self.completer.popup().sizeHintForColumn(0) +
+            self.completer.popup().verticalScrollBar().sizeHint().width()
+        )
+        self.completer.complete(cursor_rect)
         
     def _on_text_changed(self):
         """Handle text changes for real-time error checking."""
@@ -118,95 +250,161 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         self.error_timer.start(500)
         
     def _check_syntax_errors(self):
-        """Check for syntax errors and highlight them (VSCode style)."""
+        """Check for syntax errors and highlight them (VSCode style - multi-pass detection)."""
         if self.language != "python":
             return
+        
             
         # Clear previous errors
         self._clear_error_highlights()
         self.syntax_errors.clear()
         
         code = self.toPlainText()
+        
         if not code.strip():
             self.errorsCleared.emit()
             return
             
         try:
+            # Multi-pass error detection like VSCode
             errors = []
+            error_lines = set()
             
-            # Pass 1: Try to compile the whole file to get the first error
-            try:
-                compile(code, '<editor>', 'exec')
-                # No errors - we're done
-                self.errorsCleared.emit()
-                self.lintProblemsFound.emit([])
-                return
-            except SyntaxError as e:
-                if e.lineno:
-                    errors.append({
-                        'line': e.lineno,
-                        'column': e.offset or 1,
-                        'message': str(e.msg or 'invalid syntax'),
-                        'type': 'SyntaxError'
-                    })
-            except Exception as e:
-                errors.append({
-                    'line': 1,
-                    'column': 1, 
-                    'message': f"Error: {str(e)}",
-                    'type': 'Error'
-                })
-                
-            # Pass 2: Check each line individually to find MORE errors
-            # This is what allows us to detect multiple errors at once
-            lines = code.splitlines()
-            for line_num, line in enumerate(lines, 1):
+            # Pass 1: Iterative compile() to find MULTIPLE syntax errors
+            # VSCode does this by temporarily "fixing" errors to find more
+            temp_code = code
+            max_attempts = 10  # Limit to prevent infinite loops
+            
+            for attempt in range(max_attempts):
+                try:
+                    compile(temp_code, '<editor>', 'exec')
+                    break  # No more errors
+                except SyntaxError as e:
+                    if e.lineno and e.lineno not in error_lines:
+                        errors.append({
+                            'line': e.lineno,
+                            'column': e.offset or 1,
+                            'message': str(e.msg or 'Syntax error'),
+                            'type': 'SyntaxError'
+                        })
+                        error_lines.add(e.lineno)
+                        
+                        # Temporarily "fix" this line to find more errors
+                        temp_lines = temp_code.split('\n')
+                        if 1 <= e.lineno <= len(temp_lines):
+                            # Comment out the problematic line
+                            temp_lines[e.lineno - 1] = f"# TEMP_FIX: {temp_lines[e.lineno - 1]}"
+                            temp_code = '\n'.join(temp_lines)
+                    else:
+                        break  # No new errors found
+                except Exception as e:
+                    # Other compilation errors (rare)
+                    if 1 not in error_lines:
+                        errors.append({
+                            'line': 1,
+                            'column': 1, 
+                            'message': f"Compilation error: {str(e)}",
+                            'type': 'CompilationError'
+                        })
+                    break
+            
+            # Pass 2: Pattern-based detection for common missing syntax
+            # Only check lines that don't already have errors
+            # NOTE: Be conservative to avoid false positives
+            lines = code.split('\n')
+            for i, line in enumerate(lines, 1):
+                if i in error_lines:
+                    continue
+                    
                 line_stripped = line.strip()
-                
-                # Skip empty lines and comments
                 if not line_stripped or line_stripped.startswith('#'):
                     continue
                 
-                # Skip if we already found an error on this line
-                if any(err['line'] == line_num for err in errors):
+                # Skip lines inside multi-line strings
+                if '"""' in line or "'''" in line:
                     continue
                 
-                # Check for obvious invalid syntax patterns
-                invalid_starts = [';', ',', ')' , ']', '}']
-                if any(line_stripped.startswith(c) for c in invalid_starts):
+                # Check for missing colons - but be more careful
+                # Only flag if it's clearly a statement that needs a colon
+                if (line_stripped.startswith(('if ', 'elif ', 'for ', 'while ', 'def ', 'class ')) and 
+                    not line_stripped.endswith(':') and 
+                    not line_stripped.endswith('\\') and
+                    not line_stripped.endswith(',') and  # Continuation
+                    not line_stripped.endswith(('and', 'or')) and  # Boolean continuation
+                    not '(' in line_stripped.split()[-1]):  # Function call might continue
+                    # Additional check: make sure it's not part of a multi-line expression
+                    if i > 1:
+                        prev_line = lines[i-2].rstrip() if i-2 < len(lines) else ""
+                        if prev_line.endswith(('(', '[', '{', ',', '\\', 'and', 'or')):
+                            continue
+                    # Check if next line is a continuation (starts with 'and', 'or', or is indented more)
+                    if i < len(lines):
+                        next_line = lines[i].strip() if i < len(lines) else ""
+                        if next_line.startswith(('and ', 'or ', 'not ')):
+                            continue
                     errors.append({
-                        'line': line_num,
+                        'line': i,
+                        'column': len(line_stripped),
+                        'message': 'Missing colon at end of statement',
+                        'type': 'SyntaxError'
+                    })
+                    error_lines.add(i)
+                
+                # Special check for 'else', 'try', 'except', 'finally' without colon
+                elif (line_stripped in ('else', 'try', 'finally') or 
+                      line_stripped.startswith('except ')) and not line_stripped.endswith(':'):
+                    # Check if it's a continuation
+                    if i < len(lines):
+                        next_line = lines[i].strip() if i < len(lines) else ""
+                        if next_line.startswith(('and ', 'or ')):
+                            continue
+                    errors.append({
+                        'line': i,
+                        'column': len(line_stripped),
+                        'message': 'Missing colon at end of statement',
+                        'type': 'SyntaxError'
+                    })
+                    error_lines.add(i)
+                
+                # Check for incomplete expressions - only at end of file or before non-indented line
+                elif (line_stripped.endswith((' +', ' -', ' *', ' /', ' =', ' ==', 
+                                              ' +=', ' -=', ' *=', ' /=')) and
+                      not line_stripped.endswith('\\')):
+                    # Check if next line exists and is properly indented (continuation)
+                    if i < len(lines):
+                        next_line = lines[i].strip() if i < len(lines) else ""
+                        if next_line and not next_line.startswith('#'):
+                            # Looks like continuation, don't flag as error
+                            continue
+                    errors.append({
+                        'line': i,
+                        'column': len(line_stripped),
+                        'message': 'Incomplete expression',
+                        'type': 'SyntaxError'
+                    })
+                    error_lines.add(i)
+                
+                # Check for standalone keywords - only the most obvious cases
+                elif line_stripped in ('def', 'class', 'if', 'for', 'while', 'try', 
+                                       'import', 'from'):
+                    errors.append({
+                        'line': i,
                         'column': 1,
-                        'message': 'invalid syntax',
+                        'message': f'Invalid standalone keyword: {line_stripped}',
                         'type': 'SyntaxError'
                     })
-                    continue
-                
-                # Try to parse the line as a statement
-                try:
-                    # Try to compile the line as a single statement
-                    compile(line.strip(), f'<line {line_num}>', 'exec')
-                except SyntaxError as e:
-                    # Found a syntax error on this line
-                    errors.append({
-                        'line': line_num,
-                        'column': e.offset or 1,
-                        'message': str(e.msg or 'invalid syntax'),
-                        'type': 'SyntaxError'
-                    })
-                except:
-                    # Ignore other exceptions (like NameError, etc.)
-                    pass
+                    error_lines.add(i)
                     
-            # Store and highlight errors
-            self.syntax_errors = errors
+            # Store and highlight errors (limit to first 10 like VSCode)
+            self.syntax_errors = errors[:10]
             
             # Format problems for the problems window
             problems = []
-            for error in errors:
+            for error in self.syntax_errors:
                 self._highlight_error_line(error['line'], error['message'])
                 self.errorDetected.emit(error['line'], error['message'])
                 
+                # Add to problems list with proper format
                 problems.append({
                     'type': 'Error',
                     'message': error['message'],
@@ -214,121 +412,42 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                     'file': 'Current File'
                 })
             
-            # Emit all problems at once
+            # Emit all problems at once for the problems window
             self.lintProblemsFound.emit(problems)
+            
+            # Update visual error highlighting in the editor
+            self._update_error_highlighting()
+                
+            if not self.syntax_errors:
+                self.errorsCleared.emit()
+                self.lintProblemsFound.emit([])  # Clear problems window
                 
         except Exception as e:
             print(f"Error in syntax checking: {e}")
             import traceback
             traceback.print_exc()
             
-    def _check_line_syntax_issues(self, line, line_num, existing_errors):
-        """Check for line-specific syntax issues."""
-        line_stripped = line.strip()
-        
-        # Skip if this line already has an error
-        if any(err['line'] == line_num for err in existing_errors):
-            return True
-            
-        # Common syntax issues VSCode catches
-        issues = []
-        
-        # Skip lines with triple quotes - they're handled by compile() and AST
-        if '"""' in line or "'''" in line:
-            return False
-        
-        # Skip comment lines for quote checking
-        if line_stripped.startswith('#'):
-            return False
-        
-        # Unclosed brackets/parentheses (simple check)
-        open_chars = {'(': ')', '[': ']', '{': '}'}
-        stack = []
-        in_string = False
-        string_char = None
-        
-        for i, char in enumerate(line):
-            # Handle string contexts
-            if char in ('"', "'") and (i == 0 or line[i-1] != '\\'):
-                if not in_string:
-                    in_string = True
-                    string_char = char
-                elif char == string_char:
-                    in_string = False
-                    string_char = None
-                continue
-            
-            # Only check brackets outside of strings
-            if not in_string:
-                if char in open_chars:
-                    stack.append((char, i))
-                elif char in open_chars.values():
-                    if not stack:
-                        issues.append(f"Unexpected closing '{char}'")
-                    else:
-                        expected = open_chars[stack[-1][0]]
-                        if char == expected:
-                            stack.pop()
-                        else:
-                            issues.append(f"Mismatched brackets: expected '{expected}', got '{char}'")
-            
-        # Don't check for unterminated quotes - too many false positives with multi-line strings
-        # Let compile() and AST handle string errors properly
-            
-        # Invalid indentation patterns
-        if line.startswith(' ') and line.startswith('\t'):
-            issues.append("Mixed tabs and spaces in indentation")
-            
-        # Common keyword issues
-        if line_stripped.endswith(':') and not any(kw in line_stripped for kw in 
-            ['if', 'elif', 'else', 'for', 'while', 'def', 'class', 'try', 'except', 'finally', 'with']):
-            if '=' not in line_stripped:  # Not a dictionary
-                issues.append("Invalid use of colon")
-                
-        # Add issues to existing errors
-        for issue in issues:
-            existing_errors.append({
-                'line': line_num,
-                'column': 1,
-                'message': issue,
-                'type': 'SyntaxWarning'
-            })
-            
-        return len(issues) > 0
-        
     def _highlight_error_line(self, line_num, message):
         """Highlight error line with VSCode-style red underline."""
-        # Get the block for the error line
-        block = self.document().findBlockByLineNumber(line_num - 1)
-        if not block.isValid():
-            return
-            
-        # Create format for error highlighting
-        error_format = QtGui.QTextCharFormat()
-        error_format.setUnderlineStyle(QtGui.QTextCharFormat.UnderlineStyle.WaveUnderline)
-        error_format.setUnderlineColor(QtGui.QColor("#ff0000"))  # Red wavy underline
-        error_format.setToolTip(f"Line {line_num}: {message}")
-        
-        # Apply formatting to the entire line
-        cursor = QtGui.QTextCursor(block)
-        cursor.select(QtGui.QTextCursor.SelectionType.LineUnderCursor)
-        
-        # Store the highlight for later removal
-        self.error_highlights.append((cursor, error_format))
-        
-        # Apply the format
-        cursor.mergeCharFormat(error_format)
+        # Store error info for the highlighter
+        self.error_highlights.append((line_num, message))
         
     def _clear_error_highlights(self):
         """Clear all error highlights."""
-        # Remove previous error formatting
-        for cursor, _ in self.error_highlights:
-            # Reset format
-            normal_format = QtGui.QTextCharFormat()
-            cursor.select(QtGui.QTextCursor.SelectionType.LineUnderCursor)
-            cursor.setCharFormat(normal_format)
-            
         self.error_highlights.clear()
+        
+    def _update_error_highlighting(self):
+        """Update the syntax highlighter with current error details."""
+        if self.highlighter and hasattr(self.highlighter, 'set_error_details'):
+            # Pass full error details including column information
+            self.highlighter.set_error_details(self.syntax_errors)
+            # Force rehighlight to show errors
+            self.highlighter.rehighlight()
+        elif self.highlighter and hasattr(self.highlighter, 'set_error_lines'):
+            # Fallback for old API
+            error_lines = {e['line'] for e in self.syntax_errors}
+            self.highlighter.set_error_lines(error_lines)
+            self.highlighter.rehighlight()
         
     def get_syntax_errors(self):
         """Get current syntax errors."""
@@ -425,6 +544,27 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             
     def keyPressEvent(self, event):
         """Enhanced key press handling with smart indentation and auto-completion."""
+        # Handle completer popup
+        if self.completer and self.completer.popup().isVisible():
+            # Tab accepts the completion
+            if event.key() == QtCore.Qt.Key_Tab:
+                self.completer.popup().hide()
+                self._insert_completion(self.completer.currentCompletion())
+                return
+            # Escape closes the popup
+            elif event.key() == QtCore.Qt.Key_Escape:
+                self.completer.popup().hide()
+                return
+            # Enter/Return should close popup and insert newline normally
+            elif event.key() in (QtCore.Qt.Key_Enter, QtCore.Qt.Key_Return):
+                self.completer.popup().hide()
+                # Continue with normal Enter handling below
+        
+        # Ctrl+Space to manually trigger autocomplete
+        if event.key() == QtCore.Qt.Key_Space and event.modifiers() == QtCore.Qt.ControlModifier:
+            self._show_autocomplete()
+            return
+        
         cursor = self.textCursor()
         
         if event.key() in (QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter):
@@ -517,6 +657,12 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                 
         else:
             super().keyPressEvent(event)
+        
+        # Auto-trigger autocomplete while typing (like VSCode)
+        # Trigger on alphanumeric characters and underscore
+        if event.text().isalnum() or event.text() == '_':
+            # Small delay to avoid showing on every keystroke
+            QtCore.QTimer.singleShot(100, self._show_autocomplete)
             
     def _indent_selection(self, increase=True):
         """Indent or unindent selected text."""
@@ -567,6 +713,14 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         # Don't auto-close if we're inside a string or comment
         # This is a simplified check - could be enhanced
         return True  # For now, always auto-close
+        
+    def show_inline_replacement(self, replacement_info, new_code):
+        """Show VSCode-style inline diff for code replacement"""
+        self.inline_diff_manager.show_inline_diff(replacement_info, new_code)
+    
+    def clear_inline_replacement(self):
+        """Clear any active inline diff"""
+        self.inline_diff_manager.clear_diff()
         
     def mousePressEvent(self, event):
         """Handle mouse press events."""

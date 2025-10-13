@@ -41,7 +41,7 @@ class DockManager:
             from ui.output_console import OutputConsole
             self.console = OutputConsole()
             # Note: enable_output_capture() disabled to prevent app freezing issues
-            self.console.append_tagged("INFO", "🌟 NEO Script Editor Console - Enhanced with PySide6/Qt Intelligence!", "#58a6ff")
+            self.console.append_tagged("INFO", "🌟 NEO Script Editor Console - Enhanced with PySide6/Qt Intelligence!", "#00ff41")
             self.console.append_tagged("SUCCESS", "[OK] Advanced syntax highlighting with complete PySide6/Qt support enabled", "#28a745")
             self.console.append_tagged("SUCCESS", "[OK] Real-time error detection with VSCode-style problem indicators active", "#28a745")
         except Exception as e:

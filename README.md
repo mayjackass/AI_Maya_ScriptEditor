@@ -1,53 +1,123 @@
-# NEO Script Editor
+# ⚡ NEO Script Editor v3.0 Beta
 ### *"I can only show you the door. You're the one that has to walk through it."*
 
-**Developed by:** [Mayj Amilano](https://github.com/mayjackass)  
-**Built for:** Autodesk Maya 2020+  
-**Framework:** PySide6 | Python 3.8+
+[![Version](https://img.shields.io/badge/version-3.0--beta-orange.svg)](https://github.com/mayjackass/AI_Maya_ScriptEditor)
+[![Status](https://img.shields.io/badge/status-beta--testing-yellow.svg)](https://github.com/mayjackass/AI_Maya_ScriptEditor)
+[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-Beta%20License-red.svg)](BETA_LICENSE.md)
 
-A next-generation Maya script editor with **Morpheus AI** - your philosophical mentor for Python and MEL scripting. Like Neo discovering the Matrix, you'll see your code in ways you never imagined.
+**Developed by:** Mayj Amilano ([mayjackass](https://github.com/mayjackass))  
+**Built for:** Autodesk Maya 2022+  
+**Framework:** PySide6 (Qt6) | Python 3.9+  
+**Release Date:** October 13, 2025  
+**Beta Expires:** January 31, 2026  
+**Status:** 🧪 Free Beta Testing
+
+> ⚠️ **BETA NOTICE**: This is a time-limited beta release for testing and evaluation. Beta testers receive **50% OFF** the full version after January 31, 2026. Please report issues on [GitHub Issues](https://github.com/mayjackass/AI_Maya_ScriptEditor/issues).
+
+A next-generation AI-powered Maya script editor with **Morpheus AI** integration, VSCode-style features, and real-time code intelligence. Experience coding like using GitHub Copilot, but built specifically for Maya Python and MEL.
 
 ---
 
-## Quick Start
+## 🎁 Beta Tester Benefits
+
+**FREE until January 31, 2026** | Full access to all features
+
+✨ **What You Get:**
+- 🆓 3.5 months of free access to all premium features
+- 💰 **50% discount** on the full version after beta ($49 instead of $99)
+- 🎯 Direct influence on development priorities
+- 🏆 Early access to new features
+- 💬 Direct communication with the developer
+
+[📋 Read Full Beta License](BETA_LICENSE.md) | [🐛 Report Bugs](https://github.com/mayjackass/AI_Maya_ScriptEditor/issues)
+
+---
+
+## ✨ Key Features
+
+🤖 **Morpheus AI Assistant**
+- Auto-context detection (sees your code automatically)
+- Multi-model support (OpenAI GPT-4, Anthropic Claude)
+- Conversation history with persistent storage
+- Smart code suggestions with inline diff preview
+
+⚡ **VSCode-Style Editor**
+- Inline diff preview with red/green highlighting
+- Real-time error detection (up to 10 errors)
+- Advanced autocomplete with Tab confirmation
+- Syntax highlighting for Python & MEL
+
+🎯 **Smart Code Analysis**
+- Multi-pass error detection algorithm
+- Column-based error positioning
+- Tab-focused problems panel
+- False positive reduction
+
+🎨 **Modern Interface**
+- GitHub Dark theme with gradient backgrounds
+- Emoji tab icons (🐍 Python, 📜 MEL)
+- Customizable dock widgets
+- Professional release-quality UI
+
+---
+
+## 🚀 Quick Start
 
 ```bash
-# Launch NEO Script Editor
-python main_window.py
+# Clone the repository
+git clone https://github.com/mayjackass/AI_Maya_ScriptEditor.git
+cd AI_Maya_ScriptEditor
 
-# Or use the launcher
-python launch.py
+# Install dependencies
+pip install -r requirements.txt
+
+# Launch the editor
+python run.py
 ```
 
 **First Time Setup:**
 1. Set your OpenAI or Anthropic API key in `Tools → Settings`
-2. Open the Morpheus AI chat (toolbar icon or `Ctrl+Shift+M`)
-3. Start coding with AI guidance
+2. Open Morpheus chat from the toolbar or `View → Morpheus Chat`
+3. Start coding - Morpheus automatically sees your code!
 
-## Project Structure
+---
+
+## 📦 Project Structure
 
 ```
 ai_script_editor/
-├── main_window.py          # Main application entry point
-├── launch.py              # Alternative launcher
-├── run.py                 # Simple runner script
+├── run.py                 # Main launcher
+├── main_window.py         # Application window
 ├── __init__.py            # Package initialization
 │
-├── ai/                    # AI and chat functionality
-│   ├── chat.py           # AI Morpheus chat system
-│   └── copilot_manager.py # GitHub Copilot-style features
+├── ai/                    # AI integration
+│   ├── chat.py           # Morpheus AI chat system
+│   └── copilot_manager.py # Copilot-style features
 │
-├── editor/                # Code editor components
-│   ├── code_editor.py    # Main code editor with syntax highlighting
-│   └── highlighter.py    # Python and MEL syntax highlighters
+├── editor/                # Code editor
+│   ├── code_editor.py    # Main editor with error detection
+│   ├── highlighter.py    # Python/MEL syntax highlighting
+│   └── inline_diff.py    # VSCode-style inline diff
+│
+├── ui/                    # User interface
+│   ├── chat_manager.py   # Morpheus chat UI
+│   ├── dock_manager.py   # Dock widgets manager
+│   ├── file_manager.py   # File operations
+│   ├── find_replace_manager.py # Find/Replace
+│   ├── menu_manager.py   # Menu system
+│   └── output_console.py # Console output
 │
 ├── model/                 # Data models
-│   └── hierarchy.py      # Code hierarchy and structure
+│   └── hierarchy.py      # Code structure
 │
-├── ui/                    # User interface components
-│   └── output_console.py # Output console widget
+├── utils/                 # Utilities
+│   └── redirect_output.py # Output redirection
 │
-├── utils/                 # Utility functions
+├── tests/                 # Test suite
+├── docs/                  # Documentation
+└── assets/               # Icons and resources
+```
 │
 ├── tests/                 # Test files and legacy tests
 │   ├── legacy/           # Archived test files

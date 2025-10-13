@@ -3,6 +3,7 @@ Chat Manager
 Handles Morpheus AI chat interface, provider/model selection, and all AI interactions
 """
 import html
+import os
 import re
 from PySide6 import QtWidgets, QtCore, QtGui
 
@@ -31,6 +32,10 @@ class ChatManager:
         self.provider_selector = None
         self.model_selector = None
         
+        # Action buttons for code suggestions
+        self.actionButtonsWidget = None
+        self.currentCodeBlockId = None
+        
         # Thinking animation
         self.thinkingTimer = QtCore.QTimer()
         self.thinkingTimer.timeout.connect(self.animate_thinking)
@@ -39,6 +44,10 @@ class ChatManager:
         # AI instances
         self.morpheus = None
         self.morpheus_manager = None
+        
+        # Offline mode toggle
+        self.offline_mode = False
+        self.offlineToggle = None
         
         # Code blocks storage
         self._code_blocks = {}
@@ -139,14 +148,51 @@ class ChatManager:
         self.historyLabel.setAlignment(QtCore.Qt.AlignCenter)
         self.historyLabel.setStyleSheet("color: #8b949e; font-size: 11px;")
         
-        self.newChatBtn = QtWidgets.QPushButton("✨ New")
+        # New chat button with icon from assets
+        self.newChatBtn = QtWidgets.QPushButton(" New")
+        new_icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "replace.png")
+        if os.path.exists(new_icon_path):
+            self.newChatBtn.setIcon(QtGui.QIcon(new_icon_path))
+            self.newChatBtn.setIconSize(QtCore.QSize(14, 14))
+        else:
+            self.newChatBtn.setText("✨ New")  # Fallback to emoji if icon not found
         self.newChatBtn.setToolTip("Start new conversation")
         self.newChatBtn.clicked.connect(self.new_conversation)
+        
+        # Offline mode toggle
+        self.offlineToggle = QtWidgets.QPushButton("🌐 Online")
+        self.offlineToggle.setCheckable(True)
+        self.offlineToggle.setChecked(False)  # Default to online mode
+        self.offlineToggle.setToolTip("Toggle between online and offline mode")
+        self.offlineToggle.setStyleSheet("""
+            QPushButton {
+                background: #238636;
+                border: 1px solid #2ea043;
+                color: white;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 11px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background: #2ea043;
+            }
+            QPushButton:checked {
+                background: #da3633;
+                border: 1px solid #f85149;
+            }
+            QPushButton:checked:hover {
+                background: #f85149;
+            }
+        """)
+        self.offlineToggle.clicked.connect(self.toggle_offline_mode)
+        self.offline_mode = False  # Track offline mode state
         
         historyLayout.addWidget(self.prevChatBtn)
         historyLayout.addWidget(self.historyLabel)
         historyLayout.addWidget(self.nextChatBtn)
         historyLayout.addStretch()
+        historyLayout.addWidget(self.offlineToggle)
         historyLayout.addWidget(self.newChatBtn)
         
         chatLayout.addLayout(historyLayout)
@@ -170,22 +216,81 @@ class ChatManager:
         """)
         chatLayout.addWidget(self.chatHistory, 1)
 
-        # Response indicator (use Morpheus icon text for consistency)
+        # Response indicator
         self.responseIndicator = QtWidgets.QLabel()
-        self.responseIndicator.setText("⏳ Morpheus is pondering...")
+        self.responseIndicator.setText("Morpheus is pondering...")
         self.responseIndicator.setStyleSheet("""
             QLabel {
-                color: #7c3aed;
+                color: #00ff41;
                 font-family: "Segoe UI", Consolas, monospace;
                 font-size: 12px;
                 padding: 4px 8px;
-                background: rgba(124, 58, 237, 0.1);
-                border: 1px solid rgba(124, 58, 237, 0.2);
+                background: rgba(0, 255, 65, 0.1);
+                border: 1px solid rgba(0, 255, 65, 0.2);
                 border-radius: 4px;
             }
         """)
         self.responseIndicator.setVisible(False)
         chatLayout.addWidget(self.responseIndicator)
+
+        # Action buttons widget (hidden by default, appears above input when there's a code suggestion)
+        self.actionButtonsWidget = QtWidgets.QWidget()
+        actionButtonsLayout = QtWidgets.QHBoxLayout(self.actionButtonsWidget)
+        actionButtonsLayout.setContentsMargins(0, 0, 0, 0)
+        actionButtonsLayout.setSpacing(8)
+        
+        self.keepBtn = QtWidgets.QPushButton("Keep")
+        self.keepBtn.setToolTip("Apply this code to your editor")
+        self.keepBtn.setStyleSheet("""
+            QPushButton {
+                background: #238636;
+                border: 1px solid #2ea043;
+                color: white;
+                padding: 4px 12px;
+                border-radius: 4px;
+                font-weight: 500;
+                font-size: 11px;
+            }
+            QPushButton:hover { background: #2ea043; }
+        """)
+        
+        self.copyBtn = QtWidgets.QPushButton("Copy")
+        self.copyBtn.setToolTip("Copy code to clipboard")
+        self.copyBtn.setStyleSheet("""
+            QPushButton {
+                background: #00cc33;
+                border: 1px solid #00ff41;
+                color: #000000;
+                padding: 4px 12px;
+                border-radius: 4px;
+                font-weight: 500;
+                font-size: 11px;
+            }
+            QPushButton:hover { background: #00ff41; }
+        """)
+        
+        self.undoBtn = QtWidgets.QPushButton("Undo")
+        self.undoBtn.setToolTip("Undo last code change")
+        self.undoBtn.setStyleSheet("""
+            QPushButton {
+                background: #da3633;
+                border: 1px solid #f85149;
+                color: white;
+                padding: 4px 12px;
+                border-radius: 4px;
+                font-weight: 500;
+                font-size: 11px;
+            }
+            QPushButton:hover { background: #f85149; }
+        """)
+        
+        actionButtonsLayout.addWidget(self.keepBtn)
+        actionButtonsLayout.addWidget(self.copyBtn)
+        actionButtonsLayout.addWidget(self.undoBtn)
+        actionButtonsLayout.addStretch()
+        
+        self.actionButtonsWidget.setVisible(False)  # Hidden by default
+        chatLayout.addWidget(self.actionButtonsWidget)
 
         # Input area
         inputWidget = QtWidgets.QWidget()
@@ -211,13 +316,29 @@ class ChatManager:
                 color: #f0f6fc;
                 font-size: 11px;
             }
-            QComboBox:hover { border-color: #58a6ff; }
+            QComboBox:hover { border-color: #00ff41; }
             QComboBox::drop-down { border: none; }
             QComboBox::down-arrow {
                 image: none;
                 border-left: 4px solid transparent;
                 border-right: 4px solid transparent;
                 border-top: 5px solid #8b949e;
+            }
+            QComboBox QAbstractItemView {
+                background: #21262d;
+                border: 1px solid #30363d;
+                selection-background-color: transparent;
+                color: #f0f6fc;
+                outline: none;
+            }
+            QComboBox QAbstractItemView::item {
+                padding: 4px 8px;
+                min-height: 20px;
+                border-left: 3px solid transparent;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                border-left: 3px solid #00ff41;
+                background: transparent;
             }
         """)
         
@@ -259,30 +380,43 @@ class ChatManager:
                 font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;
                 font-size: 13px;
             }
-            QTextEdit:focus { border-color: #58a6ff; }
+            QTextEdit:focus { border-color: #00ff41; }
         """)
         
         # Override key press for Enter to send
         self.chatInput.keyPressEvent = self.chat_key_press_event
         
-        # Send button
-        self.sendBtn = QtWidgets.QPushButton("Send")
+        # Send button (paper plane icon)
+        self.sendBtn = QtWidgets.QPushButton("✈")
+        self.sendBtn.setFixedSize(40, 60)
+        self.sendBtn.setToolTip("Send message (Enter)")
+        self.sendBtn.setCursor(QtCore.Qt.PointingHandCursor)
         self.sendBtn.setStyleSheet("""
             QPushButton {
-                background: #238636;
+                background: transparent;
                 border: 1px solid #30363d;
-                color: white;
-                padding: 6px 16px;
+                color: #00ff41;
                 border-radius: 6px;
-                font-weight: 500;
-                font-size: 12px;
+                font-size: 18px;
             }
-            QPushButton:hover { background: #2ea043; }
+            QPushButton:hover { 
+                background: #30363d;
+                border-color: #00ff41;
+            }
+            QPushButton:disabled {
+                color: #484848;
+                border-color: #30363d;
+            }
         """)
         self.sendBtn.clicked.connect(self.send_message)
 
-        inputLayout.addWidget(self.chatInput)
-        inputLayout.addWidget(self.sendBtn)
+        # Create horizontal layout for input and send button
+        inputRowLayout = QtWidgets.QHBoxLayout()
+        inputRowLayout.setSpacing(8)
+        inputRowLayout.addWidget(self.chatInput)
+        inputRowLayout.addWidget(self.sendBtn)
+        
+        inputLayout.addLayout(inputRowLayout)
         chatLayout.addWidget(inputWidget)
 
         chatDock.setWidget(chatWidget)
@@ -323,9 +457,11 @@ class ChatManager:
                 self.morpheus_icon_html = "🤖"
             
             if self.morpheus.client:
-                self.chatHistory.append(f"""{self.morpheus_icon_html} <b>Welcome, Neo.</b><br><br>
-                <i>I can only show you the door. You're the one that has to walk through it.</i><br><br>
-                Ask me anything about your code.<br><br>""")
+                self.chatHistory.append(f"""<div style="font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif; color: #00ff41;">{self.morpheus_icon_html} <b>Hello, I'm Morpheus.</b><br><br>
+                I'm your AI assistant for Maya scripting. Ask me about Python, MEL, or any coding challenges you're facing.<br><br></div>""")
+                # Load previous chat history if available
+                if self.morpheus_manager and self.morpheus_manager.chat_history:
+                    self.load_current_conversation()
             else:
                 self.chatHistory.append(f"[!] <b>Morpheus AI</b> - No API key found. Set your API key in Tools → Settings.<br><br>")
         except Exception as e:
@@ -341,7 +477,7 @@ class ChatManager:
             return
 
         # Add user message
-        self.add_chat_message("You", message, "#58a6ff")
+        self.add_chat_message("You", message, "#00ff41")
         
         # Show thinking indicator
         self.show_thinking_indicator()
@@ -352,20 +488,33 @@ class ChatManager:
         # Disable send button
         self.sendBtn.setEnabled(False)
         
-        # Get context
+        # Auto-detect and include current editor code (like GitHub Copilot)
         context = ""
         current_editor = self.parent.tabWidget.currentWidget()
         
-        # Auto-include code for error/bug questions
-        auto_keywords = ['error', 'syntax', 'bug', 'fix', 'wrong', 'issue', 'problem', 'incorrect', 'mistake']
-        should_auto_include = any(kw in message.lower() for kw in auto_keywords)
-        
-        if should_auto_include and current_editor:
-            context = current_editor.toPlainText()
+        if current_editor:
+            code = current_editor.toPlainText().strip()
+            if code:  # Only include if there's actual code
+                # Get file info
+                tab_index = self.parent.tabWidget.indexOf(current_editor)
+                tab_name = self.parent.tabWidget.tabText(tab_index)
+                language = current_editor.get_language()
+                lang = "python" if language == "python" else "mel"
+                
+                # Auto-include code context (like GitHub Copilot in VSCode)
+                context = f"[Current Editor Context - {tab_name} ({language.upper()})]\n\n```{lang}\n{code}\n```\n\n[User Question]\n{message}"
 
         # Send to Morpheus
         if self.morpheus_manager:
-            self.morpheus_manager.send_message(message, context)
+            # If offline mode is enabled, force offline response
+            if hasattr(self, 'offline_mode') and self.offline_mode:
+                # Force offline mode by using mock response directly
+                response = self.morpheus_manager._generate_mock_response(message, context if context else "")
+                self.morpheus_manager.record_conversation(message, response)
+                QtCore.QTimer.singleShot(500, lambda: self.on_morpheus_response(response))
+            else:
+                # Send with context if available, otherwise just the message
+                self.morpheus_manager.send_message(context if context else message, code if context else "")
         else:
             self.add_chat_message("Morpheus", "AI service not available. Check your API key.", "#ff6b6b")
             self.sendBtn.setEnabled(True)
@@ -380,16 +529,21 @@ class ChatManager:
                 formatted_message = self.format_morpheus_message(message)
                 # Use Morpheus icon instead of text
                 sender_display = f"{self.morpheus_icon_html} {sender}"
+                # Matrix green color with regular font for better readability
+                text_color = "#00ff41"  # Matrix green
+                text_style = "font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif; color: #00ff41; line-height: 1.4;"
             else:
                 formatted_message = html.escape(message).replace('\n', '<br>')
                 sender_display = sender
+                text_color = "#f0f6fc"
+                text_style = "color: #f0f6fc; line-height: 1.4;"
             
             html_message = f"""
             <div style="margin-bottom: 16px; padding: 8px; border-left: 3px solid {color}; background: rgba(255,255,255,0.03);">
                 <div style="color: {color}; font-weight: 600; margin-bottom: 4px;">
                     {sender_display} <span style="color: #8b949e; font-size: 11px; font-weight: normal;">{timestamp}</span>
                 </div>
-                <div style="color: #f0f6fc; line-height: 1.4;">
+                <div style="{text_style}">
                     {formatted_message}
                 </div>
             </div>
@@ -441,9 +595,9 @@ class ChatManager:
     <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; background-color: #161b22; border-bottom: 1px solid #30363d;">
         <span style="color: #f0f6fc; font-size: 14px; font-weight: 600;">Python</span>
         <div style="display: flex; gap: 16px;">
-            <a href="copy_{block_id}" style="color: #58a6ff; text-decoration: none; font-size: 14px;">Copy code</a>
-            <a href="apply_{block_id}" style="color: #238636; text-decoration: none; font-size: 14px;">Apply to editor</a>
-            <a href="fix_{block_id}" style="color: #f85149; text-decoration: none; font-size: 14px;">Keep as fix</a>
+            <a href="fix_{block_id}" style="color: #238636; text-decoration: none; font-size: 14px;">Keep</a>
+            <a href="copy_{block_id}" style="color: #00ff41; text-decoration: none; font-size: 14px;">Copy</a>
+            <a href="undo_{block_id}" style="color: #f85149; text-decoration: none; font-size: 14px;">Undo</a>
         </div>
     </div>
     <div style="padding: 16px;">
@@ -470,11 +624,28 @@ class ChatManager:
         # Convert newlines
         formatted_message = formatted_message.replace('\n', '<br>')
         
-        # Notify about code blocks
+        # Show action buttons and notify about code blocks
         if current_placeholders:
             count = len(current_placeholders)
             msg = f"Multiple code suggestions available ({count} blocks)" if count > 1 else "Code suggestion available"
-            self.parent.dock_manager.console.append_tagged("MORPHEUS", f"{msg} - click Copy/Apply/Keep buttons", "#58a6ff")
+            self.parent.dock_manager.console.append_tagged("MORPHEUS", f"{msg} - use buttons above input field", "#00ff41")
+            
+            # Store the latest code block ID and show action buttons
+            if self._code_blocks:
+                self.currentCodeBlockId = list(self._code_blocks.keys())[-1]
+                self.actionButtonsWidget.setVisible(True)
+                
+                # Connect buttons to actions for the current code block
+                try:
+                    self.keepBtn.clicked.disconnect()
+                    self.copyBtn.clicked.disconnect()
+                    self.undoBtn.clicked.disconnect()
+                except:
+                    pass
+                
+                self.keepBtn.clicked.connect(lambda: self._keep_and_hide(self._code_blocks[self.currentCodeBlockId]))
+                self.copyBtn.clicked.connect(lambda: self._copy_and_hide(self._code_blocks[self.currentCodeBlockId]))
+                self.undoBtn.clicked.connect(lambda: self._undo_and_hide())
         
         return formatted_message
     
@@ -497,10 +668,10 @@ class ChatManager:
             
             if action == "copy":
                 self.copy_code_to_clipboard(code)
-            elif action == "apply":
-                self.apply_code_to_editor(code)
             elif action == "fix":
                 self.keep_as_fix(code)
+            elif action == "undo":
+                self.undo_editor_change()
             
             # Ensure chat is preserved
             QtCore.QTimer.singleShot(100, self.ensure_chat_preserved)
@@ -517,30 +688,270 @@ class ChatManager:
         except Exception as e:
             self.parent.dock_manager.console.append_tagged("ERROR", f"Failed to copy code: {e}", "#dc3545")
 
-    def apply_code_to_editor(self, code):
-        """Apply code to current editor"""
+    def undo_editor_change(self):
+        """Undo last change in editor"""
         try:
             editor = self.get_active_editor()
             if editor:
-                cursor = editor.textCursor()
-                cursor.insertText(code)
-                self.parent.dock_manager.console.append_tagged("SUCCESS", "✅ Code applied to editor!", "#28a745")
+                editor.undo()
+                self.parent.dock_manager.console.append_tagged("SUCCESS", "↶ Undo applied!", "#28a745")
             else:
                 self.parent.dock_manager.console.append_tagged("WARNING", "No active editor. Create or open a file first.", "#fd7e14")
         except Exception as e:
-            self.parent.dock_manager.console.append_tagged("ERROR", f"Failed to apply code: {e}", "#dc3545")
+            self.parent.dock_manager.console.append_tagged("ERROR", f"Failed to undo: {e}", "#dc3545")
+    
+    def undo_last_change(self):
+        """Undo last change (wrapper for button action)"""
+        self.undo_editor_change()
+    
+    def _keep_and_hide(self, code):
+        """Keep code and hide action buttons"""
+        self.keep_as_fix(code)
+        self.actionButtonsWidget.setVisible(False)
+    
+    def _copy_and_hide(self, code):
+        """Copy code and hide action buttons"""
+        self.copy_code_to_clipboard(code)
+        self.actionButtonsWidget.setVisible(False)
+    
+    def _undo_and_hide(self):
+        """Undo and hide action buttons"""
+        self.undo_last_change()
+        self.actionButtonsWidget.setVisible(False)
 
     def keep_as_fix(self, code):
-        """Replace editor content with code"""
+        """Replace specific code section with VSCode-style preview"""
         try:
             editor = self.get_active_editor()
-            if editor:
-                editor.setPlainText(code)
-                self.parent.dock_manager.console.append_tagged("SUCCESS", "🔧 Code applied as fix (replaced content)!", "#28a745")
-            else:
+            if not editor:
                 self.parent.dock_manager.console.append_tagged("WARNING", "No active editor. Create or open a file first.", "#fd7e14")
+                return
+            
+            current_code = editor.toPlainText()
+            
+            # If editor is empty, just insert the code
+            if not current_code.strip():
+                editor.setPlainText(code)
+                self.parent.dock_manager.console.append_tagged("SUCCESS", "✅ Code inserted!", "#28a745")
+                return
+            
+            # Try to find the best match for replacement
+            replacement_info = self.find_code_to_replace(current_code, code)
+            
+            if replacement_info:
+                # Show VSCode-style inline diff directly in the editor
+                editor.show_inline_replacement(replacement_info, code)
+                self.parent.dock_manager.console.append_tagged("INFO", "💡 Review the suggested changes in the editor", "#00ff41")
+            else:
+                # If no match found, offer to append or replace all
+                self.show_replacement_options(editor, code)
+                
         except Exception as e:
             self.parent.dock_manager.console.append_tagged("ERROR", f"Failed to apply fix: {e}", "#dc3545")
+    
+    def find_code_to_replace(self, current_code, suggested_code):
+        """Find the best matching code section to replace"""
+        import difflib
+        
+        current_lines = current_code.split('\n')
+        suggested_lines = suggested_code.split('\n')
+        
+        # Use difflib to find similar sections
+        matcher = difflib.SequenceMatcher(None, current_lines, suggested_lines)
+        
+        # Find the longest matching block
+        match = matcher.find_longest_match(0, len(current_lines), 0, len(suggested_lines))
+        
+        if match.size > 2:  # At least 3 lines match
+            # Found a section to replace
+            start_line = match.a
+            end_line = start_line + match.size
+            
+            # Expand to include context around the match
+            context_start = max(0, start_line - 2)
+            context_end = min(len(current_lines), end_line + 2)
+            
+            return {
+                'start_line': context_start,
+                'end_line': context_end,
+                'old_code': '\n'.join(current_lines[context_start:context_end]),
+                'match_quality': match.size / len(suggested_lines)
+            }
+        
+        return None
+    
+    def show_replacement_preview(self, editor, replacement_info, new_code):
+        """Show VSCode-style diff preview dialog"""
+        dialog = QtWidgets.QDialog(self.parent)
+        dialog.setWindowTitle("Preview Changes")
+        dialog.setMinimumSize(800, 600)
+        dialog.setStyleSheet("""
+            QDialog {
+                background: #0d1117;
+                color: #f0f6fc;
+            }
+            QLabel {
+                color: #f0f6fc;
+                font-size: 13px;
+                font-weight: 600;
+            }
+            QTextEdit {
+                background: #161b22;
+                border: 1px solid #30363d;
+                border-radius: 6px;
+                color: #f0f6fc;
+                font-family: 'Consolas', 'Monaco', monospace;
+                font-size: 13px;
+                padding: 8px;
+            }
+            QPushButton {
+                background: #238636;
+                border: 1px solid #2ea043;
+                color: white;
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-weight: 500;
+                font-size: 13px;
+                min-width: 80px;
+            }
+            QPushButton:hover {
+                background: #2ea043;
+            }
+            QPushButton#cancelBtn {
+                background: #21262d;
+                border: 1px solid #30363d;
+            }
+            QPushButton#cancelBtn:hover {
+                background: #30363d;
+            }
+        """)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        
+        # Title
+        title = QtWidgets.QLabel("📝 Preview code replacement")
+        layout.addWidget(title)
+        
+        # Create split view
+        splitWidget = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        
+        # Left side - Current code (what will be removed)
+        leftLayout = QtWidgets.QVBoxLayout()
+        leftLabel = QtWidgets.QLabel(f"🔴 Current (Lines {replacement_info['start_line']+1}-{replacement_info['end_line']})")
+        leftLayout.addWidget(leftLabel)
+        
+        oldCodeView = QtWidgets.QTextEdit()
+        oldCodeView.setReadOnly(True)
+        oldCodeView.setPlainText(replacement_info['old_code'])
+        oldCodeView.setStyleSheet(oldCodeView.styleSheet() + "background: #2d1f1f;")  # Red tint
+        leftWidget = QtWidgets.QWidget()
+        leftWidget.setLayout(leftLayout)
+        leftLayout.addWidget(oldCodeView)
+        
+        # Right side - New code (what will be added)
+        rightLayout = QtWidgets.QVBoxLayout()
+        rightLabel = QtWidgets.QLabel("🟢 Suggested (replacement)")
+        rightLayout.addWidget(rightLabel)
+        
+        newCodeView = QtWidgets.QTextEdit()
+        newCodeView.setReadOnly(True)
+        newCodeView.setPlainText(new_code)
+        newCodeView.setStyleSheet(newCodeView.styleSheet() + "background: #1f2d1f;")  # Green tint
+        rightWidget = QtWidgets.QWidget()
+        rightWidget.setLayout(rightLayout)
+        rightLayout.addWidget(newCodeView)
+        
+        splitWidget.addWidget(leftWidget)
+        splitWidget.addWidget(rightWidget)
+        layout.addWidget(splitWidget)
+        
+        # Info label
+        match_quality = replacement_info['match_quality'] * 100
+        infoLabel = QtWidgets.QLabel(f"ℹ️ Match confidence: {match_quality:.0f}% | This will replace lines {replacement_info['start_line']+1}-{replacement_info['end_line']}")
+        infoLabel.setStyleSheet("color: #8b949e; font-size: 12px; font-weight: normal; padding: 8px;")
+        layout.addWidget(infoLabel)
+        
+        # Buttons
+        buttonLayout = QtWidgets.QHBoxLayout()
+        buttonLayout.addStretch()
+        
+        cancelBtn = QtWidgets.QPushButton("Cancel")
+        cancelBtn.setObjectName("cancelBtn")
+        cancelBtn.clicked.connect(dialog.reject)
+        
+        acceptBtn = QtWidgets.QPushButton("✓ Keep Changes")
+        acceptBtn.clicked.connect(dialog.accept)
+        
+        buttonLayout.addWidget(cancelBtn)
+        buttonLayout.addWidget(acceptBtn)
+        layout.addLayout(buttonLayout)
+        
+        # Show dialog and apply if accepted
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            self.apply_replacement(editor, replacement_info, new_code)
+    
+    def show_replacement_options(self, editor, code):
+        """Show options when no direct match is found"""
+        dialog = QtWidgets.QMessageBox(self.parent)
+        dialog.setWindowTitle("How to apply this code?")
+        dialog.setStyleSheet("""
+            QMessageBox {
+                background: #0d1117;
+            }
+            QLabel {
+                color: #f0f6fc;
+                font-size: 13px;
+            }
+        """)
+        dialog.setIcon(QtWidgets.QMessageBox.Question)
+        dialog.setText("Could not find matching code to replace.\n\nHow would you like to apply the suggested code?")
+        
+        replaceAllBtn = dialog.addButton("Replace All", QtWidgets.QMessageBox.DestructiveRole)
+        appendBtn = dialog.addButton("Append to End", QtWidgets.QMessageBox.AcceptRole)
+        cancelBtn = dialog.addButton("Cancel", QtWidgets.QMessageBox.RejectRole)
+        
+        dialog.exec_()
+        clicked = dialog.clickedButton()
+        
+        if clicked == replaceAllBtn:
+            editor.setPlainText(code)
+            self.parent.dock_manager.console.append_tagged("SUCCESS", "🔧 Replaced entire content!", "#28a745")
+        elif clicked == appendBtn:
+            cursor = editor.textCursor()
+            cursor.movePosition(QtGui.QTextCursor.End)
+            cursor.insertText("\n\n" + code)
+            self.parent.dock_manager.console.append_tagged("SUCCESS", "➕ Code appended to end!", "#28a745")
+    
+    def apply_replacement(self, editor, replacement_info, new_code):
+        """Apply the replacement to the editor"""
+        try:
+            current_text = editor.toPlainText()
+            lines = current_text.split('\n')
+            
+            # Replace the section
+            new_lines = (
+                lines[:replacement_info['start_line']] +
+                new_code.split('\n') +
+                lines[replacement_info['end_line']:]
+            )
+            
+            # Apply to editor
+            editor.setPlainText('\n'.join(new_lines))
+            
+            # Move cursor to the replaced section
+            cursor = editor.textCursor()
+            cursor.movePosition(QtGui.QTextCursor.Start)
+            for _ in range(replacement_info['start_line']):
+                cursor.movePosition(QtGui.QTextCursor.Down)
+            editor.setTextCursor(cursor)
+            
+            self.parent.dock_manager.console.append_tagged(
+                "SUCCESS", 
+                f"✅ Replaced lines {replacement_info['start_line']+1}-{replacement_info['end_line']}!", 
+                "#28a745"
+            )
+        except Exception as e:
+            self.parent.dock_manager.console.append_tagged("ERROR", f"Failed to apply replacement: {e}", "#dc3545")
 
     def get_active_editor(self):
         """Get active editor widget"""
@@ -574,7 +985,7 @@ class ChatManager:
     def animate_thinking(self):
         """Animate thinking indicator"""
         dots = "." * (self.thinkingDots % 4)
-        self.responseIndicator.setText(f"⏳ Morpheus is pondering{dots}")
+        self.responseIndicator.setText(f"Morpheus is pondering{dots}")
         self.thinkingDots += 1
 
     def chat_key_press_event(self, event):
@@ -583,6 +994,17 @@ class ChatManager:
             self.send_message()
         else:
             QtWidgets.QTextEdit.keyPressEvent(self.chatInput, event)
+
+    def toggle_offline_mode(self):
+        """Toggle between online and offline mode"""
+        self.offline_mode = self.offlineToggle.isChecked()
+        
+        if self.offline_mode:
+            self.offlineToggle.setText("📵 Offline")
+            self.add_chat_message("System", "Switched to offline mode. Morpheus will use built-in responses.", "#f0f6fc")
+        else:
+            self.offlineToggle.setText("🌐 Online")
+            self.add_chat_message("System", "Switched to online mode. Morpheus will use AI responses.", "#f0f6fc")
 
     # History navigation
     def prev_conversation(self):
@@ -633,7 +1055,7 @@ class ChatManager:
             current_conversation = self.morpheus_manager.get_current_conversation()
             if current_conversation and isinstance(current_conversation, dict):
                 if 'user' in current_conversation and 'ai' in current_conversation:
-                    self.add_chat_message("You", current_conversation['user'], "#58a6ff")
+                    self.add_chat_message("You", current_conversation['user'], "#00ff41")
                     self.add_chat_message("Morpheus", current_conversation['ai'], "#238636")
         else:
             # Load all conversations
@@ -642,11 +1064,11 @@ class ChatManager:
                 for entry in full_history:
                     if isinstance(entry, dict):
                         if 'user' in entry and 'ai' in entry:
-                            self.add_chat_message("You", entry['user'], "#58a6ff")
+                            self.add_chat_message("You", entry['user'], "#00ff41")
                             self.add_chat_message("Morpheus", entry['ai'], "#238636")
                         elif 'role' in entry and 'content' in entry:
                             if entry['role'] == 'user':
-                                self.add_chat_message("You", entry['content'], "#58a6ff")
+                                self.add_chat_message("You", entry['content'], "#00ff41")
                             else:
                                 self.add_chat_message("Morpheus", entry['content'], "#238636")
         
@@ -771,6 +1193,91 @@ class ChatManager:
         dialog = QtWidgets.QDialog(self.parent)
         dialog.setWindowTitle("AI Provider Settings")
         dialog.setMinimumWidth(500)
+        dialog.setStyleSheet("""
+            QDialog {
+                background: #0d1117;
+                color: #f0f6fc;
+            }
+            QGroupBox {
+                color: #f0f6fc;
+                border: 1px solid #30363d;
+                border-radius: 6px;
+                margin-top: 8px;
+                padding-top: 8px;
+                font-weight: 600;
+            }
+            QGroupBox::title {
+                color: #00ff41;
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+            }
+            QLabel {
+                color: #8b949e;
+            }
+            QLabel a {
+                color: #00ff41;
+            }
+            QLineEdit {
+                background: #21262d;
+                border: 1px solid #30363d;
+                border-radius: 4px;
+                padding: 6px;
+                color: #f0f6fc;
+            }
+            QLineEdit:focus {
+                border: 1px solid #00ff41;
+            }
+            QComboBox {
+                background: #21262d;
+                border: 1px solid #30363d;
+                border-radius: 4px;
+                padding: 6px;
+                color: #f0f6fc;
+            }
+            QComboBox:hover {
+                border-color: #00ff41;
+            }
+            QComboBox::drop-down {
+                border: none;
+            }
+            QComboBox QAbstractItemView {
+                background: #21262d;
+                border: 1px solid #30363d;
+                selection-background-color: transparent;
+                color: #f0f6fc;
+                outline: none;
+            }
+            QComboBox QAbstractItemView::item {
+                padding: 4px 8px;
+                min-height: 20px;
+                border-left: 3px solid transparent;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                border-left: 3px solid #00ff41;
+                background: transparent;
+            }
+            QPushButton {
+                background: #00cc33;
+                border: 1px solid #00ff41;
+                color: #000000;
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-weight: 600;
+                min-width: 80px;
+            }
+            QPushButton:hover {
+                background: #00ff41;
+            }
+            QPushButton#cancelBtn {
+                background: #21262d;
+                border: 1px solid #30363d;
+                color: #f0f6fc;
+            }
+            QPushButton#cancelBtn:hover {
+                background: #30363d;
+            }
+        """)
         
         layout = QtWidgets.QVBoxLayout(dialog)
         
@@ -822,6 +1329,7 @@ class ChatManager:
         button_layout = QtWidgets.QHBoxLayout()
         save_btn = QtWidgets.QPushButton("Save")
         cancel_btn = QtWidgets.QPushButton("Cancel")
+        cancel_btn.setObjectName("cancelBtn")
         
         button_layout.addStretch()
         button_layout.addWidget(save_btn)

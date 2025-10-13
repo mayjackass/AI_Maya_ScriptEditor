@@ -1,0 +1,44 @@
+NEO SCRIPT EDITOR v3.0 - LICENSE AGREEMENT
+=========================================
+
+Copyright (c) 2025 Mayj Amilano (mayjackass)
+All Rights Reserved.
+
+BETA SOFTWARE LICENSE
+
+This is BETA software provided for testing and evaluation purposes only.
+
+GRANT OF LICENSE:
+This beta version is provided to you free of charge for a limited time period
+(until January 31, 2026) for testing and evaluation purposes only.
+
+RESTRICTIONS:
+1. You may not distribute, sell, lease, rent, or sublicense this software
+2. You may not reverse engineer, decompile, or disassemble this software
+3. You may not remove or alter any copyright notices or proprietary labels
+4. This software is provided "AS IS" without warranty of any kind
+
+BETA PERIOD:
+- Beta period expires: January 31, 2026
+- After expiration, you must purchase a license to continue using the software
+- Beta testers receive a 50% discount on the full version
+
+DATA COLLECTION:
+This software does not collect or transmit personal information. API keys for
+AI services (OpenAI, Anthropic) are stored locally on your computer.
+
+TERMINATION:
+This license terminates automatically at the end of the beta period or if you
+fail to comply with any terms of this agreement.
+
+FULL VERSION:
+After the beta period, a commercial license will be required. Beta testers
+will receive preferential pricing and upgrade options.
+
+CONTACT:
+For questions about licensing or to upgrade to the full version:
+- Email: mayjackass@example.com
+- GitHub: https://github.com/mayjackass/AI_Maya_ScriptEditor
+
+By using this software, you acknowledge that you have read this license
+agreement and agree to be bound by its terms.

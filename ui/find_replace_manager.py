@@ -2,6 +2,7 @@
 Find/Replace Manager - VS Code Style
 Handles all find/replace widget creation and operations
 """
+import os
 from PySide6 import QtWidgets, QtCore, QtGui
 
 
@@ -46,21 +47,22 @@ class FindReplaceManager:
                 font-size: 12px;
             }
             QLineEdit:focus {
-                border: 1px solid #007acc;
+                border: 1px solid #00ff41;
             }
             QPushButton {
-                background: #0e639c;
-                color: #ffffff;
-                border: 1px solid #007acc;
+                background: #00cc33;
+                color: #000000;
+                border: 1px solid #00ff41;
                 padding: 4px 12px;
                 border-radius: 2px;
                 font-size: 11px;
+                font-weight: 600;
             }
             QPushButton:hover {
-                background: #1177bb;
+                background: #00ff41;
             }
             QPushButton:pressed {
-                background: #0d5a8f;
+                background: #00aa2b;
             }
             QCheckBox {
                 color: #cccccc;
@@ -75,8 +77,8 @@ class FindReplaceManager:
                 background: #3c3c3c;
             }
             QCheckBox::indicator:checked {
-                background: #007acc;
-                border-color: #007acc;
+                background: #00ff41;
+                border-color: #00ff41;
             }
         """)
         
@@ -107,9 +109,16 @@ class FindReplaceManager:
         """)
         findLayout.addWidget(self.toggleReplaceBtn)
         
-        findLabel = QtWidgets.QLabel("🔍")
-        findLabel.setFixedWidth(20)
-        findLayout.addWidget(findLabel)
+        # Find icon
+        findIconLabel = QtWidgets.QLabel()
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "find.png")
+        if os.path.exists(icon_path):
+            pixmap = QtGui.QPixmap(icon_path).scaled(16, 16, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+            findIconLabel.setPixmap(pixmap)
+        else:
+            findIconLabel.setText("🔍")
+        findIconLabel.setFixedWidth(20)
+        findLayout.addWidget(findIconLabel)
         
         self.findInput = QtWidgets.QLineEdit()
         self.findInput.setPlaceholderText("Find")
@@ -118,15 +127,29 @@ class FindReplaceManager:
         self.findInput.textChanged.connect(self.on_find_text_changed)  # Real-time highlight
         findLayout.addWidget(self.findInput)
         
-        self.findPrevBtn = QtWidgets.QPushButton("⬆")
+        # Previous button with icon
+        self.findPrevBtn = QtWidgets.QPushButton()
         self.findPrevBtn.setFixedSize(28, 26)
         self.findPrevBtn.setToolTip("Previous Match (Shift+F3)")
+        prev_icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "previous.png")
+        if os.path.exists(prev_icon_path):
+            self.findPrevBtn.setIcon(QtGui.QIcon(prev_icon_path))
+            self.findPrevBtn.setIconSize(QtCore.QSize(16, 16))
+        else:
+            self.findPrevBtn.setText("⬆")
         self.findPrevBtn.clicked.connect(self.find_previous)
         findLayout.addWidget(self.findPrevBtn)
         
-        self.findNextBtn = QtWidgets.QPushButton("⬇")
+        # Next button with icon
+        self.findNextBtn = QtWidgets.QPushButton()
         self.findNextBtn.setFixedSize(28, 26)
         self.findNextBtn.setToolTip("Next Match (F3)")
+        next_icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "next.png")
+        if os.path.exists(next_icon_path):
+            self.findNextBtn.setIcon(QtGui.QIcon(next_icon_path))
+            self.findNextBtn.setIconSize(QtCore.QSize(16, 16))
+        else:
+            self.findNextBtn.setText("⬇")
         self.findNextBtn.clicked.connect(self.find_next)
         findLayout.addWidget(self.findNextBtn)
         
@@ -185,21 +208,38 @@ class FindReplaceManager:
         spacer.setFixedWidth(20)
         replaceLayout.addWidget(spacer)
         
-        replaceLabel = QtWidgets.QLabel("🔄")
-        replaceLabel.setFixedWidth(20)
-        replaceLayout.addWidget(replaceLabel)
+        # Replace icon
+        replaceIconLabel = QtWidgets.QLabel()
+        replace_icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "replace.png")
+        if os.path.exists(replace_icon_path):
+            pixmap = QtGui.QPixmap(replace_icon_path).scaled(16, 16, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+            replaceIconLabel.setPixmap(pixmap)
+        else:
+            replaceIconLabel.setText("🔄")
+        replaceIconLabel.setFixedWidth(20)
+        replaceLayout.addWidget(replaceIconLabel)
         
         self.replaceInput = QtWidgets.QLineEdit()
         self.replaceInput.setPlaceholderText("Replace")
         self.replaceInput.setMinimumWidth(250)
         replaceLayout.addWidget(self.replaceInput)
         
-        self.replaceBtn = QtWidgets.QPushButton("Replace")
+        # Replace button with icon
+        self.replaceBtn = QtWidgets.QPushButton()
+        if os.path.exists(replace_icon_path):
+            self.replaceBtn.setIcon(QtGui.QIcon(replace_icon_path))
+            self.replaceBtn.setIconSize(QtCore.QSize(16, 16))
+        self.replaceBtn.setText("Replace")
         self.replaceBtn.setFixedHeight(26)
         self.replaceBtn.clicked.connect(self.replace_current)
         replaceLayout.addWidget(self.replaceBtn)
         
-        self.replaceAllBtn = QtWidgets.QPushButton("Replace All")
+        # Replace All button with icon
+        self.replaceAllBtn = QtWidgets.QPushButton()
+        if os.path.exists(replace_icon_path):
+            self.replaceAllBtn.setIcon(QtGui.QIcon(replace_icon_path))
+            self.replaceAllBtn.setIconSize(QtCore.QSize(16, 16))
+        self.replaceAllBtn.setText("Replace All")
         self.replaceAllBtn.setFixedHeight(26)
         self.replaceAllBtn.clicked.connect(self.replace_all)
         replaceLayout.addWidget(self.replaceAllBtn)
@@ -438,7 +478,7 @@ class FindReplaceManager:
         
         # Find all occurrences
         cursor = QtGui.QTextCursor(current_widget.document())
-        highlight_color = QtGui.QColor("#ffd33d")  # VS Code yellow highlight
+        highlight_color = QtGui.QColor("#00ff41")  # Matrix green highlight
         
         while True:
             cursor = current_widget.document().find(text, cursor, flags)
@@ -448,7 +488,7 @@ class FindReplaceManager:
             selection = QtWidgets.QTextEdit.ExtraSelection()
             selection.cursor = cursor
             selection.format.setBackground(highlight_color)
-            selection.format.setForeground(QtGui.QColor("#000000"))  # Black text
+            selection.format.setForeground(QtGui.QColor("#000000"))  # Black text for contrast
             extra_selections.append(selection)
         
         current_widget.setExtraSelections(extra_selections)

@@ -1,0 +1,215 @@
+# 🔧 DEVELOPER MODE - QUICK REFERENCE
+
+## ✅ Status: ACTIVE
+
+Your NEO Script Editor is now in **Developer Mode**!
+
+```
+[DEV MODE] Beta expiration bypassed for development
+```
+
+---
+
+## 🎯 What This Means
+
+✅ **No beta expiration** - Work freely without time limits
+✅ **No warning dialogs** - Focus on development
+✅ **Window shows "DEV MODE"** - Clear indicator
+✅ **Status bar updated** - Shows developer status
+
+---
+
+## 🚀 How to Use
+
+### During Development (Normal):
+```powershell
+# Just run as usual - dev mode is automatic!
+.venv\Scripts\python.exe run.py
+
+# You'll see in console:
+# [DEV MODE] Beta expiration bypassed for development
+```
+
+### Before Distribution:
+```powershell
+# 1. Remove dev mode file
+Remove-Item .devmode
+
+# 2. Create distribution package (auto-excludes .devmode)
+.\create_distribution.ps1
+
+# 3. Verify package doesn't contain .devmode
+Expand-Archive -Path dist\NEO_Script_Editor_v3.0-beta.zip -DestinationPath test_verify
+dir test_verify -Recurse -Filter ".devmode"  # Should be empty
+```
+
+---
+
+## 🔄 Toggle Dev Mode
+
+### Disable Dev Mode (Temporarily):
+```powershell
+# Just rename the file
+Rename-Item .devmode .devmode.disabled
+
+# Run app - beta checks will be active
+.venv\Scripts\python.exe run.py
+```
+
+### Re-enable Dev Mode:
+```powershell
+# Rename back
+Rename-Item .devmode.disabled .devmode
+
+# Run app - dev mode active again
+.venv\Scripts\python.exe run.py
+```
+
+---
+
+## 🧪 Testing Beta System
+
+### Test That Expiration Works:
+```powershell
+# 1. Temporarily disable dev mode
+Rename-Item .devmode .devmode.disabled
+
+# 2. Edit license/beta_manager.py (line 15):
+# BETA_EXPIRY_DATE = "2025-10-01"  # Past date
+
+# 3. Run and verify blocking dialog appears
+.venv\Scripts\python.exe run.py
+
+# 4. Change date back and re-enable dev mode
+# BETA_EXPIRY_DATE = "2026-01-31"
+Rename-Item .devmode.disabled .devmode
+```
+
+---
+
+## 📦 Distribution Safety
+
+The `create_distribution.ps1` script **automatically excludes**:
+- ✅ `.devmode` file
+- ✅ `DEV_MODE_GUIDE.md`
+- ✅ `.venv` folder
+- ✅ `__pycache__` folders
+- ✅ `.git` folder
+
+**You're protected!** Even if you forget, the script won't include dev mode in packages.
+
+---
+
+## 🔍 Visual Indicators
+
+When dev mode is **ACTIVE**:
+
+**Console:**
+```
+[DEV MODE] Beta expiration bypassed for development
+```
+
+**Window Title:**
+```
+⚡️ NEO Script Editor v3.0 - Morpheus AI - BETA (DEV MODE)
+```
+
+**Status Bar:**
+```
+🔧 Developer Mode - Beta checks disabled
+```
+
+When dev mode is **DISABLED**:
+
+**Console:**
+```
+(No DEV MODE message)
+```
+
+**Window Title:**
+```
+⚡️ NEO Script Editor v3.0 - Morpheus AI - BETA
+```
+
+**Status Bar:**
+```
+Beta - 110 days remaining
+```
+
+---
+
+## ⚙️ Alternative Methods
+
+If `.devmode` file doesn't work for some reason:
+
+### Method A: Environment Variable
+```powershell
+$env:NEO_DEV_MODE = "1"
+.venv\Scripts\python.exe run.py
+```
+
+### Method B: Extend Expiry Date
+```python
+# Edit license/beta_manager.py line 15
+BETA_EXPIRY_DATE = "2099-12-31"  # Far future
+```
+
+---
+
+## 📋 Pre-Launch Checklist
+
+Before sharing with beta testers:
+
+- [ ] ❌ Delete or rename `.devmode`
+- [ ] ✅ Verify expiry date: `2026-01-31`
+- [ ] ✅ Test beta expiration works (temp disable dev mode)
+- [ ] ✅ Run `.\create_distribution.ps1`
+- [ ] ✅ Check ZIP doesn't contain `.devmode`
+- [ ] ✅ Test fresh install from ZIP
+
+---
+
+## 💡 Pro Tip
+
+Create a batch file for quick toggling:
+
+**toggle_devmode.ps1:**
+```powershell
+if (Test-Path .devmode) {
+    Rename-Item .devmode .devmode.disabled
+    Write-Host "🔴 Dev Mode: DISABLED" -ForegroundColor Red
+} else {
+    Rename-Item .devmode.disabled .devmode
+    Write-Host "🟢 Dev Mode: ENABLED" -ForegroundColor Green
+}
+```
+
+Usage:
+```powershell
+.\toggle_devmode.ps1
+```
+
+---
+
+## ✅ Summary
+
+**Current Status:**
+- 🟢 Dev mode: **ACTIVE**
+- 🟢 Beta expiration: **BYPASSED**
+- 🟢 Distribution script: **SAFE** (auto-excludes .devmode)
+- 🟢 You can: **Develop freely**
+
+**Remember:**
+- Dev mode is for YOUR development only
+- Always test beta system before release
+- Distribution script protects you automatically
+
+---
+
+## 📞 Need Help?
+
+See full guide: **DEV_MODE_GUIDE.md**
+
+---
+
+**You're all set!** Develop freely without beta restrictions. 🎉

@@ -30,6 +30,9 @@ try:
     from ui.chat_manager import ChatManager
     from ui.file_manager import FileManager
     
+    # Import beta/license manager
+    from license.beta_manager import BetaManager
+    
     print("[OK] All core components imported successfully")
 except ImportError as e:
     print(f"[!] Import warning: {e} (using fallbacks)")
@@ -44,6 +47,22 @@ QLineEdit { background: #252526; border: 1px solid #333; color: #EEE; border-rad
 QDockWidget::title { background: #252526; padding: 4px; }
 QTabBar::tab { background: #2D2D30; color: #DDD; padding: 6px 12px; border:1px solid #3E3E42; }
 QTabBar::tab:selected { background: #3E3E42; }
+QToolBar { spacing: 8px; padding: 4px; }
+QToolButton { 
+    background: transparent; 
+    color: #ffffff; 
+    border: none; 
+    border-radius: 4px;
+    padding: 6px;
+    opacity: 0.8;
+}
+QToolButton:hover { 
+    background: rgba(255, 255, 255, 0.1);
+    opacity: 1.0;
+}
+QToolButton:pressed {
+    background: rgba(255, 255, 255, 0.15);
+}
 """
 
 
@@ -52,10 +71,27 @@ class AiScriptEditor(QtWidgets.QMainWindow):
     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("�️ NEO Script Editor v3.0 - Morpheus AI")
+        
+        # Initialize beta manager first
+        self.beta_manager = BetaManager()
+        
+        # Check if beta is expired (block if needed)
+        if self.beta_manager.is_expired():
+            self.beta_manager.show_startup_notice(self)
+            # Don't initialize the rest of the app
+            QtCore.QTimer.singleShot(100, self.close)
+            return
+        
+        # Update window title with beta status
+        base_title = "⚡️ NEO Script Editor v3.0 - Morpheus AI"
+        self.setWindowTitle(base_title + self.beta_manager.get_title_suffix())
+        
         self.resize(1200, 700)
         self.setStyleSheet(DARK_STYLE)
 
+        # Track problems per editor/tab
+        self.editor_problems = {}  # Dictionary: editor_id -> list of problems
+        
         # Initialize components
         self._setup_central_widget()
         self._setup_floating_code_actions()
@@ -68,6 +104,12 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         
         # Initialize hierarchy
         self._init_hierarchy()
+        
+        # Show beta notice if needed (non-blocking)
+        QtCore.QTimer.singleShot(500, lambda: self.beta_manager.show_startup_notice(self))
+        
+        # Setup status bar with beta info
+        self._setup_status_bar()
         
         print("[OK] AI Script Editor initialized with refactored modular architecture!")
     
@@ -99,9 +141,16 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         tabHeaderLayout.addWidget(langLabel)
         
         self.languageCombo = QtWidgets.QComboBox()
-        self.languageCombo.addItem("🐍 Python", "Python")
-        self.languageCombo.addItem("📜 MEL", "MEL") 
+        # Load custom icons from assets folder
+        python_icon_path = os.path.join(os.path.dirname(__file__), "assets", "python.png")
+        mel_icon_path = os.path.join(os.path.dirname(__file__), "assets", "mel.png")
+        python_icon = QtGui.QIcon(python_icon_path) if os.path.exists(python_icon_path) else QtGui.QIcon()
+        mel_icon = QtGui.QIcon(mel_icon_path) if os.path.exists(mel_icon_path) else QtGui.QIcon()
+        
+        self.languageCombo.addItem(python_icon, " Python", "Python")
+        self.languageCombo.addItem(mel_icon, " MEL", "MEL") 
         self.languageCombo.setCurrentIndex(0)  # Default to Python
+        self.languageCombo.setIconSize(QtCore.QSize(16, 16))
         self.languageCombo.setToolTip("Select script language")
         self.languageCombo.setStyleSheet("""
             QComboBox {
@@ -113,9 +162,25 @@ class AiScriptEditor(QtWidgets.QMainWindow):
                 min-width: 100px;
                 font-size: 11px;
             }
-            QComboBox:hover { border-color: #58a6ff; }
+            QComboBox:hover { border-color: #00ff41; }
             QComboBox::drop-down { border: none; }
             QComboBox::down-arrow { image: url(none); }
+            QComboBox QAbstractItemView {
+                background: #21262d;
+                border: 1px solid #30363d;
+                selection-background-color: transparent;
+                color: #f0f6fc;
+                outline: none;
+            }
+            QComboBox QAbstractItemView::item {
+                padding: 4px 8px;
+                min-height: 20px;
+                border-left: 3px solid transparent;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                border-left: 3px solid #00ff41;
+                background: transparent;
+            }
         """)
         tabHeaderLayout.addWidget(self.languageCombo)
         tabHeaderLayout.addStretch()
@@ -141,7 +206,7 @@ class AiScriptEditor(QtWidgets.QMainWindow):
             QWidget {
                 background: rgba(45, 45, 48, 220);
                 border-radius: 8px;
-                border: 1px solid #58a6ff;
+                border: 1px solid #00ff41;
             }
         """)
         
@@ -153,7 +218,7 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         ai_btn.setStyleSheet("""
             QPushButton {
                 background: #21262d;
-                color: #58a6ff;
+                color: #00ff41;
                 border: 1px solid #30363d;
                 padding: 4px 8px;
                 border-radius: 4px;
@@ -221,16 +286,18 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         print("[OK] UI setup complete with all managers")
     
     def _setup_toolbar(self):
-        """Setup complete toolbar"""
+        """Setup complete toolbar with custom PNG icons"""
         toolbar = self.addToolBar("Main Toolbar")
         toolbar.setMovable(False)
+        toolbar.setIconSize(QtCore.QSize(20, 20))
+        toolbar.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         
-        toolbar.addAction(self._create_action("📄", "New File (Ctrl+N)", lambda: self.file_manager.new_file()))
-        toolbar.addAction(self._create_action("📁", "Open File (Ctrl+O)", lambda: self.file_manager.open_file()))
-        toolbar.addAction(self._create_action("🗂", "Open Folder (Ctrl+Shift+O)", lambda: self.file_manager.open_folder()))
+        toolbar.addAction(self._create_action("📄", "New File (Ctrl+N)", lambda: self.file_manager.new_file(), icon_file="new_file.png"))
+        toolbar.addAction(self._create_action("📁", "Open File (Ctrl+O)", lambda: self.file_manager.open_file(), icon_file="open.png"))
+        toolbar.addAction(self._create_action("🗂", "Open Folder (Ctrl+Shift+O)", lambda: self.file_manager.open_folder(), icon_file="open_folder.png"))
         toolbar.addSeparator()
-        toolbar.addAction(self._create_action("💾", "Save (Ctrl+S)", lambda: self.file_manager.save_file()))
-        toolbar.addAction(self._create_action("📝", "Save As (Ctrl+Shift+S)", lambda: self.file_manager.save_file_as()))
+        toolbar.addAction(self._create_action("💾", "Save (Ctrl+S)", lambda: self.file_manager.save_file(), icon_file="save.png"))
+        toolbar.addAction(self._create_action("📝", "Save As (Ctrl+Shift+S)", lambda: self.file_manager.save_file_as(), icon_file="save_as.png"))
         toolbar.addSeparator()
         toolbar.addAction(self._create_action("↶", "Undo (Ctrl+Z)", self.menu_manager._undo))
         toolbar.addAction(self._create_action("↷", "Redo (Ctrl+Y)", self.menu_manager._redo))
@@ -238,10 +305,10 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         toolbar.addAction(self._create_action("🤖", "Morpheus AI Chat", self._show_morpheus_chat, icon_file="morpheus.png"))
         toolbar.addSeparator()
         toolbar.addAction(self._create_action("✓", "Syntax Check (F7)", self.menu_manager._syntax_check))
-        toolbar.addAction(self._create_action("▶️", "Run Script (F5)", self.menu_manager._run_script))
+        toolbar.addAction(self._create_action("▶️", "Run Script (F5)", self.menu_manager._run_script, icon_file="run.png"))
         
     def _create_action(self, icon_text, tooltip, slot, icon_file=None):
-        """Helper to create toolbar actions"""
+        """Helper to create toolbar actions with VS Code style white icons"""
         if icon_file:
             # Try to load custom icon from assets folder
             icon_path = os.path.join(os.path.dirname(__file__), "assets", icon_file)
@@ -258,10 +325,16 @@ class AiScriptEditor(QtWidgets.QMainWindow):
                 # Fall back to text icon if file not found
                 print(f"[Warning] Icon file not found: {icon_path}, using text fallback")
         
-        # Default: use text icon
+        # Default: use text icon with white color for VS Code style
         action = QtGui.QAction(icon_text, self)
         action.setToolTip(tooltip)
         action.triggered.connect(slot)
+        
+        # Apply white icon styling
+        font = QtGui.QFont()
+        font.setPointSize(14)
+        action.setFont(font)
+        
         return action
 
     def _setup_connections(self):
@@ -291,38 +364,108 @@ class AiScriptEditor(QtWidgets.QMainWindow):
             print("[Warning] Morpheus chat dock not initialized")
 
     def _update_problems(self, problems):
-        """Update the problems list with linting results"""
+        """Update the problems list with linting results from the editor that sent the signal.
+        
+        This method stores problems for each editor and displays only the current tab's problems.
+        """
         try:
             if not hasattr(self, 'problemsList') or not self.problemsList:
                 print("⚠️ Problems list not available")
                 return
+            
+            # CRITICAL FIX: Get the SENDER editor (the one that emitted the signal)
+            # NOT the current widget (which might be a different tab)
+            sender_editor = self.sender()
+            if not sender_editor:
+                print("⚠️ No sender editor found for problems signal")
+                return
+            
+            # Get a unique identifier for this editor (use object id)
+            editor_id = id(sender_editor)
+            
+            # Find the tab that contains this editor
+            tab_text = "Unknown File"
+            for i in range(self.tabWidget.count()):
+                if self.tabWidget.widget(i) == sender_editor:
+                    tab_text = self.tabWidget.tabText(i)
+                    break
+            
+            # Check if problems actually changed (avoid redundant updates)
+            old_problems = self.editor_problems.get(editor_id, [])
+            if old_problems == problems:
+                # No change, don't update to avoid flashing
+                return
+            
+            # Update problems for this specific editor with filename (make copies to avoid mutation)
+            problems_copy = []
+            for problem in problems:
+                problem_copy = problem.copy()
+                problem_copy['file'] = tab_text if tab_text != "untitled" else "Current File"
+                problem_copy['editor_id'] = editor_id
+                problems_copy.append(problem_copy)
+            
+            # Store problems for this editor (replaces old problems from same editor)
+            self.editor_problems[editor_id] = problems_copy
+            
+            # Only refresh if this is the current tab
+            current_editor = self.tabWidget.currentWidget()
+            if current_editor == sender_editor:
+                self._refresh_current_tab_problems()
                 
+        except Exception as e:
+            print(f"❌ Error updating problems: {e}")
+            import traceback
+            traceback.print_exc()
+            try:
+                self.statusBar().showMessage("Error updating problems list")
+            except:
+                pass
+    
+    def _refresh_current_tab_problems(self):
+        """Refresh the problems display with only the current tab's problems."""
+        try:
+            if not hasattr(self, 'problemsList') or not self.problemsList:
+                return
+            
+            # Get the current editor
+            current_editor = self.tabWidget.currentWidget()
+            if not current_editor:
+                self.problemsList.clear()
+                self.statusBar().showMessage("No problems detected")
+                return
+            
+            # Get problems for this editor only
+            editor_id = id(current_editor)
+            current_problems = self.editor_problems.get(editor_id, [])
+            
+            # Clear and repopulate the problems list with ONLY current tab's problems
             self.problemsList.clear()
             
-            for problem in problems:
+            for problem in current_problems:
                 # Create tree widget item with proper columns
                 item = QtWidgets.QTreeWidgetItem()
                 
                 # Set the columns: Type, Message, Line, File
-                item.setText(0, problem.get('type', 'Error'))  # Type (Error/Warning)
-                item.setText(1, problem.get('message', 'Unknown error'))  # Message
-                item.setText(2, str(problem.get('line', 0)))  # Line number as text
-                item.setText(3, problem.get('file', 'Current File'))  # File name
+                item.setText(0, problem.get('type', 'Error'))
+                item.setText(1, problem.get('message', 'Unknown error'))
+                item.setText(2, str(problem.get('line', 0)))
+                item.setText(3, problem.get('file', 'Current File'))
                 
-                # Store line number as user data for navigation
+                # Store line number and editor_id as user data for navigation
                 item.setData(2, QtCore.Qt.UserRole, problem.get('line', 0))
+                item.setData(3, QtCore.Qt.UserRole, problem.get('editor_id'))
                 
                 # Set error icon and color
                 if problem.get('type') == 'Error':
-                    item.setForeground(0, QtGui.QBrush(QtGui.QColor("#f48771")))  # Red
+                    item.setForeground(0, QtGui.QBrush(QtGui.QColor("#f48771")))
                 else:
-                    item.setForeground(0, QtGui.QBrush(QtGui.QColor("#ffcc02")))  # Yellow
+                    item.setForeground(0, QtGui.QBrush(QtGui.QColor("#ffcc02")))
                 
                 self.problemsList.addTopLevelItem(item)
             
-            # Update window title with error count
-            error_count = len([p for p in problems if p.get('type') == 'Error'])
-            warning_count = len([p for p in problems if p.get('type') == 'Warning'])
+            # Update status bar with count for CURRENT TAB ONLY
+            error_count = len([p for p in current_problems if p.get('type') == 'Error'])
+            warning_count = len([p for p in current_problems if p.get('type') == 'Warning'])
             
             if error_count > 0 or warning_count > 0:
                 status = f"Problems: {error_count} errors, {warning_count} warnings"
@@ -331,11 +474,56 @@ class AiScriptEditor(QtWidgets.QMainWindow):
                 self.statusBar().showMessage("No problems detected")
                 
         except Exception as e:
-            print(f"❌ Error updating problems: {e}")
-            try:
-                self.statusBar().showMessage("Error updating problems list")
-            except:
-                pass
+            print(f"❌ Error refreshing current tab problems: {e}")
+    
+    def _refresh_all_problems(self):
+        """Refresh the problems display with all problems from all open editors."""
+        try:
+            if not hasattr(self, 'problemsList') or not self.problemsList:
+                return
+            
+            # Aggregate all problems from all open editors
+            all_problems = []
+            for editor_id, editor_problems in self.editor_problems.items():
+                all_problems.extend(editor_problems)
+            
+            # Clear and repopulate the problems list
+            self.problemsList.clear()
+            
+            for problem in all_problems:
+                # Create tree widget item with proper columns
+                item = QtWidgets.QTreeWidgetItem()
+                
+                # Set the columns: Type, Message, Line, File
+                item.setText(0, problem.get('type', 'Error'))
+                item.setText(1, problem.get('message', 'Unknown error'))
+                item.setText(2, str(problem.get('line', 0)))
+                item.setText(3, problem.get('file', 'Current File'))
+                
+                # Store line number and editor_id as user data for navigation
+                item.setData(2, QtCore.Qt.UserRole, problem.get('line', 0))
+                item.setData(3, QtCore.Qt.UserRole, problem.get('editor_id'))
+                
+                # Set error icon and color
+                if problem.get('type') == 'Error':
+                    item.setForeground(0, QtGui.QBrush(QtGui.QColor("#f48771")))
+                else:
+                    item.setForeground(0, QtGui.QBrush(QtGui.QColor("#ffcc02")))
+                
+                self.problemsList.addTopLevelItem(item)
+            
+            # Update status bar with count
+            error_count = len([p for p in all_problems if p.get('type') == 'Error'])
+            warning_count = len([p for p in all_problems if p.get('type') == 'Warning'])
+            
+            if error_count > 0 or warning_count > 0:
+                status = f"Problems: {error_count} errors, {warning_count} warnings"
+                self.statusBar().showMessage(status)
+            else:
+                self.statusBar().showMessage("No problems detected")
+                
+        except Exception as e:
+            print(f"❌ Error refreshing problems: {e}")
 
     def _on_problem_double_clicked(self, item, column):
         """Navigate to the line when a problem is double-clicked"""
@@ -352,23 +540,68 @@ class AiScriptEditor(QtWidgets.QMainWindow):
                 except:
                     return
             
-            # Get the active editor
-            editor = self.chat_manager.get_active_editor()
-            if not editor:
+            # Get the editor_id from the item data (column 3)
+            editor_id = item.data(3, QtCore.Qt.UserRole)
+            
+            # Find the editor widget by ID and switch to its tab
+            target_editor = None
+            if editor_id:
+                for i in range(self.tabWidget.count()):
+                    editor = self.tabWidget.widget(i)
+                    if id(editor) == editor_id:
+                        target_editor = editor
+                        self.tabWidget.setCurrentIndex(i)  # Switch to this tab
+                        break
+            
+            # If we couldn't find by ID, use current editor as fallback
+            if not target_editor:
+                target_editor = self.chat_manager.get_active_editor()
+            
+            if not target_editor:
                 return
             
             # Navigate to the line
-            cursor = editor.textCursor()
-            block = editor.document().findBlockByLineNumber(line_num - 1)  # 0-based
+            cursor = target_editor.textCursor()
+            block = target_editor.document().findBlockByLineNumber(line_num - 1)  # 0-based
             cursor.setPosition(block.position())
-            editor.setTextCursor(cursor)
-            editor.setFocus()
+            target_editor.setTextCursor(cursor)
+            target_editor.setFocus()
             
             # Center the cursor
-            editor.centerCursor()
+            target_editor.centerCursor()
             
         except Exception as e:
             print(f"Error navigating to problem: {e}")
+    
+    def _setup_status_bar(self):
+        """Setup status bar with beta information"""
+        self.statusBar().setStyleSheet("""
+            QStatusBar {
+                background: #21262d;
+                color: #8b949e;
+                border-top: 1px solid #30363d;
+                font-size: 10pt;
+            }
+            QStatusBar::item {
+                border: none;
+            }
+        """)
+        
+        # Add beta status message
+        beta_msg = self.beta_manager.get_status_bar_message()
+        if beta_msg:
+            self.statusBar().showMessage(beta_msg)
+            
+            # Update status bar periodically (check daily)
+            self.status_timer = QtCore.QTimer()
+            self.status_timer.timeout.connect(self._update_status_bar)
+            self.status_timer.start(86400000)  # 24 hours in milliseconds
+    
+    def _update_status_bar(self):
+        """Update status bar with current beta info"""
+        beta_msg = self.beta_manager.get_status_bar_message()
+        if beta_msg:
+            self.statusBar().showMessage(beta_msg)
 
 
 def main():

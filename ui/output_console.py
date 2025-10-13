@@ -15,10 +15,10 @@ class OutputConsole(QtWidgets.QTextEdit):
         self.customContextMenuRequested.connect(self._show_context_menu)
         self._auto_scroll = True
 
-        # Style
+        # Matrix-themed style
         self.setStyleSheet("""
-            background:#111;
-            color:#DDD;
+            background:#000000;
+            color:#00ff41;
             font-family:Consolas;
             font-size:10pt;
             border:none;
@@ -38,7 +38,7 @@ class OutputConsole(QtWidgets.QTextEdit):
     # =====================================================
     #   Public API
     # =====================================================
-    def append_tagged(self, tag: str, msg: str, color="#9ef"):
+    def append_tagged(self, tag: str, msg: str, color="#00ff41"):
         """Append a log line with colored tag."""
         html = f"<span style='color:{color};'><b>{tag}</b></span> {msg}"
         self._append_html_threadsafe(html)
@@ -46,17 +46,17 @@ class OutputConsole(QtWidgets.QTextEdit):
     def append(self, msg: str):
         """Append plain text safely."""
         safe = msg.replace("<", "&lt;").replace(">", "&gt;")
-        self._append_html_threadsafe(f"<span style='color:#DDD;'>{safe}</span>")
+        self._append_html_threadsafe(f"<span style='color:#ffffff;'>{safe}</span>")
 
     def log(self, msg: str, level: str = "info"):
         """Convenience wrapper for different log levels."""
         color = {
-            "info": "#9ef",
-            "warn": "#fc3",
-            "error": "#f66",
-            "success": "#9f9",
-            "debug": "#888",
-        }.get(level.lower(), "#ccc")
+            "info": "#ffffff",      # White for info
+            "warn": "#ffff00",      # Yellow for warnings
+            "error": "#ff0000",     # Red for errors
+            "success": "#00ff41",   # Matrix green for success
+            "debug": "#888888",     # Gray for debug
+        }.get(level.lower(), "#ffffff")
         self.append_tagged(level.upper(), msg, color=color)
 
     # =====================================================
@@ -99,9 +99,9 @@ class OutputConsole(QtWidgets.QTextEdit):
         
         # Toggle output capture
         if self._capture_output:
-            menu.addAction("📴 Disable Output Capture", self.disable_output_capture)
+            menu.addAction("Disable Output Capture", self.disable_output_capture)
         else:
-            menu.addAction("📡 Enable Output Capture", self.enable_output_capture)
+            menu.addAction("Enable Output Capture", self.enable_output_capture)
             
         menu.exec_(self.mapToGlobal(pos))
     
@@ -111,16 +111,16 @@ class OutputConsole(QtWidgets.QTextEdit):
     def _show_welcome_message(self):
         """Show NEO Script Editor welcome message."""
         timestamp = datetime.now().strftime("%H:%M:%S")
-        welcome = f"""<span style='color:#58a6ff; font-weight:bold;'>
+        welcome = f"""<span style='color:#00ff41; font-weight:bold;'>
 ╭─────────────────────────────────────────────────────────────────╮
-│                    NEO Script Editor v2.0                      │
-│              Developed by Mayj Amilano with ❤️                │  
+│                 NEO Script Editor v3.0 Beta                    │
+│                 Developed by Mayj Amilano                      │  
 │                     Output Console Ready                        │
 ╰─────────────────────────────────────────────────────────────────╯</span>
 
-<span style='color:#9ef;'>[{timestamp}] Console initialized.</span>
-<span style='color:#9f9;'>[{timestamp}] Right-click to enable output capture for print statements.</span>
-<span style='color:#fc3;'>[{timestamp}] Run Python/MEL code to see results here!</span>
+<span style='color:#ffffff;'>[{timestamp}] Console initialized.</span>
+<span style='color:#00ff41;'>[{timestamp}] Right-click to enable output capture for print statements.</span>
+<span style='color:#ffffff;'>[{timestamp}] Run Python/MEL code to see results here!</span>
 """
         self._append_html_threadsafe(welcome)
     
@@ -145,8 +145,8 @@ class OutputConsole(QtWidgets.QTextEdit):
         timestamp = datetime.now().strftime("%H:%M:%S")
         
         # Show the code being executed
-        self.append_tagged("EXEC", f"Executing {language} code:", "#58a6ff")
-        code_html = f"<span style='color:#ddd; background:#1a1a1a; padding:4px; border-left:3px solid #58a6ff; display:block; margin:4px 0;'><pre>{code}</pre></span>"
+        self.append_tagged("EXEC", f"Executing {language} code:", "#00ff41")
+        code_html = f"<span style='color:#ddd; background:#1a1a1a; padding:4px; border-left:3px solid #00ff41; display:block; margin:4px 0;'><pre>{code}</pre></span>"
         self._append_html_threadsafe(code_html)
         
         # Temporarily enable output capture for execution

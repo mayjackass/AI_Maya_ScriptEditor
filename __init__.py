@@ -31,7 +31,7 @@ def launch_ai_script_editor():
         win = AiScriptEditor()
         win.show()
 
-        print("✅ NEO Script Editor v2.0 launched successfully.")
+        print("✅ NEO Script Editor v3.0 Beta launched successfully.")
         return win
 
     except Exception as e:

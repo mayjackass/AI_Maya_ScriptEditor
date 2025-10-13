@@ -3,7 +3,7 @@ File Manager
 Handles all file operations (new, open, save, tab management)
 """
 import os
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtWidgets, QtCore, QtGui
 
 
 class FileManager:
@@ -22,6 +22,62 @@ class FileManager:
         self.tab_widget = tab_widget
         self.language_combo = language_combo
         
+        # Create icons for Python and MEL
+        self._create_language_icons()
+    
+    def _create_language_icons(self):
+        """Create icons for Python and MEL languages from assets folder"""
+        # Get the base directory (parent of ui folder)
+        base_dir = os.path.dirname(os.path.dirname(__file__))
+        
+        # Load Python icon from assets
+        python_icon_path = os.path.join(base_dir, "assets", "python.png")
+        if os.path.exists(python_icon_path):
+            self.python_icon = QtGui.QIcon(python_icon_path)
+        else:
+            # Fallback to emoji if file not found
+            python_pixmap = QtGui.QPixmap(16, 16)
+            python_pixmap.fill(QtCore.Qt.transparent)
+            painter = QtGui.QPainter(python_pixmap)
+            painter.setRenderHint(QtGui.QPainter.Antialiasing)
+            painter.setRenderHint(QtGui.QPainter.TextAntialiasing)
+            font = QtGui.QFont()
+            font.setPointSize(10)
+            painter.setFont(font)
+            painter.drawText(python_pixmap.rect(), QtCore.Qt.AlignCenter, "🐍")
+            painter.end()
+            self.python_icon = QtGui.QIcon(python_pixmap)
+        
+        # Load MEL icon from assets
+        mel_icon_path = os.path.join(base_dir, "assets", "mel.png")
+        if os.path.exists(mel_icon_path):
+            self.mel_icon = QtGui.QIcon(mel_icon_path)
+        else:
+            # Fallback to emoji if file not found
+            mel_pixmap = QtGui.QPixmap(16, 16)
+            mel_pixmap.fill(QtCore.Qt.transparent)
+            painter = QtGui.QPainter(mel_pixmap)
+            painter.setRenderHint(QtGui.QPainter.Antialiasing)
+            painter.setRenderHint(QtGui.QPainter.TextAntialiasing)
+            font = QtGui.QFont()
+            font.setPointSize(10)
+            painter.setFont(font)
+            painter.drawText(mel_pixmap.rect(), QtCore.Qt.AlignCenter, "📜")
+            painter.end()
+            self.mel_icon = QtGui.QIcon(mel_pixmap)
+    
+    def _set_tab_icon(self, index, language):
+        """Set the icon for a tab based on language
+        
+        Args:
+            index: Tab index
+            language: 'python' or 'mel'
+        """
+        if language.lower() == "python":
+            self.tab_widget.setTabIcon(index, self.python_icon)
+        else:
+            self.tab_widget.setTabIcon(index, self.mel_icon)
+        
     def new_file(self):
         """Create new file"""
         try:
@@ -30,20 +86,39 @@ class FileManager:
             lang = self.language_combo.currentText()
             if "Python" in lang:
                 editor.set_language("python")
-                content = "#!/usr/bin/env python3\n# New Python script\nprint('Hello World!')\n"
+                content = ""  # Start with empty file
+                language = "python"
             else:
                 editor.set_language("mel")
-                content = "// New MEL script\nprint(\"Hello World!\\n\");\n"
+                content = ""  # Start with empty file
+                language = "mel"
             editor.setPlainText(content)
+            
+            # Set placeholder text with instructions (like VSCode)
+            if "Python" in lang:
+                editor.setPlaceholderText(
+                    "# Start typing Python code...\n"
+                    "# - Press Ctrl+Space for autocomplete\n"
+                    "# - Syntax errors will be highlighted in red\n"
+                    "# - Use Ctrl+F to find/replace"
+                )
+            else:
+                editor.setPlaceholderText(
+                    "// Start typing MEL code...\n"
+                    "// - MEL syntax highlighting enabled\n"
+                    "// - Use Ctrl+F to find/replace"
+                )
             
             # Connect problems signal for problems window
             if hasattr(editor, 'lintProblemsFound'):
                 editor.lintProblemsFound.connect(self.parent._update_problems)
         except:
             editor = QtWidgets.QTextEdit()
-            editor.setPlainText("# New file\nprint('Hello World!')\n")
+            editor.setPlainText("")
+            language = "python"
         
         index = self.tab_widget.addTab(editor, "untitled")
+        self._set_tab_icon(index, language)
         self.tab_widget.setCurrentIndex(index)
     
     def open_file(self):
@@ -61,18 +136,24 @@ class FileManager:
                     editor = CodeEditor()
                     if file_path.endswith('.py'):
                         editor.set_language("python")
+                        language = "python"
                     elif file_path.endswith('.mel'):
                         editor.set_language("mel")
+                        language = "mel"
+                    else:
+                        language = "python"  # Default to Python
                     
                     # Connect problems signal for problems window
                     if hasattr(editor, 'lintProblemsFound'):
                         editor.lintProblemsFound.connect(self.parent._update_problems)
                 except:
                     editor = QtWidgets.QTextEdit()
+                    language = "python"
                 
                 editor.setPlainText(content)
                 tab_name = os.path.basename(file_path)
                 index = self.tab_widget.addTab(editor, tab_name)
+                self._set_tab_icon(index, language)
                 self.tab_widget.setCurrentIndex(index)
                 
                 # Force rehighlight after tab is shown to ensure proper state tracking
@@ -169,15 +250,30 @@ class FileManager:
                         if file_path.endswith('.py'):
                             current_widget.set_language("python")
                             self.language_combo.setCurrentText("🐍 Python")
+                            self._set_tab_icon(current_index, "python")
                         elif file_path.endswith('.mel'):
                             current_widget.set_language("mel")
                             self.language_combo.setCurrentText("📜 MEL")
+                            self._set_tab_icon(current_index, "mel")
                     
                 except Exception as e:
                     QtWidgets.QMessageBox.warning(self.parent, "Error", f"Failed to save: {e}")
     
     def close_tab(self, index):
-        """Close tab"""
+        """Close tab and clean up its problems"""
+        # Get the editor widget before closing
+        editor_widget = self.tab_widget.widget(index)
+        
+        # Remove problems for this editor from the main window tracker
+        if editor_widget and hasattr(self.parent, 'editor_problems'):
+            editor_id = id(editor_widget)
+            if editor_id in self.parent.editor_problems:
+                del self.parent.editor_problems[editor_id]
+                # Refresh the problems display for current tab
+                if hasattr(self.parent, '_refresh_current_tab_problems'):
+                    self.parent._refresh_current_tab_problems()
+        
+        # Close the tab
         if self.tab_widget.count() <= 1:
             self.new_file()
         self.tab_widget.removeTab(index)
@@ -191,15 +287,37 @@ class FileManager:
                 self.language_combo.setCurrentText("🐍 Python")
             else:
                 self.language_combo.setCurrentText("📜 MEL")
+        
+        # Refresh problems display to show only current tab's problems
+        if hasattr(self.parent, '_refresh_current_tab_problems'):
+            self.parent._refresh_current_tab_problems()
     
     def on_language_changed(self, text):
         """Handle language change"""
         current_widget = self.tab_widget.currentWidget()
         if current_widget and hasattr(current_widget, 'set_language'):
+            current_index = self.tab_widget.currentIndex()
             if "Python" in text:
                 current_widget.set_language("python")
+                self._set_tab_icon(current_index, "python")
+                # Update placeholder text for Python
+                if hasattr(current_widget, 'setPlaceholderText') and not current_widget.toPlainText():
+                    current_widget.setPlaceholderText(
+                        "# Start typing Python code...\n"
+                        "# - Press Ctrl+Space for autocomplete\n"
+                        "# - Syntax errors will be highlighted in red\n"
+                        "# - Use Ctrl+F to find/replace"
+                    )
             else:
                 current_widget.set_language("mel")
+                self._set_tab_icon(current_index, "mel")
+                # Update placeholder text for MEL
+                if hasattr(current_widget, 'setPlaceholderText') and not current_widget.toPlainText():
+                    current_widget.setPlaceholderText(
+                        "// Start typing MEL code...\n"
+                        "// - MEL syntax highlighting enabled\n"
+                        "// - Use Ctrl+F to find/replace"
+                    )
     
     def on_explorer_double_clicked(self, index, file_model):
         """Handle explorer double-click"""
@@ -214,14 +332,24 @@ class FileManager:
                     editor = CodeEditor()
                     if file_path.endswith('.py'):
                         editor.set_language("python")
+                        language = "python"
                     elif file_path.endswith('.mel'):
                         editor.set_language("mel")
+                        language = "mel"
+                    else:
+                        language = "python"  # Default
+                    
+                    # Connect problems signal for problems window
+                    if hasattr(editor, 'lintProblemsFound'):
+                        editor.lintProblemsFound.connect(self.parent._update_problems)
                 except:
                     editor = QtWidgets.QTextEdit()
+                    language = "python"
                 
                 editor.setPlainText(content)
                 tab_name = os.path.basename(file_path)
                 index = self.tab_widget.addTab(editor, tab_name)
+                self._set_tab_icon(index, language)
                 self.tab_widget.setCurrentIndex(index)
                 
             except Exception as e:
