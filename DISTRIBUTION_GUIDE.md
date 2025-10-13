@@ -1,4 +1,4 @@
-# 📦 Distribution & Packaging Guide
+# Distribution & Packaging Guide
 
 ## Beta Release Packaging
 
@@ -59,15 +59,15 @@ Compress-Archive -Path ai_script_editor -DestinationPath NEO_Script_Editor_v3.0_
 - 50% discount on full version after beta
 - Direct influence on development priorities
 
-## 📥 Installation
+## Installation
 1. Download `NEO_Script_Editor_v3.0_beta.zip`
 2. Extract to Maya scripts folder
 3. Follow instructions in `MAYA_SETUP.md`
 
-## ⚠️ Beta Software Notice
+## Beta Software Notice
 This is testing software. Please report bugs on GitHub Issues.
 
-## 🔗 Links
+## Links
 - [Documentation](README.md)
 - [Beta License](BETA_LICENSE.md)
 - [Report Bugs](https://github.com/mayjackass/AI_Maya_ScriptEditor/issues)
@@ -124,15 +124,15 @@ This is testing software. Please report bugs on GitHub Issues.
 
 **Post Template:**
 ```
-🎉 NEW: NEO Script Editor v3.0 Beta - AI-Powered Maya Scripting
+NEW: NEO Script Editor v3.0 Beta - AI-Powered Maya Scripting
 
 FREE Beta testing now available! (Expires Jan 31, 2026)
 
 Features:
-✨ Morpheus AI assistant with GPT-4 and Claude support
-⚡ VSCode-style inline diff preview
-🎯 Real-time error detection
-🎨 Matrix-themed dark UI
+- Morpheus AI assistant with GPT-4 and Claude support
+- VSCode-style inline diff preview
+- Real-time error detection
+- Matrix-themed dark UI
 
 Beta testers get 50% OFF the full version!
 
@@ -358,4 +358,4 @@ Feel free to ask! I can provide detailed guides for any of these.
 5. Gather initial feedback
 6. Public announcement
 
-Good luck with your beta launch! 🚀
+Good luck with your beta launch!

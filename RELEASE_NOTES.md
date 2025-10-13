@@ -1,64 +1,64 @@
 # NEO Script Editor v3.0 Beta - Release Notes
 
-## 🧪 Beta Release Information
+## Beta Release Information
 
-> ⚠️ **IMPORTANT**: This is a BETA RELEASE for testing purposes. Some features may be unstable or incomplete. Please report any bugs or issues on GitHub.
+> **IMPORTANT**: This is a BETA RELEASE for testing purposes. Some features may be unstable or incomplete. Please report any bugs or issues on GitHub.
 
 **Version:** 3.0 Beta (Testing Release)  
 **Release Date:** October 13, 2025  
 **Author:** Mayj Amilano (@mayjackass)  
 **License:** All Rights Reserved © 2025  
 **Repository:** https://github.com/mayjackass/AI_Maya_ScriptEditor  
-**Status:** 🧪 Beta Testing
+**Status:** Beta Testing
 
 ### What is Beta?
 This beta release includes all major features but is still undergoing testing. We encourage users to:
-- ✅ Test all features thoroughly
-- ✅ Report bugs via GitHub Issues
-- ✅ Provide feedback on usability
-- ✅ Suggest improvements
-- ⚠️ Use with caution in production environments
-- ⚠️ Keep backups of important scripts
+- Test all features thoroughly
+- Report bugs via GitHub Issues
+- Provide feedback on usability
+- Suggest improvements
+- Use with caution in production environments
+- Keep backups of important scripts
 
 ---
 
-## 🎯 What's New in v3.0
+## What's New in v3.0
 
-### 🤖 Morpheus AI Integration
+### Morpheus AI Integration
 - **Auto-Context Detection**: Morpheus automatically sees your current editor code (like GitHub Copilot)
 - **Multi-Model Support**: OpenAI GPT-4 and Anthropic Claude integration
 - **Smart Code Analysis**: Ask about errors, improvements, or general questions
 - **Conversation History**: Persistent chat history across sessions
 - **Code Context Menu**: Quick access to Morpheus from anywhere
 
-### ✨ VSCode-Style Inline Diff
+### VSCode-Style Inline Diff
 - **Visual Code Preview**: See changes before applying (red for removed, green for added)
 - **Smart Code Matching**: Only replaces problematic sections, not entire files
 - **Inline Accept/Reject**: Buttons appear directly in the editor
 - **Match Confidence**: Shows percentage match quality
 - **Non-Intrusive**: Overlay widget doesn't block your work
 
-### 🔍 Advanced Error Detection
+### Advanced Error Detection
 - **Multi-Pass Algorithm**: Detects up to 10 errors simultaneously
 - **VSCode-Style Indicators**: Red squiggly underlines with hover tooltips
 - **Column-Based Positioning**: Precise error location highlighting
 - **Tab-Focused Display**: Problems panel shows only active tab's errors
 - **False Positive Reduction**: Conservative pattern matching
 
-### 🎨 Modern User Interface
+### Modern User Interface
 - **GitHub Dark Theme**: Professional dark color scheme
 - **Gradient Backgrounds**: Beautiful visual aesthetics
-- **Emoji Icons**: Python 🐍 and MEL 📜 tab indicators
+- **Custom Icons**: Python and MEL tab indicators
 - **Enhanced About Dialog**: Professional release-ready information
 - **Dock Widgets**: Console, Problems, Explorer, Morpheus Chat
 
-### ⚡ Performance Improvements
+### Performance Improvements
 - **Lag-Free Typing**: Optimized text rendering and syntax parsing
 - **Efficient Highlighting**: Character-by-character parsing for accuracy
 - **Fast Error Checking**: Debounced with 500ms delay
 - **Smart Autocomplete**: 100ms trigger delay, Tab confirmation
 
-### 🐍 Python & MEL Support
+### Python & MEL Support
 - **Dual Language**: Full support for both Python and MEL scripts
 - **Language-Specific Features**: Tailored syntax highlighting and autocomplete
 - **Maya API Integration**: Comprehensive Maya Python API support
@@ -66,22 +66,22 @@ This beta release includes all major features but is still undergoing testing. W
 
 ---
 
-## 📋 Feature Comparison
+## Feature Comparison
 
 | Feature | v2.x | v3.0 |
 |---------|------|------|
-| AI Assistant | ❌ | ✅ Morpheus AI |
-| Auto-Context | ❌ | ✅ Like GitHub Copilot |
-| Inline Diff | ❌ | ✅ VSCode-style |
-| Multi-Error Detection | ❌ | ✅ Up to 10 errors |
-| Tab Icons | ❌ | ✅ 🐍 📜 |
-| Autocomplete | ✅ | ✅ Enhanced |
-| Problems Panel | ✅ | ✅ Tab-focused |
-| Modern UI | ✅ | ✅ Enhanced |
+| AI Assistant | No | Yes - Morpheus AI |
+| Auto-Context | No | Yes - Like GitHub Copilot |
+| Inline Diff | No | Yes - VSCode-style |
+| Multi-Error Detection | No | Yes - Up to 10 errors |
+| Tab Icons | No | Yes - Custom icons |
+| Autocomplete | Yes | Yes - Enhanced |
+| Problems Panel | Yes | Yes - Tab-focused |
+| Modern UI | Yes | Yes - Enhanced |
 
 ---
 
-## 🛠️ Technical Stack
+## Technical Stack
 
 - **Python**: 3.9.13+
 - **GUI Framework**: PySide6 (Qt6)
@@ -92,7 +92,7 @@ This beta release includes all major features but is still undergoing testing. W
 
 ---
 
-## 📦 Installation
+## Installation
 
 ### Requirements
 - Python 3.9 or higher
@@ -130,7 +130,7 @@ run.main()
 
 ---
 
-## 🎓 Usage Guide
+## Usage Guide
 
 ### Getting Started
 1. **Open Editor**: Launch via `run.py` or Maya shelf button
@@ -162,14 +162,14 @@ run.main()
 
 ---
 
-## 🐛 Known Issues
+## Known Issues
 
 ### Fixed in v3.0:
-✅ Multi-tab error tracking  
-✅ False positive error detection  
-✅ Triple-quote string highlighting  
-✅ Autocomplete Enter key behavior  
-✅ Problems panel duplication  
+- Multi-tab error tracking  
+- False positive error detection  
+- Triple-quote string highlighting  
+- Autocomplete Enter key behavior  
+- Problems panel duplication  
 
 ### Current Limitations:
 - Morpheus requires API keys (OpenAI or Claude)
@@ -178,7 +178,7 @@ run.main()
 
 ---
 
-## 🔮 Roadmap (v3.1+)
+## Roadmap (v3.1+)
 
 ### Planned Features:
 - [ ] Multiple AI suggestion options
@@ -194,7 +194,7 @@ run.main()
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 ### Technologies Used:
 - **PySide6/Qt** - UI framework
@@ -211,17 +211,17 @@ run.main()
 
 ---
 
-## � Known Issues (Beta)
+## Known Issues (Beta)
 
 ### Reported Issues:
 Currently tracking issues during beta testing. Please report any bugs you encounter!
 
 ### Potential Limitations:
-- ⚠️ Inline diff may not work perfectly with all code patterns
-- ⚠️ Large files (>5000 lines) may have performance impact
-- ⚠️ MEL autocomplete is basic (Python keywords only)
-- ⚠️ Morpheus requires valid API keys (OpenAI or Claude)
-- ⚠️ First-time setup may require configuration
+- Inline diff may not work perfectly with all code patterns
+- Large files (>5000 lines) may have performance impact
+- MEL autocomplete is basic (Python keywords only)
+- Morpheus requires valid API keys (OpenAI or Claude)
+- First-time setup may require configuration
 
 ### Testing Needed:
 - [ ] Multi-tab workflow with many files
@@ -243,7 +243,7 @@ Currently tracking issues during beta testing. Please report any bugs you encoun
 
 ---
 
-## �📝 License
+## License
 
 **NEO Script Editor v3.0 Beta**  
 © 2025 Mayj Amilano (@mayjackass). All Rights Reserved.
@@ -253,7 +253,7 @@ Redistribution and modification require explicit permission from the author.
 
 ---
 
-## 📞 Contact & Support
+## Contact & Support
 
 **Author:** Mayj Amilano (@mayjackass)  
 **GitHub:** https://github.com/mayjackass  
@@ -264,19 +264,19 @@ For bug reports, feature requests, or general questions, please open an issue on
 
 ---
 
-## 📊 Version History
+## Version History
 
 ### v3.0 Beta (October 13, 2025) - CURRENT
-🧪 **Beta Testing Release**
-- ✨ Morpheus AI integration with auto-context
-- ✨ VSCode-style inline diff preview
-- ✨ Multi-pass error detection (10 errors)
-- ✨ Enhanced About dialog
-- ✨ Tab icons (🐍 Python, 📜 MEL)
-- 🔧 Fixed triple-quote highlighting
-- 🔧 Fixed autocomplete behavior
-- 🔧 Optimized performance
-- ⚠️ Beta status - testing in progress
+Beta Testing Release
+- Morpheus AI integration with auto-context
+- VSCode-style inline diff preview
+- Multi-pass error detection (10 errors)
+- Enhanced About dialog
+- Tab icons (Python, MEL)
+- Fixed triple-quote highlighting
+- Fixed autocomplete behavior
+- Optimized performance
+- Beta status - testing in progress
 
 ### v2.2 (Previous)
 - Complete modular architecture
@@ -293,4 +293,9 @@ For bug reports, feature requests, or general questions, please open an issue on
 
 ---
 
-**Thank you for using NEO Script Editor! 🚀**
+- Maya integration
+
+---
+
+**Thank you for using NEO Script Editor!**
+
