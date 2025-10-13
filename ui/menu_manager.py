@@ -604,13 +604,13 @@ class MenuManager:
                 filename = QtCore.QFileInfo(file_path).fileName()
                 action = QtGui.QAction(f"{i+1}. {filename}", self.parent)
                 action.setToolTip(file_path)  # Show full path in tooltip
-                action.triggered.connect(lambda checked, fp=file_path: self.parent.file_manager.open_recent_file(fp))
+                action.triggered.connect(lambda checked=False, fp=file_path: self.parent.file_manager.open_recent_file(fp))
                 self.recent_menu.addAction(action)
             
             # Add separator and Clear Recent
             self.recent_menu.addSeparator()
             clear_action = QtGui.QAction("Clear Recent Files", self.parent)
-            clear_action.triggered.connect(self.parent.file_manager.clear_recent_files)
+            clear_action.triggered.connect(lambda checked=False: self.parent.file_manager.clear_recent_files())
             self.recent_menu.addAction(clear_action)
     
     # Debug menu actions

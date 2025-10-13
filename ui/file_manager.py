@@ -162,6 +162,10 @@ class FileManager:
                 self._set_tab_icon(index, language)
                 self.tab_widget.setCurrentIndex(index)
                 
+                # Track file path for this tab (for session persistence)
+                if hasattr(self.parent, 'tab_file_paths'):
+                    self.parent.tab_file_paths[index] = file_path
+                
                 # Add to recent files
                 self.add_recent_file(file_path)
                 
@@ -253,6 +257,10 @@ class FileManager:
                     tab_name = os.path.basename(file_path)
                     current_index = self.tab_widget.currentIndex()
                     self.tab_widget.setTabText(current_index, tab_name)
+                    
+                    # Track file path for this tab (for session persistence)
+                    if hasattr(self.parent, 'tab_file_paths'):
+                        self.parent.tab_file_paths[current_index] = file_path
                     
                     # Update language based on file extension
                     if hasattr(current_widget, 'set_language'):

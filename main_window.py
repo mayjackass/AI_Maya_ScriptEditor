@@ -92,6 +92,9 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         # Track problems per editor/tab
         self.editor_problems = {}  # Dictionary: editor_id -> list of problems
         
+        # Track file paths for tabs (for session persistence)
+        self.tab_file_paths = {}  # Dictionary: tab_index -> file_path
+        
         # Initialize components
         self._setup_central_widget()
         self._setup_floating_code_actions()
@@ -107,6 +110,9 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         
         # Setup status bar with beta info
         self._setup_status_bar()
+        
+        # Restore previous session (tabs and files)
+        QtCore.QTimer.singleShot(100, self._restore_session)
         
         print("[OK] AI Script Editor initialized with refactored modular architecture!")
     
@@ -593,6 +599,127 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         beta_msg = self.beta_manager.get_status_bar_message()
         if beta_msg:
             self.statusBar().showMessage(beta_msg)
+    
+    def closeEvent(self, event):
+        """Save session before closing"""
+        self._save_session()
+        event.accept()
+    
+    def _save_session(self):
+        """Save current open tabs and content to settings"""
+        settings = QtCore.QSettings("AI_Script_Editor", "session")
+        
+        # Save tab count and active tab
+        tab_count = self.tabWidget.count()
+        settings.setValue("tab_count", tab_count)
+        settings.setValue("active_tab", self.tabWidget.currentIndex())
+        
+        # Save explorer state (root path)
+        if hasattr(self, 'explorerView') and hasattr(self, 'fileModel'):
+            root_index = self.explorerView.rootIndex()
+            root_path = self.fileModel.filePath(root_index)
+            settings.setValue("explorer_root_path", root_path)
+            print(f"[Session] Explorer root: {root_path}")
+        
+        print(f"[Session] Saving {tab_count} tabs...")
+        
+        # Save each tab's state
+        for i in range(tab_count):
+            editor = self.tabWidget.widget(i)
+            if isinstance(editor, CodeEditor):
+                content = editor.toPlainText()
+                # Get file path from our tracking dictionary
+                file_path = self.tab_file_paths.get(i, "")
+                
+                # Save tab data
+                settings.setValue(f"tab_{i}_file_path", file_path)
+                settings.setValue(f"tab_{i}_language", editor.language)
+                settings.setValue(f"tab_{i}_content", content)
+                settings.setValue(f"tab_{i}_title", self.tabWidget.tabText(i))
+                
+                # Save cursor position
+                cursor = editor.textCursor()
+                settings.setValue(f"tab_{i}_cursor_position", cursor.position())
+                
+                print(f"  Tab {i}: '{self.tabWidget.tabText(i)}' - {len(content)} chars, file: {file_path or 'untitled'}")
+        
+        settings.sync()  # Force write to disk
+        print(f"[Session] Saved successfully to: {settings.fileName()}")
+    
+    def _restore_session(self):
+        """Restore tabs from previous session"""
+        settings = QtCore.QSettings("AI_Script_Editor", "session")
+        
+        print(f"[Session] Loading from: {settings.fileName()}")
+        
+        tab_count = settings.value("tab_count", 0, type=int)
+        print(f"[Session] Found {tab_count} tabs to restore")
+        
+        if tab_count == 0:
+            print("[Session] No previous session found")
+            return
+        
+        # Close the default untitled tab if it's empty
+        if self.tabWidget.count() == 1:
+            first_editor = self.tabWidget.widget(0)
+            if isinstance(first_editor, CodeEditor) and not first_editor.toPlainText().strip():
+                self.tabWidget.removeTab(0)
+        
+        # Restore each tab
+        restored_count = 0
+        for i in range(tab_count):
+            file_path = settings.value(f"tab_{i}_file_path", "")
+            language = settings.value(f"tab_{i}_language", "python")
+            content = settings.value(f"tab_{i}_content", "")
+            title = settings.value(f"tab_{i}_title", f"untitled_{i+1}")
+            cursor_pos = settings.value(f"tab_{i}_cursor_position", 0, type=int)
+            
+            print(f"  Tab {i}: '{title}' - {len(content)} chars, file: {file_path or 'untitled'}")
+            
+            if not content:
+                print(f"    Skipping empty tab {i}")
+                continue  # Skip empty tabs
+            
+            # Create new tab
+            if file_path and os.path.exists(file_path):
+                # Restore file tab
+                print(f"    Opening file: {file_path}")
+                self.file_manager.open_file(file_path)
+                # File path will be tracked automatically by open_file
+            else:
+                # Restore untitled tab with content
+                print(f"    Creating untitled tab with {len(content)} chars")
+                self.file_manager.new_tab(language=language)
+                new_index = self.tabWidget.count() - 1
+                editor = self.tabWidget.widget(new_index)
+                if isinstance(editor, CodeEditor):
+                    editor.setPlainText(content)
+                    self.tabWidget.setTabText(new_index, title)
+                    
+                    # Restore cursor position
+                    cursor = editor.textCursor()
+                    cursor.setPosition(min(cursor_pos, len(content)))
+                    editor.setTextCursor(cursor)
+                    
+                    # Track file path if it exists (even though file doesn't exist anymore)
+                    if file_path:
+                        self.tab_file_paths[new_index] = file_path
+            
+            restored_count += 1
+        
+        # Restore active tab
+        active_tab = settings.value("active_tab", 0, type=int)
+        if 0 <= active_tab < self.tabWidget.count():
+            self.tabWidget.setCurrentIndex(active_tab)
+        
+        # Restore explorer state
+        explorer_root_path = settings.value("explorer_root_path", "")
+        if explorer_root_path and os.path.exists(explorer_root_path):
+            if hasattr(self, 'explorerView') and hasattr(self, 'fileModel'):
+                self.explorerView.setRootIndex(self.fileModel.index(explorer_root_path))
+                print(f"[Session] Restored explorer root: {explorer_root_path}")
+        
+        print(f"[Session] Restored {restored_count} tabs")
 
 
 def main():

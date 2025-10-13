@@ -112,7 +112,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         # Paint optimization for indentation guides
         self._skip_paint_count = 0
         self._cached_char_width = None
-        self.enable_indentation_guides = True  # Can be disabled for max performance
+        self.enable_indentation_guides = False  # Disabled by default for better Maya performance
         
         # Real-time error checking
         self.error_timer = QtCore.QTimer()
@@ -137,7 +137,8 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         # Connect signals
         self.blockCountChanged.connect(self._update_number_area_width)
         self.updateRequest.connect(self._update_number_area)
-        self.cursorPositionChanged.connect(self._update_number_area_width)
+        # Remove cursorPositionChanged to reduce repaints (performance optimization for Maya)
+        # self.cursorPositionChanged.connect(self._update_number_area_width)
         
         self._update_number_area_width()
         self.line_number_area.update()  # Force initial update
@@ -291,9 +292,9 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         # Invalidate folding cache when text changes
         self._cache_valid = False
         
-        # Debounce error checking - wait 500ms after user stops typing
+        # Debounce error checking - wait 1500ms after user stops typing (longer for Maya performance)
         self.error_timer.stop()
-        self.error_timer.start(500)
+        self.error_timer.start(1500)  # Increased from 500ms for better Maya performance
         
     def _check_syntax_errors(self):
         """Check for syntax errors and highlight them (VSCode style - multi-pass detection)."""
