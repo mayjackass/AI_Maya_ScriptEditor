@@ -1,34 +1,34 @@
-# 🎯 BETA LAUNCH - QUICK START GUIDE
+﻿# ðŸŽ¯ BETA LAUNCH - QUICK START GUIDE
 
-## ✅ What's Been Implemented
+## âœ… What's Been Implemented
 
 Your NEO Script Editor now has a **complete time-limited beta system** ready for distribution!
 
-### 📋 System Features
+### ðŸ“‹ System Features
 
-✅ **Beta Expiration:** January 31, 2026 (110 days from today)
-✅ **Window Title:** Shows "BETA (X days remaining)"
-✅ **Status Bar:** Displays countdown and warnings
-✅ **Warning System:** 14-day and 7-day advance notices
-✅ **Blocking Dialog:** Prevents use after expiration
-✅ **Upgrade Prompts:** 50% discount for beta testers
-✅ **Help Menu:** "Beta Information" shows detailed status
-✅ **Matrix Theme:** All dialogs match your green aesthetic
-✅ **Non-Intrusive:** Daily reminders (once per day max)
+âœ… **Beta Expiration:** January 31, 2026 (110 days from today)
+âœ… **Window Title:** Shows "BETA (X days remaining)"
+âœ… **Status Bar:** Displays countdown and warnings
+âœ… **Warning System:** 14-day and 7-day advance notices
+âœ… **Blocking Dialog:** Prevents use after expiration
+âœ… **Upgrade Prompts:** 50% discount for beta testers
+âœ… **Help Menu:** "Beta Information" shows detailed status
+âœ… **Matrix Theme:** All dialogs match your green aesthetic
+âœ… **Non-Intrusive:** Daily reminders (once per day max)
 
 ---
 
-## 🚀 IMMEDIATE NEXT STEPS
+## ðŸš€ IMMEDIATE NEXT STEPS
 
 ### Step 1: Update Contact Information
 
 Replace `mayjackass@example.com` with your real email in these files:
 
 ```
-📁 license/beta_manager.py (2 places)
-📁 LICENSE.txt (1 place)
-📁 BETA_LICENSE.md (1 place)
-📁 DISTRIBUTION_GUIDE.md (multiple places)
+ðŸ“ license/beta_manager.py (2 places)
+ðŸ“ LICENSE.txt (1 place)
+ðŸ“ BETA_LICENSE.md (1 place)
+ðŸ“ DISTRIBUTION_GUIDE.md (multiple places)
 ```
 
 **Quick PowerShell command:**
@@ -64,7 +64,7 @@ def _open_purchase_page(self):
 .venv\Scripts\python.exe run.py
 
 # Test "Beta Information" 
-# Help → Beta Information (should show 110 days remaining)
+# Help â†’ Beta Information (should show 110 days remaining)
 
 # Test expiration (temporarily change date in beta_manager.py)
 # Change line 12: BETA_EXPIRY_DATE = "2025-10-01"
@@ -84,26 +84,26 @@ def _open_purchase_page(self):
 ### Step 5: Upload to GitHub
 
 1. Go to your GitHub repository
-2. Click "Releases" → "Draft a new release"
+2. Click "Releases" â†’ "Draft a new release"
 3. Tag: `v3.0-beta`
 4. Title: `NEO Script Editor v3.0 Beta`
 5. Description: Copy from template below
 6. Upload: `dist/NEO_Script_Editor_v3.0-beta.zip`
-7. ✅ Check "This is a pre-release"
+7. âœ… Check "This is a pre-release"
 8. Publish release
 
 ---
 
-## 📝 GitHub Release Template
+## ðŸ“ GitHub Release Template
 
 ```markdown
-# 🎉 NEO Script Editor v3.0 Beta
+# ðŸŽ‰ NEO Script Editor v3.0 Beta
 
 **FREE Beta Testing** | Expires January 31, 2026
 
 ---
 
-## ⚡ What is NEO Script Editor?
+## âš¡ What is NEO Script Editor?
 
 A next-generation AI-powered Maya script editor with **Morpheus AI** integration, VSCode-style features, and real-time code intelligence. Think GitHub Copilot, but built for Maya Python and MEL.
 
@@ -112,16 +112,16 @@ A next-generation AI-powered Maya script editor with **Morpheus AI** integration
 
 ---
 
-## 🎁 Beta Tester Benefits
+## ðŸŽ Beta Tester Benefits
 
-✨ **FREE until January 31, 2026** - Full access to all features
-💰 **50% OFF full version** - Only $49 (regular $99)
-🏆 **Early access** - Test features before public release
-💬 **Direct feedback** - Influence development priorities
+âœ¨ **FREE until January 31, 2026** - Full access to all features
+ðŸ’° **50% OFF full version** - Only $49 (regular $99)
+ðŸ† **Early access** - Test features before public release
+ðŸ’¬ **Direct feedback** - Influence development priorities
 
 ---
 
-## 📥 Installation
+## ðŸ“¥ Installation
 
 1. **Download** `NEO_Script_Editor_v3.0-beta.zip` below
 2. **Extract** to Maya scripts folder:
@@ -139,35 +139,35 @@ See [MAYA_SETUP.md](MAYA_SETUP.md) for shelf button creation.
 
 ---
 
-## ✨ Key Features
+## âœ¨ Key Features
 
-🤖 **Morpheus AI Assistant**
+ðŸ¤– **Morpheus AI Assistant**
 - Auto-context detection (sees your code)
 - Multi-model support (GPT-4, Claude)
 - Conversation history
 - Smart code suggestions with diff preview
 
-⚡ **VSCode-Style Editor**
+âš¡ **VSCode-Style Editor**
 - Inline diff preview (red/green)
 - Real-time error detection
 - Advanced autocomplete
 - Syntax highlighting (Python & MEL)
 
-🎯 **Smart Code Analysis**
+ðŸŽ¯ **Smart Code Analysis**
 - Multi-pass error detection
 - Column-based positioning
 - Problems panel
 - False positive reduction
 
-🎨 **Matrix Theme**
+ðŸŽ¨ **Matrix Theme**
 - GitHub Dark-inspired UI
 - Green accent colors
-- Emoji tab icons (🐍 Python, 📜 MEL)
+- Emoji tab icons (ðŸ Python, ðŸ“œ MEL)
 - Professional design
 
 ---
 
-## 🐛 Bug Reports & Feedback
+## ðŸ› Bug Reports & Feedback
 
 **Found a bug?** [Create an issue](https://github.com/mayjackass/AI_Maya_ScriptEditor/issues)
 
@@ -177,7 +177,7 @@ See [MAYA_SETUP.md](MAYA_SETUP.md) for shelf button creation.
 
 ---
 
-## ⚠️ Beta Software Notice
+## âš ï¸ Beta Software Notice
 
 This is BETA software for testing purposes:
 - Some features may be unstable
@@ -189,16 +189,16 @@ This is BETA software for testing purposes:
 
 ---
 
-## 📚 Documentation
+## ðŸ“š Documentation
 
-- 📖 [README](README.md) - Full documentation
-- 📋 [Beta License](BETA_LICENSE.md) - Terms and benefits
-- 🔧 [Maya Setup](MAYA_SETUP.md) - Installation guide
-- ⚙️ [Distribution Guide](DISTRIBUTION_GUIDE.md) - For developers
+- ðŸ“– [README](README.md) - Full documentation
+- ðŸ“‹ [Beta License](BETA_LICENSE.md) - Terms and benefits
+- ðŸ”§ [Maya Setup](MAYA_SETUP.md) - Installation guide
+- âš™ï¸ [Distribution Guide](DISTRIBUTION_GUIDE.md) - For developers
 
 ---
 
-## 🙏 Thank You!
+## ðŸ™ Thank You!
 
 Thank you for being an early tester! Your feedback helps create a better tool for the entire Maya community.
 
@@ -206,12 +206,12 @@ Thank you for being an early tester! Your feedback helps create a better tool fo
 
 ---
 
-## 📧 Stay Updated
+## ðŸ“§ Stay Updated
 
 Want to know when the full version launches?
-- ⭐ Star this repository
-- 👀 Watch for updates
-- 📧 Email me to join the launch list
+- â­ Star this repository
+- ðŸ‘€ Watch for updates
+- ðŸ“§ Email me to join the launch list
 
 Beta testers receive **50% discount codes** automatically!
 
@@ -230,7 +230,7 @@ Beta testers receive **50% discount codes** automatically!
 
 ---
 
-## 📢 Where to Share
+## ðŸ“¢ Where to Share
 
 ### Maya Communities
 1. **Autodesk Maya Forums**
@@ -242,7 +242,7 @@ Beta testers receive **50% discount codes** automatically!
    - r/Maya
    - r/vfx
    - r/3Dmodeling
-   - Use title: "🎉 Free Beta: AI-Powered Maya Script Editor"
+   - Use title: "ðŸŽ‰ Free Beta: AI-Powered Maya Script Editor"
 
 3. **CGSociety Forums**
    - Post in Maya section
@@ -267,33 +267,33 @@ Beta testers receive **50% discount codes** automatically!
 ### Post Template for Forums
 
 ```
-Title: 🎉 FREE BETA: NEO Script Editor - AI-Powered Maya Scripting
+Title: ðŸŽ‰ FREE BETA: NEO Script Editor - AI-Powered Maya Scripting
 
-Hey everyone! 👋
+Hey everyone! ðŸ‘‹
 
 I'm excited to share my new project: **NEO Script Editor v3.0**
 
 It's a VSCode-style script editor for Maya with built-in AI assistant (think GitHub Copilot for Maya). Currently in **FREE beta testing** until January 2026.
 
-✨ Key Features:
-• Morpheus AI with GPT-4 and Claude support
-• Real-time error detection
-• Inline diff preview (like VSCode)
-• Matrix-themed dark UI
-• Works with Python and MEL
+âœ¨ Key Features:
+â€¢ Morpheus AI with GPT-4 and Claude support
+â€¢ Real-time error detection
+â€¢ Inline diff preview (like VSCode)
+â€¢ Matrix-themed dark UI
+â€¢ Works with Python and MEL
 
-🎁 Beta testers get 50% OFF the full version!
+ðŸŽ Beta testers get 50% OFF the full version!
 
 Download: [GitHub Release Link]
 
-Would love to hear your feedback! 🙏
+Would love to hear your feedback! ðŸ™
 
 [Screenshots/GIF if possible]
 ```
 
 ---
 
-## 🎬 Optional: Create a Demo Video
+## ðŸŽ¬ Optional: Create a Demo Video
 
 **Tools:**
 - OBS Studio (free screen recorder)
@@ -315,7 +315,7 @@ Would love to hear your feedback! 🙏
 
 ---
 
-## 📊 Track Your Success
+## ðŸ“Š Track Your Success
 
 Consider tracking:
 - **Downloads:** GitHub Insights shows download counts
@@ -325,7 +325,7 @@ Consider tracking:
 
 ---
 
-## ⏱️ Timeline Example
+## â±ï¸ Timeline Example
 
 ### Week 1-2: Soft Launch
 - Share with close friends/colleagues
@@ -359,7 +359,7 @@ Consider tracking:
 
 ---
 
-## 💡 Pro Tips
+## ðŸ’¡ Pro Tips
 
 ### Build Your Launch List
 Use Gumroad (free account):
@@ -382,7 +382,7 @@ Use Gumroad (free account):
 
 ---
 
-## 🎯 Success Metrics
+## ðŸŽ¯ Success Metrics
 
 ### Good Beta Success:
 - 50+ downloads
@@ -406,7 +406,7 @@ Use Gumroad (free account):
 
 ---
 
-## 🆘 Need Help?
+## ðŸ†˜ Need Help?
 
 If you need assistance with:
 - GitHub releases
@@ -417,11 +417,11 @@ If you need assistance with:
 - Pricing strategy
 - License keys (for full version)
 
-Just ask! I'm here to help. 🚀
+Just ask! I'm here to help. ðŸš€
 
 ---
 
-## ✅ FINAL CHECKLIST
+## âœ… FINAL CHECKLIST
 
 Before you hit "publish":
 
@@ -437,18 +437,18 @@ Before you hit "publish":
 
 ---
 
-## 🎊 YOU'RE READY!
+## ðŸŽŠ YOU'RE READY!
 
 Everything is set up and ready to go. Your beta system is:
 
-✅ Professional
-✅ User-friendly
-✅ Secure (blocks after expiry)
-✅ Incentivized (50% discount)
-✅ Documented (comprehensive guides)
-✅ Matrix-themed (looks amazing)
+âœ… Professional
+âœ… User-friendly
+âœ… Secure (blocks after expiry)
+âœ… Incentivized (50% discount)
+âœ… Documented (comprehensive guides)
+âœ… Matrix-themed (looks amazing)
 
-**Time to launch!** 🚀
+**Time to launch!** ðŸš€
 
 Good luck with your beta release! You've built something really cool, and I'm excited to see how the Maya community responds.
 
@@ -458,4 +458,5 @@ Good luck with your beta release! You've built something really cool, and I'm ex
 
 I'm here to help throughout your beta period. Don't hesitate to ask!
 
-**Mayj, you've got this!** 💪🎉
+**Mayj, you've got this!** ðŸ’ªðŸŽ‰
+

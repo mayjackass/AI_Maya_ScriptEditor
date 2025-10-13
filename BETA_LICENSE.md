@@ -1,4 +1,4 @@
-# 🧪 NEO Script Editor v3.0 - Beta License Information
+# NEO Script Editor v3.0 - Beta License Information
 
 ## Beta Program Overview
 
@@ -6,7 +6,7 @@ Thank you for participating in the **NEO Script Editor v3.0 Beta Program**! This
 
 ---
 
-## 📅 Beta Period
+## Beta Period
 
 - **Start Date:** October 13, 2025
 - **End Date:** January 31, 2026
@@ -15,33 +15,33 @@ Thank you for participating in the **NEO Script Editor v3.0 Beta Program**! This
 
 ---
 
-## ✅ What You Can Do
+## What You Can Do
 
 During the beta period, you have **full access** to all features:
 
-- ✅ Use all Morpheus AI features (OpenAI GPT-4, Anthropic Claude)
-- ✅ Access advanced code intelligence and autocomplete
-- ✅ Use VSCode-style inline diff preview
-- ✅ Unlimited script execution in Maya
-- ✅ Save and load files freely
-- ✅ Provide feedback and report bugs
-- ✅ Request new features
+- Use all Morpheus AI features (OpenAI GPT-4, Anthropic Claude)
+- Access advanced code intelligence and autocomplete
+- Use VSCode-style inline diff preview
+- Unlimited script execution in Maya
+- Save and load files freely
+- Provide feedback and report bugs
+- Request new features
 
 ---
 
-## ❌ What You Cannot Do
+## What You Cannot Do
 
 To protect the software and ensure fair testing:
 
-- ❌ Redistribute or share the software publicly
-- ❌ Sell or commercialize the beta version
-- ❌ Remove copyright notices or branding
-- ❌ Reverse engineer or decompile the code
-- ❌ Use for production work without understanding it's beta software
+- Redistribute or share the software publicly
+- Sell or commercialize the beta version
+- Remove copyright notices or branding
+- Reverse engineer or decompile the code
+- Use for production work without understanding it's beta software
 
 ---
 
-## 🎁 Beta Tester Benefits
+## Beta Tester Benefits
 
 As a beta tester, you will receive:
 
@@ -59,7 +59,7 @@ When you upgrade, receive **free updates for life** (no subscription).
 
 ---
 
-## 🔔 Expiration Warnings
+## Expiration Warnings
 
 The software will remind you about the expiration:
 
@@ -74,7 +74,7 @@ You can check remaining time at any time:
 
 ---
 
-## 🚀 Upgrade Path
+## Upgrade Path
 
 When the beta expires on **January 31, 2026**:
 
@@ -88,36 +88,36 @@ If you prefer, we may offer a limited free version after beta testing concludes.
 
 ---
 
-## 📝 Feedback & Bug Reports
+## Feedback & Bug Reports
 
 Your feedback is **invaluable**! Please report:
 
-### 🐛 Bugs
+### Bugs
 - Crashes or freezes
 - Incorrect syntax highlighting
 - AI response issues
 - Performance problems
 
-### 💡 Feature Requests
+### Feature Requests
 - Missing functionality
 - UI/UX improvements
 - Workflow enhancements
 - Integration ideas
 
-### 📧 Contact
+### Contact
 - **GitHub Issues:** [Create an issue](https://github.com/mayjackass/AI_Maya_ScriptEditor/issues)
 - **Email:** mayjackass@example.com
 - **Discussions:** Use GitHub Discussions for general questions
 
 ---
 
-## 🔒 Privacy & Security
+## Privacy & Security
 
 ### What We Collect
 **Nothing.** This software does NOT collect or transmit:
-- ❌ Personal information
-- ❌ Usage statistics
-- ❌ Code you write
+- Personal information
+- Usage statistics
+- Code you write
 - ❌ API keys (stored locally only)
 
 ### What You Provide to Third Parties
@@ -141,7 +141,7 @@ These services have their own privacy policies. NEO Script Editor acts only as a
 
 ---
 
-## 📞 Support & Questions
+## Support & Questions
 
 ### During Beta
 - **GitHub Issues:** For bugs and technical problems
@@ -153,22 +153,22 @@ Full version purchasers receive **priority support** with faster response times.
 
 ---
 
-## 🎯 Roadmap
+## Roadmap
 
 Planned for full version (based on beta feedback):
 
-- 🔄 Real-time collaboration features
-- 🌐 Cloud sync for settings and snippets
-- 📦 Extension/plugin system
-- 🎨 Custom theme editor
-- 🤖 Additional AI model support
-- 🔗 Integration with Maya's native API browser
+- Real-time collaboration features
+- Cloud sync for settings and snippets
+- Extension/plugin system
+- Custom theme editor
+- Additional AI model support
+- Integration with Maya's native API browser
 
 *Your feedback helps prioritize these features!*
 
 ---
 
-## 📄 Version History
+## Version History
 
 ### v3.0-beta (Current)
 - **Release:** October 13, 2025
@@ -182,7 +182,7 @@ Planned for full version (based on beta feedback):
 
 ---
 
-## 🙏 Thank You!
+## Thank You!
 
 Thank you for being part of the NEO Script Editor beta program. Your participation helps create a better tool for the entire Maya community.
 
@@ -191,7 +191,7 @@ Thank you for being part of the NEO Script Editor beta program. Your participati
 ---
 
 **Questions?** Reach out anytime:
-- 📧 mayjackass@example.com
-- 🌐 [GitHub Repository](https://github.com/mayjackass/AI_Maya_ScriptEditor)
+- mayjackass@example.com
+- [GitHub Repository](https://github.com/mayjackass/AI_Maya_ScriptEditor)
 
 Last Updated: October 13, 2025
