@@ -601,16 +601,14 @@ class AIMorpheus:
         
         try:
             compile(full_text, '<editor>', 'exec')
-            print("[DEBUG] ✅ No syntax errors found in Morpheus suggestion")
             
             # Show success message in console
             if hasattr(self.parent, 'console'):
-                self.parent.console.append(f"✅ Morpheus suggestion applied successfully - no syntax errors\n")
+                self.parent.console.append(f"✅ Morpheus suggestion applied successfully\n")
                 
         except SyntaxError as e:
             if e.lineno:
                 editor.highlight_error(e.lineno, f"Morpheus Suggestion Error: {e.msg}")
-                print(f"[ERROR] 🔴 Syntax error in Morpheus suggestion at line {e.lineno}: {e.msg}")
                 
                 # Show a prominent notification about the error
                 if hasattr(self.parent, 'console'):

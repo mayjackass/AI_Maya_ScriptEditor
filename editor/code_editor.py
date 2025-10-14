@@ -126,9 +126,9 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         self.completer = None
         self._setup_autocomplete()
         
-        # Inline diff manager for VSCode-style code replacements
-        from .inline_diff import InlineDiffManager
-        self.inline_diff_manager = InlineDiffManager(self)
+        # 🎯 Copilot-style inline diff with red/green highlighting
+        from .copilot_inline_diff import CopilotInlineDiff
+        self.inline_diff_manager = CopilotInlineDiff(self)
         
         # Enhanced line number area
         self.line_number_area = _LineNumberArea(self)
@@ -143,8 +143,33 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         self._update_number_area_width()
         self.line_number_area.update()  # Force initial update
         
+        # Enable hover tooltips for error messages
+        self.setMouseTracking(True)
+        self.viewport().setMouseTracking(True)
+        
+        # Morpheus suggestion widget
+        self._morpheus_suggestion_widget = None
+        self._current_suggestion_line = None
+        
         # Initialize syntax highlighting
         self.set_language("python")
+        
+        # Store inline diff selections so they don't get cleared
+        self.inline_diff_selections = []
+        
+    def apply_inline_diff_highlighting(self, selections):
+        """Apply inline diff highlighting that persists"""
+        print(f"[CODE_EDITOR] apply_inline_diff_highlighting() called with {len(selections)} selections")
+        self.inline_diff_selections = selections
+        self._refresh_all_selections()
+    
+    def _refresh_all_selections(self):
+        """Refresh all extra selections including inline diffs"""
+        all_selections = self.inline_diff_selections[:]
+        # Add any other selections here (current line, search results, etc.)
+        print(f"[CODE_EDITOR] _refresh_all_selections() - applying {len(all_selections)} selections")
+        self.setExtraSelections(all_selections)
+        print(f"[CODE_EDITOR] setExtraSelections() completed")
         
     def set_language(self, language):
         """Set syntax highlighting language."""
@@ -170,6 +195,10 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
     def get_language(self):
         """Get current language setting."""
         return self.language
+    
+    def get_syntax_errors(self):
+        """Get list of current syntax errors with line numbers"""
+        return getattr(self, 'syntax_errors', [])
     
     def _setup_autocomplete(self):
         """Setup autocomplete with Python/MEL keywords and common functions."""
@@ -306,9 +335,15 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         self._clear_error_highlights()
         self.syntax_errors.clear()
         
+        # Clear red background from previous errors
+        if self.highlighter and hasattr(self.highlighter, 'clear_copilot_error_lines'):
+            self.highlighter.clear_copilot_error_lines()
+        
         code = self.toPlainText()
         
         if not code.strip():
+            if self.highlighter:
+                self.highlighter.rehighlight()
             self.errorsCleared.emit()
             return
             
@@ -386,18 +421,35 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             # Store and highlight errors (limit to first 10 like VSCode)
             self.syntax_errors = errors[:10]
             
+            # Get all lines for validation
+            all_lines = code.split('\n')
+            
             # Format problems for the problems window
             problems = []
             for error in self.syntax_errors:
-                self._highlight_error_line(error['line'], error['message'])
-                self.errorDetected.emit(error['line'], error['message'])
+                # Get the line number Python reported
+                line_num = error['line']
+                error_message = error['message']
                 
-                # Add to problems list with proper format
+                # Validate line number is within bounds
+                if line_num < 1 or line_num > len(all_lines):
+                    continue
+                
+                # Get line text from QTextDocument
+                block = self.document().findBlockByLineNumber(line_num - 1)
+                line_text = block.text() if block.isValid() else ""
+                
+                # Highlight and emit
+                self._highlight_error_line(line_num, error_message)
+                self.errorDetected.emit(line_num, error_message)
+                
+                # Add to problems list
                 problems.append({
                     'type': 'Error',
-                    'message': error['message'],
-                    'line': error['line'],
-                    'file': 'Current File'
+                    'message': error_message,
+                    'line': line_num,
+                    'file': 'Current File',
+                    'line_text': line_text
                 })
             
             # Emit all problems at once for the problems window
@@ -407,6 +459,11 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             self._update_error_highlighting()
                 
             if not self.syntax_errors:
+                # Clear red background when no errors
+                if self.highlighter and hasattr(self.highlighter, 'clear_copilot_error_lines'):
+                    self.highlighter.clear_copilot_error_lines()
+                    self.highlighter.rehighlight()
+                
                 self.errorsCleared.emit()
                 self.lintProblemsFound.emit([])  # Clear problems window
                 
@@ -414,6 +471,178 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             print(f"Error in syntax checking: {e}")
             import traceback
             traceback.print_exc()
+    
+    def _find_actual_error_line(self, all_lines, reported_line, error_message):
+        """Find the actual line with the error when Python's compile() reports wrong line.
+        
+        Python's SyntaxError.lineno is sometimes incorrect, especially after multi-pass
+        detection with temporary line comments. This method searches nearby lines to find
+        the line that actually contains code that could cause the reported error.
+        
+        Args:
+            all_lines: List of all code lines (split from code string)
+            reported_line: Line number Python's compile() reported (1-indexed)
+            error_message: The error message from Python
+            
+        Returns:
+            int: The actual line number where the error likely is (1-indexed)
+        """
+        # Ensure reported line is valid
+        if reported_line < 1 or reported_line > len(all_lines):
+            return max(1, min(reported_line, len(all_lines)))
+        
+        reported_text = all_lines[reported_line - 1].strip()
+        error_msg_lower = error_message.lower()
+        
+        # Check if the reported line makes sense for the error
+        # If it's a comment, docstring, or blank, it's likely wrong
+        is_likely_wrong = (
+            not reported_text or  # Blank line
+            reported_text.startswith('#') or  # Comment
+            reported_text.startswith('"""') or reported_text.startswith("'''") or  # Docstring start
+            reported_text == '"""' or reported_text == "'''" or  # Docstring end
+            (reported_text.startswith('"') and reported_text.endswith('"') and len(reported_text) > 2) or  # String line
+            (reported_text.startswith("'") and reported_text.endswith("'") and len(reported_text) > 2)  # String line
+        )
+        
+        # CRITICAL: For "unmatched ')'" errors, search ENTIRE FILE for lines with mismatched parentheses
+        # Python often reports the wrong line (where parsing stops), not where the extra paren is
+        if 'unmatched' in error_msg_lower and ')' in error_msg_lower:
+            print(f"🔍 Looking for unmatched ')' error (reported line {reported_line})...")
+            
+            # Strategy: Search BACKWARDS from reported line first (errors often occur earlier)
+            # Then search forward if nothing found
+            candidates = []
+            
+            # Search from start of file to reported line (backwards priority)
+            for line_num in range(1, reported_line + 1):
+                line_text = all_lines[line_num - 1].strip()
+                
+                # Skip empty, comments, docstrings
+                if (not line_text or line_text.startswith('#') or 
+                    line_text.startswith('"""') or line_text.startswith("'''")):
+                    continue
+                
+                # Count parentheses on this line
+                open_count = line_text.count('(')
+                close_count = line_text.count(')')
+                
+                # If this line has more closing than opening parens, it's the error
+                if close_count > open_count:
+                    # Calculate priority: prefer lines closer to start of file (where defs/inits are)
+                    distance_from_start = line_num
+                    priority = close_count - open_count  # How many extra closing parens
+                    candidates.append((line_num, line_text, priority, distance_from_start))
+            
+            # If we found candidates, return the best one (highest priority, closest to start)
+            if candidates:
+                # Sort by priority (descending), then by distance from start (ascending)
+                candidates.sort(key=lambda x: (-x[2], x[3]))
+                best_line_num = candidates[0][0]
+                best_line_text = candidates[0][1]
+                print(f"✅ Found line {best_line_num} with unmatched ')': '{best_line_text[:60]}'")
+                print(f"   Opens: {best_line_text.count('(')}, Closes: {best_line_text.count(')')}")
+                return best_line_num
+            
+            # If still not found, search entire file
+            print(f"⚠️ No unmatched ')' found before line {reported_line}, searching entire file...")
+            for line_num in range(1, len(all_lines) + 1):
+                line_text = all_lines[line_num - 1].strip()
+                
+                # Skip empty, comments, docstrings
+                if (not line_text or line_text.startswith('#') or 
+                    line_text.startswith('"""') or line_text.startswith("'''")):
+                    continue
+                
+                # Count parentheses
+                open_count = line_text.count('(')
+                close_count = line_text.count(')')
+                
+                if close_count > open_count:
+                    print(f"✅ Found line {line_num} with unmatched ')': '{line_text[:60]}'")
+                    return line_num
+        
+        # If the reported line looks reasonable, use it
+        if not is_likely_wrong:
+            return reported_line
+        
+        print(f"🔍 Line {reported_line} looks wrong ('{reported_text[:50]}...'), searching nearby lines...")
+        
+        # Search nearby lines (±10 lines) for code that could cause this error
+        search_range = 10
+        start_search = max(1, reported_line - search_range)
+        end_search = min(len(all_lines), reported_line + search_range)
+        
+        # Common error patterns to look for
+        error_patterns = {
+            'unmatched': [')', ']', '}', '(', '[', '{'],  # Unmatched brackets
+            'invalid syntax': [')', '(', 'super(', 'self.', 'def ', 'class ', 'if ', 'for ', 'while '],
+            'unexpected': [')', ']', '}'],
+            'expected': ['def ', 'class ', 'if ', 'elif ', 'else:', 'try:', 'except', 'finally:'],
+            'indent': [],  # Indentation errors - use reported line
+        }
+        
+        # Determine which patterns to look for based on error message
+        search_patterns = []
+        for key, patterns in error_patterns.items():
+            if key in error_msg_lower:
+                search_patterns.extend(patterns)
+        
+        # If no specific patterns, search for any non-empty code line
+        if not search_patterns:
+            search_patterns = None  # Will match any code line
+        
+        # Search for the best candidate line
+        best_candidate = reported_line
+        best_score = -1
+        
+        for line_num in range(start_search, end_search + 1):
+            if line_num < 1 or line_num > len(all_lines):
+                continue
+            
+            line_text = all_lines[line_num - 1].strip()
+            
+            # Skip empty lines and comments
+            if not line_text or line_text.startswith('#'):
+                continue
+            
+            # Skip docstrings
+            if line_text.startswith('"""') or line_text.startswith("'''"):
+                continue
+            
+            # Calculate score for this line
+            score = 0
+            
+            # Prefer lines with actual code
+            if line_text:
+                score += 1
+            
+            # Prefer lines closer to reported line (but prefer AFTER for unmatched errors)
+            distance = abs(line_num - reported_line)
+            if 'unmatched' in error_msg_lower and line_num > reported_line:
+                # Boost lines AFTER reported line for unmatched errors
+                score += (search_range - distance) + 5
+            else:
+                score += (search_range - distance)
+            
+            # If we have specific patterns, prefer lines containing them
+            if search_patterns:
+                for pattern in search_patterns:
+                    if pattern in line_text:
+                        score += 10  # Big boost for matching pattern
+            
+            # Special boost for lines with parentheses (common error location)
+            if '(' in line_text or ')' in line_text:
+                score += 3
+            
+            if score > best_score:
+                best_score = score
+                best_candidate = line_num
+        
+        if best_candidate != reported_line:
+            print(f"✅ Found better candidate at line {best_candidate}: '{all_lines[best_candidate-1].strip()[:50]}...'")
+        
+        return best_candidate
             
     def _highlight_error_line(self, line_num, message):
         """Highlight error line with VSCode-style red underline."""
@@ -425,16 +654,27 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         self.error_highlights.clear()
         
     def _update_error_highlighting(self):
-        """Update the syntax highlighter with current error details."""
+        """Update the syntax highlighter with current error details and apply red background."""
         if self.highlighter and hasattr(self.highlighter, 'set_error_details'):
             # Pass full error details including column information
             self.highlighter.set_error_details(self.syntax_errors)
+            
+            # Also apply Copilot-style red background to error lines
+            error_lines = [e['line'] for e in self.syntax_errors]
+            if hasattr(self.highlighter, 'set_copilot_error_lines'):
+                self.highlighter.set_copilot_error_lines(error_lines)
+            
             # Force rehighlight to show errors
             self.highlighter.rehighlight()
         elif self.highlighter and hasattr(self.highlighter, 'set_error_lines'):
             # Fallback for old API
             error_lines = {e['line'] for e in self.syntax_errors}
             self.highlighter.set_error_lines(error_lines)
+            
+            # Also try to apply red background
+            if hasattr(self.highlighter, 'set_copilot_error_lines'):
+                self.highlighter.set_copilot_error_lines(list(error_lines))
+            
             self.highlighter.rehighlight()
         
     def get_syntax_errors(self):
@@ -442,9 +682,15 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         return self.syntax_errors.copy()
         
     def clear_syntax_errors(self):
-        """Clear syntax error highlights."""
+        """Clear syntax error highlights including red background."""
         self._clear_error_highlights()
         self.syntax_errors.clear()
+        
+        # Clear red background highlighting
+        if self.highlighter and hasattr(self.highlighter, 'clear_copilot_error_lines'):
+            self.highlighter.clear_copilot_error_lines()
+            self.highlighter.rehighlight()
+        
         self.errorsCleared.emit()
         
     def _number_area_width(self):
@@ -1006,7 +1252,20 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         
     def show_inline_replacement(self, replacement_info, new_code):
         """Show VSCode-style inline diff for code replacement"""
-        self.inline_diff_manager.show_inline_diff(replacement_info, new_code)
+        line_number = replacement_info.get('start_line', replacement_info.get('line', 0))
+        old_code = replacement_info.get('old_code', '')
+        
+        # If old_code is empty, try to get it from the editor
+        if not old_code:
+            cursor = self.textCursor()
+            cursor.movePosition(QtGui.QTextCursor.Start)
+            for _ in range(line_number):
+                cursor.movePosition(QtGui.QTextCursor.NextBlock)
+            cursor.select(QtGui.QTextCursor.BlockUnderCursor)
+            old_code = cursor.selectedText()
+        
+        # Call show_diff with line_number, old_code, new_code
+        self.inline_diff_manager.show_diff(line_number, old_code, new_code)
     
     def clear_inline_replacement(self):
         """Clear any active inline diff"""
@@ -1020,3 +1279,593 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         # This gives immediate feedback that user acknowledged the error
         if event.button() == QtCore.Qt.MouseButton.LeftButton:
             pass  # Keep errors visible for now
+    
+    def mouseMoveEvent(self, event):
+        """Handle mouse move events to show AI-powered suggestions on hover over errors."""
+        super().mouseMoveEvent(event)
+        
+        # Get cursor position at mouse location
+        cursor = self.cursorForPosition(event.pos())
+        line_number = cursor.blockNumber() + 1  # 1-indexed
+        
+        # Get the main window to access Problems window data
+        main_window = self._get_main_window()
+        if not main_window:
+            return
+        
+        # Get editor ID and problems for this editor from Problems window
+        editor_id = id(self)
+        editor_problems = main_window.editor_problems.get(editor_id, [])
+        
+        # Check if this line has an error in the Problems window
+        error_info = None
+        for problem in editor_problems:
+            if problem.get('line') == line_number:
+                error_info = problem
+                break
+        
+        if error_info:
+            # Start/continue hover timer for Morpheus suggestion
+            self._handle_error_hover(error_info, line_number, event)
+        else:
+            # Hide tooltip and reset timer if no error on this line
+            QtWidgets.QToolTip.hideText()
+            self._reset_morpheus_timer()
+            self._hide_morpheus_suggestion()
+    
+    def _handle_error_hover(self, error_info, line_number, event):
+        """Handle hovering over an error line using Problems window data."""
+        # Initialize timer if needed
+        if not hasattr(self, '_morpheus_hover_timer'):
+            self._morpheus_hover_timer = QtCore.QTimer()
+            self._morpheus_hover_timer.setSingleShot(True)
+            self._morpheus_hover_timer.timeout.connect(self._on_morpheus_hover_timeout)
+            self._hover_error_info = None
+        
+        # Check if we're hovering on a new line
+        if self._current_suggestion_line != line_number:
+            # New line - reset and start timer
+            self._current_suggestion_line = line_number
+            self._hover_error_info = error_info  # Store the problem from Problems window
+            self._morpheus_hover_timer.stop()
+            self._morpheus_hover_timer.start(2000)
+            
+            # Show immediate tooltip
+            error_message = error_info['message']
+            tooltip_text = f"<b style='color:#f48771'>⚠ Syntax Error:</b><br>{error_message}"
+            tooltip_text += f"<br><i style='color:#888'>Line {line_number}</i>"
+            
+            # Add basic suggestion
+            suggestion = self._generate_error_suggestion(error_message, line_number)
+            if suggestion:
+                tooltip_text += f"<br><br><b style='color:#58a6ff'>💡 Suggestion:</b><br>{suggestion}"
+            
+            # Check if Morpheus is available
+            if self._is_morpheus_available():
+                tooltip_text += "<br><br><i style='color:#888'>⏱ Hover for 2s to get AI suggestion...</i>"
+            
+            QtWidgets.QToolTip.showText(event.globalPosition().toPoint(), tooltip_text, self)
+        elif not self._morpheus_hover_timer.isActive():
+            # Same line, timer not active
+            if not (self._morpheus_suggestion_widget and self._morpheus_suggestion_widget.isVisible()):
+                # Not showing widget yet - restart timer
+                self._hover_error_info = error_info
+                self._morpheus_hover_timer.start(2000)
+    
+    def _reset_morpheus_timer(self):
+        """Reset the Morpheus hover timer."""
+        if hasattr(self, '_morpheus_hover_timer'):
+            self._morpheus_hover_timer.stop()
+        self._current_suggestion_line = None
+        self._hover_error_info = None
+    
+    def _on_morpheus_hover_timeout(self):
+        """Called after hovering on error for 2 seconds - uses Problems window data."""
+        if self._current_suggestion_line and hasattr(self, '_hover_error_info') and self._hover_error_info:
+            # Use the error info from Problems window that we stored
+            print(f"🎯 Timer fired for line {self._current_suggestion_line} from Problems window")
+            self._request_morpheus_suggestion(self._hover_error_info, self._current_suggestion_line)
+        else:
+            print(f"⚠ Timer fired but no error info stored")
+    
+    def _request_morpheus_suggestion(self, error_info, line_number):
+        """Request AI suggestion from Morpheus using Problems window data.
+        
+        The error_info already comes from Problems window, so we use it directly.
+        """
+        # Check if Morpheus is available
+        if not self._is_morpheus_available():
+            print("⚠ Morpheus is not available")
+            return
+        
+        # Use the error_info that was passed from Problems window
+        actual_line = error_info.get('line', line_number)
+        error_message = error_info.get('message', 'Syntax error')
+        
+        # CRITICAL: Use the line text that was stored when error was detected
+        # NOT the current line text (which may have been edited)
+        stored_line_text = error_info.get('line_text', None)
+        
+        if stored_line_text is None:
+            # Fallback: read current line if no stored text (shouldn't happen)
+            cursor = QtGui.QTextCursor(self.document().findBlockByLineNumber(actual_line - 1))
+            line_text = cursor.block().text()
+            print(f"⚠ No stored line_text, reading current: '{line_text.strip()}'")
+        else:
+            line_text = stored_line_text
+        
+        print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print(f"🎯 PROBLEMS WINDOW DATA:")
+        print(f"   Line from Problems: {actual_line}")
+        print(f"   Error from Problems: {error_message}")
+        print(f"   Original Line Text: '{line_text.strip()}'")
+        print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        
+        # Get surrounding context using CURRENT editor content
+        context_lines = []
+        for i in range(max(0, actual_line - 4), min(self.document().blockCount(), actual_line + 3)):
+            block = self.document().findBlockByLineNumber(i)
+            prefix = ">>> " if (i + 1) == actual_line else "    "
+            context_lines.append(f"{prefix}Line {i+1}: {block.text()}")
+        
+        print(f"📋 Context around line {actual_line}:")
+        for ctx_line in context_lines:
+            print(f"   {ctx_line}")
+        print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        
+        # Build context string
+        context = '\n'.join([self.document().findBlockByLineNumber(i).text() 
+                            for i in range(max(0, actual_line - 4), min(self.document().blockCount(), actual_line + 3))])
+        
+        # Request suggestion from Morpheus with the ORIGINAL line text from Problems window
+        self._request_morpheus_fix_async(error_message, line_text, context, actual_line)
+    
+    def _get_main_window(self):
+        """Get the main window instance."""
+        try:
+            # Traverse up the parent hierarchy to find the main window
+            widget = self
+            while widget:
+                parent = widget.parent()
+                if parent is None:
+                    # We've reached the top - this should be the main window
+                    return widget
+                widget = parent
+            return None
+        except:
+            return None
+    
+    def _is_morpheus_available(self):
+        """Check if Morpheus AI is available."""
+        try:
+            # Check if we have access to main window with Morpheus
+            if hasattr(self, 'parent') and self.parent():
+                main_window = self.parent()
+                while main_window.parent():
+                    main_window = main_window.parent()
+                
+                if hasattr(main_window, 'chat_manager') and main_window.chat_manager:
+                    return True
+            return False
+        except:
+            return False
+    
+    def _request_morpheus_fix_async(self, error_message, line_text, context, line_number):
+        """Request fix from Morpheus AI asynchronously."""
+        try:
+            # Get main window
+            main_window = self.parent()
+            while main_window.parent():
+                main_window = main_window.parent()
+            
+            if not hasattr(main_window, 'chat_manager') or not main_window.chat_manager:
+                return
+            
+            # Create prompt for Morpheus - be extremely specific
+            prompt = f"""Fix this syntax error. Return ONLY the corrected code line.
+
+Error: {error_message}
+Broken: {line_text.strip()}
+
+Reply with just the fixed line. No explanations. No quotes. No markdown.
+If the error is "invalid syntax" on "def test", reply with: def test():
+If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
+            
+            # Send to Morpheus asynchronously
+            QtCore.QTimer.singleShot(100, lambda: self._send_morpheus_request(main_window, prompt, line_number, line_text))
+            
+        except Exception as e:
+            print(f"Error requesting Morpheus suggestion: {e}")
+    
+    def _send_morpheus_request(self, main_window, prompt, line_number, original_line):
+        """Send request to Morpheus and handle response."""
+        try:
+            # Store original line for reference
+            self._original_error_line = original_line
+            self._error_line_number = line_number
+            
+            # Get Morpheus
+            morpheus = main_window.chat_manager.morpheus
+            if not morpheus or not morpheus.client:
+                print("⚠ Morpheus client not available")
+                return
+            
+            print(f"🤖 Sending request to Morpheus ({morpheus.provider})...")
+            
+            # Get response directly from API
+            try:
+                system_msg = "You fix syntax errors. Return ONLY the corrected code line. NO explanations. NO markdown. NO docstrings. Just the fixed code."
+                
+                if morpheus.provider == "claude":
+                    response = morpheus.client.messages.create(
+                        model=morpheus.current_model,
+                        max_tokens=100,  # Shorter to force concise response
+                        system=system_msg,
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    suggestion = response.content[0].text.strip()
+                else:  # openai
+                    response = morpheus.client.chat.completions.create(
+                        model=morpheus.current_model,
+                        max_tokens=100,  # Shorter to force concise response
+                        temperature=0,  # More deterministic
+                        messages=[
+                            {"role": "system", "content": system_msg},
+                            {"role": "user", "content": prompt}
+                        ]
+                    )
+                    suggestion = response.choices[0].message.content.strip()
+                
+                print(f"✅ Got Morpheus response: {suggestion[:50]}...")
+                
+                # Extract code from response
+                extracted = self._extract_code_from_response(suggestion)
+                
+                if extracted and extracted.strip() != original_line.strip():
+                    # Schedule UI update on main thread
+                    QtCore.QTimer.singleShot(0, lambda: self._show_morpheus_suggestion(extracted, line_number, original_line))
+                else:
+                    print("⚠ No valid suggestion extracted")
+                    
+            except Exception as e:
+                print(f"❌ Morpheus API error: {e}")
+                
+        except Exception as e:
+            print(f"Error sending Morpheus request: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _extract_code_from_response(self, response):
+        """Extract code from Morpheus response - handles multiple formats."""
+        import re
+        
+        print(f"📝 Extracting from response: {response[:100]}...")
+        
+        # Remove any quotes wrapping the entire response
+        cleaned = response.strip()
+        if cleaned.startswith('"""') and cleaned.endswith('"""'):
+            cleaned = cleaned[3:-3].strip()
+        elif cleaned.startswith("'''") and cleaned.endswith("'''"):
+            cleaned = cleaned[3:-3].strip()
+        elif cleaned.startswith('"') and cleaned.endswith('"'):
+            cleaned = cleaned[1:-1].strip()
+        elif cleaned.startswith("'") and cleaned.endswith("'"):
+            cleaned = cleaned[1:-1].strip()
+        
+        # Strategy 1: Look for markdown code blocks
+        code_match = re.search(r'```(?:python)?\s*(.*?)\s*```', cleaned, re.DOTALL)
+        if code_match:
+            extracted = code_match.group(1).strip()
+            # If multiple lines, take the first non-empty, non-comment line
+            lines = [l.strip() for l in extracted.split('\n') if l.strip() and not l.strip().startswith('#')]
+            if lines:
+                result = lines[0]
+                print(f"✓ Extracted from markdown: {result}")
+                return result
+        
+        # Strategy 2: Remove common explanatory prefixes
+        prefixes_to_remove = [
+            r'^(?:Here\'s|Here is|The fixed|The corrected|Fixed|Corrected)\s+.*?:\s*',
+            r'^.*?should be:\s*',
+            r'^.*?change.*?to:\s*',
+            r'^Response:\s*',
+            r'^Answer:\s*',
+        ]
+        for prefix_pattern in prefixes_to_remove:
+            cleaned = re.sub(prefix_pattern, '', cleaned, flags=re.IGNORECASE)
+        
+        # Strategy 3: If response has multiple lines, try to find the actual code line
+        lines = cleaned.split('\n')
+        code_lines = []
+        for line in lines:
+            line = line.strip()
+            # Skip empty lines
+            if not line:
+                continue
+            # Skip comments
+            if line.startswith('#'):
+                continue
+            # Skip docstrings (triple quotes at start/end)
+            if line.startswith('"""') or line.startswith("'''"):
+                continue
+            # Skip lines that look like explanations (contain common words without code symbols)
+            if not any(char in line for char in ['(', ')', '=', ':', '[', ']', '{', '}']):
+                if len(line.split()) > 5:  # Likely an explanation sentence
+                    continue
+            code_lines.append(line)
+        
+        if code_lines:
+            result = code_lines[0]
+            print(f"✓ Extracted from multi-line: {result}")
+            return result
+        
+        # Strategy 4: Just return the cleaned response
+        print(f"⚠ Returning cleaned response: {cleaned}")
+        return cleaned
+    
+    def _show_morpheus_suggestion(self, suggestion, line_number, original_line):
+        """Show Morpheus suggestion with green highlighting and action buttons."""
+        from PySide6 import QtCore, QtGui, QtWidgets
+        import os
+        
+        print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print(f"💡 SHOWING SUGGESTION WIDGET:")
+        print(f"   Line from Problems window: {line_number}")
+        print(f"   Original line text: '{original_line.strip()}'")
+        print(f"   Morpheus suggestion: '{suggestion.strip()}'")
+        
+        # Verify the line number matches what's in the editor
+        cursor = QtGui.QTextCursor(self.document().findBlockByLineNumber(line_number - 1))
+        current_line_text = cursor.block().text()
+        print(f"   Current editor line {line_number}: '{current_line_text.strip()}'")
+        print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        
+        # Hide any existing suggestion widget
+        self._hide_morpheus_suggestion()
+        
+        self._morpheus_suggestion_widget = QtWidgets.QWidget(self)
+        self._morpheus_suggestion_widget.setWindowFlags(QtCore.Qt.Tool | QtCore.Qt.FramelessWindowHint)
+        self._morpheus_suggestion_widget.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+        
+        layout = QtWidgets.QVBoxLayout(self._morpheus_suggestion_widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        # Container with border
+        container = QtWidgets.QWidget()
+        container.setStyleSheet("""
+            QWidget {
+                background-color: #1a1a1a;
+                border: 1px solid #00ff41;
+                border-radius: 4px;
+            }
+        """)
+        container_layout = QtWidgets.QVBoxLayout(container)
+        container_layout.setContentsMargins(8, 8, 8, 8)
+        container_layout.setSpacing(4)
+        
+        # Header with Morpheus icon
+        header_layout = QtWidgets.QHBoxLayout()
+        header_layout.setSpacing(6)
+        
+        # Load Morpheus icon
+        assets_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
+        morpheus_icon_path = os.path.join(assets_path, 'morpheus.png')
+        
+        if os.path.exists(morpheus_icon_path):
+            icon_label = QtWidgets.QLabel()
+            pixmap = QtGui.QPixmap(morpheus_icon_path).scaled(16, 16, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+            icon_label.setPixmap(pixmap)
+            icon_label.setStyleSheet("border: none; background: transparent;")
+            header_layout.addWidget(icon_label)
+        
+        header_text = QtWidgets.QLabel("Morpheus AI Suggestion")
+        header_text.setStyleSheet("color: #00ff41; font-weight: bold; font-size: 11px; border: none; background: transparent;")
+        header_layout.addWidget(header_text)
+        header_layout.addStretch()
+        
+        header_widget = QtWidgets.QWidget()
+        header_widget.setLayout(header_layout)
+        header_widget.setStyleSheet("border: none; background: transparent;")
+        container_layout.addWidget(header_widget)
+        
+        # Original line (red background)
+        original_label = QtWidgets.QLabel(f"− {original_line.strip()}")
+        original_label.setStyleSheet("""
+            background-color: rgba(255, 0, 0, 0.2);
+            color: #ff6b6b;
+            padding: 4px 8px;
+            border-radius: 2px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 10px;
+            border: none;
+        """)
+        original_label.setWordWrap(False)
+        container_layout.addWidget(original_label)
+        
+        # Suggested line (green background)
+        suggestion_label = QtWidgets.QLabel(f"+ {suggestion.strip()}")
+        suggestion_label.setStyleSheet("""
+            background-color: rgba(0, 255, 65, 0.2);
+            color: #00ff41;
+            padding: 4px 8px;
+            border-radius: 2px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 10px;
+            border: none;
+        """)
+        suggestion_label.setWordWrap(False)
+        container_layout.addWidget(suggestion_label)
+        
+        # Buttons with icons only
+        button_layout = QtWidgets.QHBoxLayout()
+        button_layout.setSpacing(8)
+        
+        # Accept button (check icon)
+        accept_btn = QtWidgets.QPushButton("✓")
+        accept_btn.setToolTip("Accept suggestion")
+        accept_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #238636;
+                color: white;
+                border: none;
+                border-radius: 3px;
+                padding: 4px 10px;
+                font-size: 14px;
+                font-weight: bold;
+                min-width: 30px;
+            }
+            QPushButton:hover {
+                background-color: #2ea043;
+            }
+        """)
+        # Store line_number in closure to ensure it's captured correctly
+        captured_line = line_number
+        accept_btn.clicked.connect(lambda: self._accept_morpheus_suggestion(suggestion, captured_line))
+        print(f"   Accept button will apply to line: {captured_line}")
+        button_layout.addWidget(accept_btn)
+        
+        # Reject button (X icon)
+        reject_btn = QtWidgets.QPushButton("✗")
+        reject_btn.setToolTip("Reject suggestion")
+        reject_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #da3633;
+                color: white;
+                border: none;
+                border-radius: 3px;
+                padding: 4px 10px;
+                font-size: 14px;
+                font-weight: bold;
+                min-width: 30px;
+            }
+            QPushButton:hover {
+                background-color: #f85149;
+            }
+        """)
+        reject_btn.clicked.connect(self._hide_morpheus_suggestion)
+        button_layout.addWidget(reject_btn)
+        
+        container_layout.addLayout(button_layout)
+        layout.addWidget(container)
+        
+        # Position widget near the error line
+        cursor = QtGui.QTextCursor(self.document().findBlockByLineNumber(line_number - 1))
+        rect = self.cursorRect(cursor)
+        global_pos = self.mapToGlobal(rect.topLeft())
+        
+        self._morpheus_suggestion_widget.adjustSize()
+        self._morpheus_suggestion_widget.move(global_pos.x() + 50, global_pos.y() - 10)
+        self._morpheus_suggestion_widget.show()
+    
+    def _accept_morpheus_suggestion(self, suggestion, line_number):
+        """Apply the Morpheus suggestion to the code, preserving indentation."""
+        print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print(f"📝 APPLYING SUGGESTION:")
+        print(f"   THIS EDITOR ID: {id(self)}")
+        print(f"   Line number from Problems window: {line_number}")
+        print(f"   Morpheus suggestion: '{suggestion}'")
+        
+        # SIMPLE: Just use the line number directly - don't search!
+        # The line_number comes from Problems window and is for THIS editor
+        actual_line_number = line_number
+        
+        # Get current editor content
+        code = self.toPlainText()
+        lines = code.split('\n')
+        
+        # Validate line number is within bounds
+        if actual_line_number < 1 or actual_line_number > len(lines):
+            print(f"   ❌ ERROR: Line {actual_line_number} is out of bounds (1-{len(lines)})")
+            self._hide_morpheus_suggestion()
+            return
+        
+        # Get the cursor for the line using 0-indexed block number
+        block_index = actual_line_number - 1
+        print(f"   Block index (0-indexed): {block_index}")
+        
+        cursor = QtGui.QTextCursor(self.document().findBlockByLineNumber(block_index))
+        cursor.movePosition(QtGui.QTextCursor.StartOfBlock)
+        cursor.movePosition(QtGui.QTextCursor.EndOfBlock, QtGui.QTextCursor.KeepAnchor)
+        
+        original_text = cursor.selectedText()
+        print(f"   Line {actual_line_number} CURRENT content: '{original_text}'")
+        
+        # Calculate indentation from original line (count leading spaces/tabs)
+        indent = len(original_text) - len(original_text.lstrip())
+        indent_str = original_text[:indent]  # Preserve actual indent chars (spaces or tabs)
+        print(f"   Indentation: {indent} chars")
+        
+        # Clean the suggestion - remove any leading/trailing whitespace
+        clean_suggestion = suggestion.strip()
+        print(f"   Clean suggestion: '{clean_suggestion}'")
+        
+        # Apply the original indentation to the cleaned suggestion
+        indented_suggestion = indent_str + clean_suggestion
+        print(f"   Final text: '{indented_suggestion}'")
+        print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        
+        # Replace the line content (not including the newline)
+        cursor.insertText(indented_suggestion)
+        
+        # Hide suggestion widget
+        self._hide_morpheus_suggestion()
+        
+        # Show success message
+        if hasattr(self.parent(), 'dock_manager'):
+            main_window = self.parent()
+            while main_window.parent():
+                main_window = main_window.parent()
+            if hasattr(main_window, 'dock_manager'):
+                main_window.dock_manager.console.append_tagged("SUCCESS", 
+                    "✓ Morpheus suggestion applied!", "#00ff41")
+    
+    def _hide_morpheus_suggestion(self):
+        """Hide the Morpheus suggestion widget."""
+        if self._morpheus_suggestion_widget:
+            self._morpheus_suggestion_widget.hide()
+            self._morpheus_suggestion_widget.deleteLater()
+            self._morpheus_suggestion_widget = None
+        self._current_suggestion_line = None
+    
+    def _generate_error_suggestion(self, error_message, line_number):
+        """Generate a helpful suggestion based on the error message."""
+        # Get the line content
+        cursor = QtGui.QTextCursor(self.document().findBlockByLineNumber(line_number - 1))
+        line_text = cursor.block().text().strip()
+        
+        # Common error patterns and suggestions
+        if "incomplete statement" in error_message.lower():
+            if "def" in line_text:
+                return "Add function name and parameters: <code>def function_name():</code>"
+            elif "class" in line_text:
+                return "Add class name: <code>class ClassName:</code>"
+            elif "if" in line_text or "elif" in line_text:
+                return "Add condition: <code>if condition:</code>"
+            elif "for" in line_text:
+                return "Add loop variable: <code>for item in iterable:</code>"
+            elif "while" in line_text:
+                return "Add condition: <code>while condition:</code>"
+            elif "try" in line_text:
+                return "Add code block after try:"
+            elif "except" in line_text:
+                return "Add exception type: <code>except ExceptionType:</code>"
+        
+        elif "invalid syntax" in error_message.lower():
+            if ":" not in line_text and any(kw in line_text for kw in ["def", "class", "if", "for", "while", "elif", "else", "try", "except", "finally"]):
+                return "Add colon (:) at the end of the line"
+            elif line_text.count("(") != line_text.count(")"):
+                return "Check for unmatched parentheses"
+            elif line_text.count("[") != line_text.count("]"):
+                return "Check for unmatched brackets"
+            elif line_text.count("{") != line_text.count("}"):
+                return "Check for unmatched braces"
+        
+        elif "expected" in error_message.lower():
+            if ":" in error_message:
+                return "Add colon (:) at the end of the control statement"
+            elif "(" in error_message or ")" in error_message:
+                return "Check parentheses - ensure they are properly matched"
+        
+        # Generic suggestion
+        return "Check syntax and indentation on this line"

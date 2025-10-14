@@ -118,6 +118,9 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         # Restore previous session (tabs and files) - DEFERRED for faster startup
         QtCore.QTimer.singleShot(500, self._restore_session)
         
+        # Initialize chat manager (deferred for faster startup - AI loading is slow)
+        QtCore.QTimer.singleShot(100, self._init_chat_manager_deferred)
+        
         # Auto-save session every 30 seconds (for Maya stability)
         self.auto_save_timer = QtCore.QTimer()
         self.auto_save_timer.timeout.connect(self._save_session)
@@ -565,6 +568,7 @@ class AiScriptEditor(QtWidgets.QMainWindow):
                 
             # Get the line number from the item data
             line_num = item.data(2, QtCore.Qt.UserRole)
+            
             if not line_num or line_num == 0:
                 # Try to parse from text if data not available
                 try:
@@ -582,7 +586,7 @@ class AiScriptEditor(QtWidgets.QMainWindow):
                     editor = self.tabWidget.widget(i)
                     if id(editor) == editor_id:
                         target_editor = editor
-                        self.tabWidget.setCurrentIndex(i)  # Switch to this tab
+                        self.tabWidget.setCurrentIndex(i)
                         break
             
             # If we couldn't find by ID, use current editor as fallback
@@ -592,15 +596,15 @@ class AiScriptEditor(QtWidgets.QMainWindow):
             if not target_editor:
                 return
             
-            # Navigate to the line
+            # Navigate to the line using block number (0-indexed)
             cursor = target_editor.textCursor()
-            block = target_editor.document().findBlockByLineNumber(line_num - 1)  # 0-based
-            cursor.setPosition(block.position())
-            target_editor.setTextCursor(cursor)
-            target_editor.setFocus()
+            block = target_editor.document().findBlockByNumber(line_num - 1)
             
-            # Center the cursor
-            target_editor.centerCursor()
+            if block.isValid():
+                cursor.setPosition(block.position())
+                target_editor.setTextCursor(cursor)
+                target_editor.setFocus()
+                target_editor.centerCursor()
             
         except Exception as e:
             print(f"Error navigating to problem: {e}")
@@ -736,7 +740,7 @@ class AiScriptEditor(QtWidgets.QMainWindow):
             else:
                 # Restore untitled tab with content
                 print(f"    Creating untitled tab with {len(content)} chars")
-                self.file_manager.new_tab(language=language)
+                self.file_manager.new_file(language=language)
                 new_index = self.tabWidget.count() - 1
                 editor = self.tabWidget.widget(new_index)
                 if isinstance(editor, CodeEditor):
