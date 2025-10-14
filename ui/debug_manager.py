@@ -4,7 +4,8 @@ Handles debugging functionality with breakpoints (VSCode-style)
 """
 import sys
 import traceback
-from PySide6 import QtWidgets, QtCore
+import os
+from PySide6 import QtWidgets, QtCore, QtGui
 
 
 class DebugStopException(Exception):
@@ -42,7 +43,7 @@ class DebugManager:
         if not editor:
             msg_box = create_message_box(
                 self.parent, "Debug Error", 
-                "⚠️ No active editor found.", "warning"
+                "No active editor found.", "warning"
             )
             msg_box.exec()
             return
@@ -69,7 +70,7 @@ class DebugManager:
         # Get console for output
         console = getattr(self.parent, 'console', None)
         if console:
-            console.append(f"\n{'='*50}\n🐛 Debug Mode - Breakpoints: {len(breakpoints)}\n{'='*50}\n")
+            console.append(f"\n{'='*50}\n[DEBUG] Debug Mode - Breakpoints: {len(breakpoints)}\n{'='*50}\n")
         
         try:
             # Prepare namespace - use same dict for globals and locals
@@ -124,7 +125,7 @@ class DebugManager:
             
             # Show completion message
             if console:
-                console.append(f"\n{'='*50}\n✅ Debug Complete\n{'='*50}\n")
+                console.append(f"\n{'='*50}\n[OK] Debug Complete\n{'='*50}\n")
         
         except DebugStopException:
             # User stopped debugging - this is normal, not an error
@@ -152,11 +153,11 @@ class DebugManager:
             error_msg = f"Error: {str(e)}\n\n{traceback.format_exc()}"
             
             if console:
-                console.append(f"<span style='color:#f48771'>🔴 Debug Error:\n{error_msg}</span>")
+                console.append(f"<span style='color:#f48771'>[ERROR] Debug Error:\n{error_msg}</span>")
             
             from .dialog_styles import create_message_box
             msg_box = create_message_box(
-                self.parent, "Debug Error", f"❌ {error_msg}", "critical"
+                self.parent, "Debug Error", f"{error_msg}", "critical"
             )
             msg_box.exec()
         finally:
@@ -230,12 +231,12 @@ class DebugManager:
         # Buttons
         button_layout = QtWidgets.QHBoxLayout()
         
-        continue_btn = QtWidgets.QPushButton("▶️ Continue (F5)")
+        continue_btn = QtWidgets.QPushButton("Continue (F5)")
         continue_btn.setShortcut("F5")
         continue_btn.clicked.connect(dialog.accept)
         button_layout.addWidget(continue_btn)
         
-        stop_btn = QtWidgets.QPushButton("⏹️ Stop Debugging")
+        stop_btn = QtWidgets.QPushButton("Stop Debugging")
         stop_btn.setObjectName("stopBtn")  # For special styling
         stop_btn.clicked.connect(lambda: self._stop_debugging(dialog))
         button_layout.addWidget(stop_btn)
@@ -262,6 +263,14 @@ class DebugManager:
             editor.clear_all_breakpoints()
             msg_box = create_message_box(
                 self.parent, "Breakpoints Cleared",
-                "✅ All breakpoints have been cleared.", "information"
+                "All breakpoints have been cleared.", "information"
             )
+            
+            # Set custom icon (suggestion.png)
+            assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
+            success_icon_path = os.path.join(assets_dir, "suggestion.png")
+            if os.path.exists(success_icon_path):
+                icon_pixmap = QtGui.QPixmap(success_icon_path)
+                msg_box.setIconPixmap(icon_pixmap.scaled(48, 48, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
+            
             msg_box.exec()

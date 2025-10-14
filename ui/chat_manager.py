@@ -733,7 +733,7 @@ DO NOT return all {line_count} lines back - only return the problematic section.
         try:
             clipboard = QtWidgets.QApplication.clipboard()
             clipboard.setText(code)
-            self.parent.dock_manager.console.append_tagged("SUCCESS", "📋 Code copied to clipboard!", "#28a745")
+            self.parent.dock_manager.console.append_tagged("SUCCESS", "[OK] Code copied to clipboard!", "#28a745")
         except Exception as e:
             self.parent.dock_manager.console.append_tagged("ERROR", f"Failed to copy code: {e}", "#dc3545")
 
@@ -812,7 +812,7 @@ DO NOT return all {line_count} lines back - only return the problematic section.
                     
                     # Show inline diff preview with red/green highlighting
                     editor.show_inline_replacement(replacement_info, code)
-                    self.parent.dock_manager.console.append_tagged("MORPHEUS", "💡 Inline diff preview shown in editor", "#00ff41")
+                    self.parent.dock_manager.console.append_tagged("MORPHEUS", "[INFO] Inline diff preview shown in editor", "#00ff41")
                     return
             else:
                 # Fallback to cursor position
@@ -829,7 +829,7 @@ DO NOT return all {line_count} lines back - only return the problematic section.
                 
                 # Show inline diff preview with red/green highlighting
                 editor.show_inline_replacement(replacement_info, code)
-                self.parent.dock_manager.console.append_tagged("MORPHEUS", "💡 Inline diff preview shown in editor", "#00ff41")
+                self.parent.dock_manager.console.append_tagged("MORPHEUS", "[INFO] Inline diff preview shown in editor", "#00ff41")
             else:
                 print(f"   ❌ No match found for AI code")
             
@@ -851,7 +851,7 @@ DO NOT return all {line_count} lines back - only return the problematic section.
             # If editor is empty, just insert the code
             if not current_code.strip():
                 editor.setPlainText(code)
-                self.parent.dock_manager.console.append_tagged("SUCCESS", "✅ Code inserted!", "#28a745")
+                self.parent.dock_manager.console.append_tagged("SUCCESS", "[OK] Code inserted!", "#28a745")
                 return
             
             # Try to find the best match for replacement
@@ -860,13 +860,13 @@ DO NOT return all {line_count} lines back - only return the problematic section.
             if replacement_info:
                 # Show inline diff preview in the editor with red/green highlighting
                 editor.show_inline_replacement(replacement_info, code)
-                self.parent.dock_manager.console.append_tagged("INFO", "💡 Review the suggested changes in the editor", "#00ff41")
+                self.parent.dock_manager.console.append_tagged("INFO", "[INFO] Review the suggested changes in the editor", "#00ff41")
             else:
                 # If no match found, insert at cursor position
                 cursor = editor.textCursor()
                 cursor.insertText("\n" + code + "\n")
                 editor.setTextCursor(cursor)
-                self.parent.dock_manager.console.append_tagged("SUCCESS", "✅ Code inserted at cursor!", "#28a745")
+                self.parent.dock_manager.console.append_tagged("SUCCESS", "[OK] Code inserted at cursor!", "#28a745")
                 
         except Exception as e:
             self.parent.dock_manager.console.append_tagged("ERROR", f"Failed to apply fix: {e}", "#dc3545")

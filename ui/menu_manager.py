@@ -280,7 +280,7 @@ class MenuManager:
             try:
                 compile(code, '<string>', 'exec')
                 # Success - use suggestion.png icon
-                msg_box = create_message_box(self.parent, "Syntax Check", "✅ No syntax errors found!", "information")
+                msg_box = create_message_box(self.parent, "Syntax Check", "No syntax errors found!", "information")
                 
                 # Set custom icon (suggestion.png)
                 assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
@@ -292,7 +292,7 @@ class MenuManager:
                 msg_box.exec()
             except SyntaxError as e:
                 # Error - use syntax_error.png icon
-                msg_box = create_message_box(self.parent, "Syntax Error", f"❌ Syntax error at line {e.lineno}: {e.msg}", "warning")
+                msg_box = create_message_box(self.parent, "Syntax Error", f"Syntax error at line {e.lineno}: {e.msg}", "warning")
                 
                 # Set custom icon (syntax_error.png)
                 assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
@@ -403,7 +403,7 @@ class MenuManager:
         taglineLabel.setAlignment(QtCore.Qt.AlignCenter)
         
         # Beta warning
-        betaWarningLabel = QtWidgets.QLabel("⚠️ BETA RELEASE - For Testing Purposes Only")
+        betaWarningLabel = QtWidgets.QLabel("BETA RELEASE - For Testing Purposes Only")
         betaWarningLabel.setStyleSheet("""
             font-size: 12px;
             color: #00ff41;

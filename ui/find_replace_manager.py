@@ -64,6 +64,19 @@ class FindReplaceManager:
             QPushButton:pressed {
                 background: #00aa2b;
             }
+            QPushButton#navBtn {
+                background: #3c3c3c;
+                color: #cccccc;
+                border: 1px solid #3e3e42;
+                padding: 4px;
+            }
+            QPushButton#navBtn:hover {
+                background: #484848;
+                border: 1px solid #555555;
+            }
+            QPushButton#navBtn:pressed {
+                background: #2d2d2d;
+            }
             QCheckBox {
                 color: #cccccc;
                 font-size: 11px;
@@ -129,6 +142,7 @@ class FindReplaceManager:
         
         # Previous button with icon
         self.findPrevBtn = QtWidgets.QPushButton()
+        self.findPrevBtn.setObjectName("navBtn")
         self.findPrevBtn.setFixedSize(28, 26)
         self.findPrevBtn.setToolTip("Previous Match (Shift+F3)")
         prev_icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "previous.png")
@@ -142,6 +156,7 @@ class FindReplaceManager:
         
         # Next button with icon
         self.findNextBtn = QtWidgets.QPushButton()
+        self.findNextBtn.setObjectName("navBtn")
         self.findNextBtn.setFixedSize(28, 26)
         self.findNextBtn.setToolTip("Next Match (F3)")
         next_icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "next.png")

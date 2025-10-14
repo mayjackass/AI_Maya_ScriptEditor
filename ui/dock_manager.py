@@ -239,7 +239,7 @@ class DockManager:
                 background: #1e1e1e;
                 color: #ffffff;
                 border: 1px solid #333;
-                selection-background-color: #264f78;
+                selection-background-color: #3d5a45;
             }
             QHeaderView::section {
                 background: #2d2d30;

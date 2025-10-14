@@ -508,7 +508,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         # CRITICAL: For "unmatched ')'" errors, search ENTIRE FILE for lines with mismatched parentheses
         # Python often reports the wrong line (where parsing stops), not where the extra paren is
         if 'unmatched' in error_msg_lower and ')' in error_msg_lower:
-            print(f"🔍 Looking for unmatched ')' error (reported line {reported_line})...")
+            print(f"[SEARCH] Looking for unmatched ')' error (reported line {reported_line})...")
             
             # Strategy: Search BACKWARDS from reported line first (errors often occur earlier)
             # Then search forward if nothing found
@@ -540,12 +540,12 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                 candidates.sort(key=lambda x: (-x[2], x[3]))
                 best_line_num = candidates[0][0]
                 best_line_text = candidates[0][1]
-                print(f"✅ Found line {best_line_num} with unmatched ')': '{best_line_text[:60]}'")
+                print(f"[OK] Found line {best_line_num} with unmatched ')': '{best_line_text[:60]}'")
                 print(f"   Opens: {best_line_text.count('(')}, Closes: {best_line_text.count(')')}")
                 return best_line_num
             
             # If still not found, search entire file
-            print(f"⚠️ No unmatched ')' found before line {reported_line}, searching entire file...")
+            print(f"[WARN] No unmatched ')' found before line {reported_line}, searching entire file...")
             for line_num in range(1, len(all_lines) + 1):
                 line_text = all_lines[line_num - 1].strip()
                 
@@ -559,14 +559,14 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                 close_count = line_text.count(')')
                 
                 if close_count > open_count:
-                    print(f"✅ Found line {line_num} with unmatched ')': '{line_text[:60]}'")
+                    print(f"[OK] Found line {line_num} with unmatched ')': '{line_text[:60]}'")
                     return line_num
         
         # If the reported line looks reasonable, use it
         if not is_likely_wrong:
             return reported_line
         
-        print(f"🔍 Line {reported_line} looks wrong ('{reported_text[:50]}...'), searching nearby lines...")
+        print(f"[SEARCH] Line {reported_line} looks wrong ('{reported_text[:50]}...'), searching nearby lines...")
         
         # Search nearby lines (±10 lines) for code that could cause this error
         search_range = 10
@@ -640,7 +640,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                 best_candidate = line_num
         
         if best_candidate != reported_line:
-            print(f"✅ Found better candidate at line {best_candidate}: '{all_lines[best_candidate-1].strip()[:50]}...'")
+            print(f"[OK] Found better candidate at line {best_candidate}: '{all_lines[best_candidate-1].strip()[:50]}...'")
         
         return best_candidate
             
@@ -1372,10 +1372,10 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         """Called after hovering on error for 2 seconds - uses Problems window data."""
         if self._current_suggestion_line and hasattr(self, '_hover_error_info') and self._hover_error_info:
             # Use the error info from Problems window that we stored
-            print(f"🎯 Timer fired for line {self._current_suggestion_line} from Problems window")
+            print(f"[TIMER] Timer fired for line {self._current_suggestion_line} from Problems window")
             self._request_morpheus_suggestion(self._hover_error_info, self._current_suggestion_line)
         else:
-            print(f"⚠ Timer fired but no error info stored")
+            print(f"[WARN] Timer fired but no error info stored")
     
     def _request_morpheus_suggestion(self, error_info, line_number):
         """Request AI suggestion from Morpheus using Problems window data.
@@ -1384,7 +1384,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         """
         # Check if Morpheus is available
         if not self._is_morpheus_available():
-            print("⚠ Morpheus is not available")
+            print("[WARN] Morpheus is not available")
             return
         
         # Use the error_info that was passed from Problems window
@@ -1399,16 +1399,16 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             # Fallback: read current line if no stored text (shouldn't happen)
             cursor = QtGui.QTextCursor(self.document().findBlockByLineNumber(actual_line - 1))
             line_text = cursor.block().text()
-            print(f"⚠ No stored line_text, reading current: '{line_text.strip()}'")
+            print(f"[WARN] No stored line_text, reading current: '{line_text.strip()}'")
         else:
             line_text = stored_line_text
         
-        print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        print(f"🎯 PROBLEMS WINDOW DATA:")
+        print(f"=" * 50)
+        print(f"[PROBLEMS] WINDOW DATA:")
         print(f"   Line from Problems: {actual_line}")
         print(f"   Error from Problems: {error_message}")
         print(f"   Original Line Text: '{line_text.strip()}'")
-        print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print(f"=" * 50)
         
         # Get surrounding context using CURRENT editor content
         context_lines = []
@@ -1417,10 +1417,10 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             prefix = ">>> " if (i + 1) == actual_line else "    "
             context_lines.append(f"{prefix}Line {i+1}: {block.text()}")
         
-        print(f"📋 Context around line {actual_line}:")
+        print(f"[CONTEXT] Around line {actual_line}:")
         for ctx_line in context_lines:
             print(f"   {ctx_line}")
-        print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print(f"=" * 50)
         
         # Build context string
         context = '\n'.join([self.document().findBlockByLineNumber(i).text() 
@@ -1496,10 +1496,10 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
             # Get Morpheus
             morpheus = main_window.chat_manager.morpheus
             if not morpheus or not morpheus.client:
-                print("⚠ Morpheus client not available")
+                print("[WARN] Morpheus client not available")
                 return
             
-            print(f"🤖 Sending request to Morpheus ({morpheus.provider})...")
+            print(f"[MORPHEUS] Sending request to Morpheus ({morpheus.provider})...")
             
             # Get response directly from API
             try:
@@ -1525,7 +1525,7 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
                     )
                     suggestion = response.choices[0].message.content.strip()
                 
-                print(f"✅ Got Morpheus response: {suggestion[:50]}...")
+                print(f"[OK] Got Morpheus response: {suggestion[:50]}...")
                 
                 # Extract code from response
                 extracted = self._extract_code_from_response(suggestion)
@@ -1534,10 +1534,10 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
                     # Schedule UI update on main thread
                     QtCore.QTimer.singleShot(0, lambda: self._show_morpheus_suggestion(extracted, line_number, original_line))
                 else:
-                    print("⚠ No valid suggestion extracted")
+                    print("[WARN] No valid suggestion extracted")
                     
             except Exception as e:
-                print(f"❌ Morpheus API error: {e}")
+                print(f"[ERROR] Morpheus API error: {e}")
                 
         except Exception as e:
             print(f"Error sending Morpheus request: {e}")
@@ -1548,7 +1548,7 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
         """Extract code from Morpheus response - handles multiple formats."""
         import re
         
-        print(f"📝 Extracting from response: {response[:100]}...")
+        print(f"[EXTRACT] Extracting from response: {response[:100]}...")
         
         # Remove any quotes wrapping the entire response
         cleaned = response.strip()
@@ -1569,7 +1569,7 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
             lines = [l.strip() for l in extracted.split('\n') if l.strip() and not l.strip().startswith('#')]
             if lines:
                 result = lines[0]
-                print(f"✓ Extracted from markdown: {result}")
+                print(f"[OK] Extracted from markdown: {result}")
                 return result
         
         # Strategy 2: Remove common explanatory prefixes
@@ -1605,11 +1605,11 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
         
         if code_lines:
             result = code_lines[0]
-            print(f"✓ Extracted from multi-line: {result}")
+            print(f"[OK] Extracted from multi-line: {result}")
             return result
         
         # Strategy 4: Just return the cleaned response
-        print(f"⚠ Returning cleaned response: {cleaned}")
+        print(f"[WARN] Returning cleaned response: {cleaned}")
         return cleaned
     
     def _show_morpheus_suggestion(self, suggestion, line_number, original_line):
@@ -1617,8 +1617,8 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
         from PySide6 import QtCore, QtGui, QtWidgets
         import os
         
-        print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        print(f"💡 SHOWING SUGGESTION WIDGET:")
+        print(f"=" * 50)
+        print(f"[SUGGESTION] SHOWING SUGGESTION WIDGET:")
         print(f"   Line from Problems window: {line_number}")
         print(f"   Original line text: '{original_line.strip()}'")
         print(f"   Morpheus suggestion: '{suggestion.strip()}'")
@@ -1627,7 +1627,7 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
         cursor = QtGui.QTextCursor(self.document().findBlockByLineNumber(line_number - 1))
         current_line_text = cursor.block().text()
         print(f"   Current editor line {line_number}: '{current_line_text.strip()}'")
-        print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print(f"=" * 50)
         
         # Hide any existing suggestion widget
         self._hide_morpheus_suggestion()
@@ -1640,18 +1640,18 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         
-        # Container with border
+        # Container without border - using dialog theme colors
         container = QtWidgets.QWidget()
         container.setStyleSheet("""
             QWidget {
-                background-color: #1a1a1a;
-                border: 1px solid #00ff41;
-                border-radius: 4px;
+                background-color: #0d1117;
+                border: 1px solid #30363d;
+                border-radius: 6px;
             }
         """)
         container_layout = QtWidgets.QVBoxLayout(container)
-        container_layout.setContentsMargins(8, 8, 8, 8)
-        container_layout.setSpacing(4)
+        container_layout.setContentsMargins(12, 12, 12, 12)
+        container_layout.setSpacing(8)
         
         # Header with Morpheus icon
         header_layout = QtWidgets.QHBoxLayout()
@@ -1669,9 +1669,61 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
             header_layout.addWidget(icon_label)
         
         header_text = QtWidgets.QLabel("Morpheus AI Suggestion")
-        header_text.setStyleSheet("color: #00ff41; font-weight: bold; font-size: 11px; border: none; background: transparent;")
+        header_text.setStyleSheet("color: #00ff41; font-weight: bold; font-size: 12px; border: none; background: transparent;")
         header_layout.addWidget(header_text)
         header_layout.addStretch()
+        
+        # Add buttons to header (right side) - smaller size
+        # Accept button (check icon) - using dialog theme green
+        accept_btn = QtWidgets.QPushButton("✓")
+        accept_btn.setToolTip("Accept suggestion")
+        accept_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #00ff41;
+                color: #0d1117;
+                border: none;
+                border-radius: 3px;
+                padding: 2px 8px;
+                font-size: 12px;
+                font-weight: bold;
+                min-width: 24px;
+                max-width: 24px;
+                min-height: 20px;
+                max-height: 20px;
+            }
+            QPushButton:hover {
+                background-color: #00cc33;
+            }
+        """)
+        # Store line_number in closure to ensure it's captured correctly
+        captured_line = line_number
+        accept_btn.clicked.connect(lambda: self._accept_morpheus_suggestion(suggestion, captured_line))
+        print(f"   Accept button will apply to line: {captured_line}")
+        header_layout.addWidget(accept_btn)
+        
+        # Reject button (X icon) - red color
+        reject_btn = QtWidgets.QPushButton("✗")
+        reject_btn.setToolTip("Reject suggestion")
+        reject_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #da3633;
+                color: #ffffff;
+                border: none;
+                border-radius: 3px;
+                padding: 2px 8px;
+                font-size: 12px;
+                font-weight: bold;
+                min-width: 24px;
+                max-width: 24px;
+                min-height: 20px;
+                max-height: 20px;
+            }
+            QPushButton:hover {
+                background-color: #f85149;
+            }
+        """)
+        reject_btn.clicked.connect(self._hide_morpheus_suggestion)
+        header_layout.addWidget(reject_btn)
         
         header_widget = QtWidgets.QWidget()
         header_widget.setLayout(header_layout)
@@ -1706,56 +1758,6 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
         suggestion_label.setWordWrap(False)
         container_layout.addWidget(suggestion_label)
         
-        # Buttons with icons only
-        button_layout = QtWidgets.QHBoxLayout()
-        button_layout.setSpacing(8)
-        
-        # Accept button (check icon)
-        accept_btn = QtWidgets.QPushButton("✓")
-        accept_btn.setToolTip("Accept suggestion")
-        accept_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #238636;
-                color: white;
-                border: none;
-                border-radius: 3px;
-                padding: 4px 10px;
-                font-size: 14px;
-                font-weight: bold;
-                min-width: 30px;
-            }
-            QPushButton:hover {
-                background-color: #2ea043;
-            }
-        """)
-        # Store line_number in closure to ensure it's captured correctly
-        captured_line = line_number
-        accept_btn.clicked.connect(lambda: self._accept_morpheus_suggestion(suggestion, captured_line))
-        print(f"   Accept button will apply to line: {captured_line}")
-        button_layout.addWidget(accept_btn)
-        
-        # Reject button (X icon)
-        reject_btn = QtWidgets.QPushButton("✗")
-        reject_btn.setToolTip("Reject suggestion")
-        reject_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #da3633;
-                color: white;
-                border: none;
-                border-radius: 3px;
-                padding: 4px 10px;
-                font-size: 14px;
-                font-weight: bold;
-                min-width: 30px;
-            }
-            QPushButton:hover {
-                background-color: #f85149;
-            }
-        """)
-        reject_btn.clicked.connect(self._hide_morpheus_suggestion)
-        button_layout.addWidget(reject_btn)
-        
-        container_layout.addLayout(button_layout)
         layout.addWidget(container)
         
         # Position widget near the error line
@@ -1769,8 +1771,8 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
     
     def _accept_morpheus_suggestion(self, suggestion, line_number):
         """Apply the Morpheus suggestion to the code, preserving indentation."""
-        print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        print(f"📝 APPLYING SUGGESTION:")
+        print(f"=" * 50)
+        print(f"[APPLY] APPLYING SUGGESTION:")
         print(f"   THIS EDITOR ID: {id(self)}")
         print(f"   Line number from Problems window: {line_number}")
         print(f"   Morpheus suggestion: '{suggestion}'")
@@ -1785,7 +1787,7 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
         
         # Validate line number is within bounds
         if actual_line_number < 1 or actual_line_number > len(lines):
-            print(f"   ❌ ERROR: Line {actual_line_number} is out of bounds (1-{len(lines)})")
+            print(f"   [ERROR] Line {actual_line_number} is out of bounds (1-{len(lines)})")
             self._hide_morpheus_suggestion()
             return
         
@@ -1812,7 +1814,7 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
         # Apply the original indentation to the cleaned suggestion
         indented_suggestion = indent_str + clean_suggestion
         print(f"   Final text: '{indented_suggestion}'")
-        print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print(f"=" * 50)
         
         # Replace the line content (not including the newline)
         cursor.insertText(indented_suggestion)
