@@ -82,13 +82,45 @@ class FileManager:
         else:
             self.tab_widget.setTabIcon(index, self.mel_icon)
         
-    def new_file(self):
+    def new_file(self, language=None):
         """Create new file"""
         try:
             from editor.code_editor import CodeEditor
+            
+            # Check if current tab is an empty untitled tab - reuse it instead of creating new one
+            current_index = self.tab_widget.currentIndex()
+            if current_index >= 0:
+                current_editor = self.tab_widget.widget(current_index)
+                current_title = self.tab_widget.tabText(current_index)
+                
+                # If current tab is empty untitled, reuse it
+                if (isinstance(current_editor, CodeEditor) and 
+                    current_title == "untitled" and 
+                    not current_editor.toPlainText().strip()):
+                    
+                    # Just set the language for the existing empty tab
+                    if language:
+                        lang = language
+                    else:
+                        lang = self.language_combo.currentText()
+                    
+                    if "python" in lang.lower():
+                        current_editor.set_language("python")
+                    else:
+                        current_editor.set_language("mel")
+                    
+                    return  # Reuse existing tab, don't create new one
+            
+            # Create new editor
             editor = CodeEditor()
-            lang = self.language_combo.currentText()
-            if "Python" in lang:
+            
+            # Use provided language or get from combo box
+            if language:
+                lang = language
+            else:
+                lang = self.language_combo.currentText()
+                
+            if "python" in lang.lower():
                 editor.set_language("python")
                 content = ""  # Start with empty file
                 language = "python"
@@ -99,7 +131,7 @@ class FileManager:
             editor.setPlainText(content)
             
             # Set placeholder text with instructions (like VSCode)
-            if "Python" in lang:
+            if "python" in lang.lower():
                 editor.setPlaceholderText(
                     "# Start typing Python code...\n"
                     "# - Press Ctrl+Space for autocomplete\n"
@@ -139,6 +171,23 @@ class FileManager:
                 
                 try:
                     from editor.code_editor import CodeEditor
+                    
+                    # Check if current tab is empty untitled - replace it instead of creating new
+                    current_index = self.tab_widget.currentIndex()
+                    replace_current = False
+                    
+                    if current_index >= 0:
+                        current_editor = self.tab_widget.widget(current_index)
+                        current_title = self.tab_widget.tabText(current_index)
+                        
+                        # If current tab is empty untitled, replace it
+                        if (isinstance(current_editor, CodeEditor) and 
+                            current_title == "untitled" and 
+                            not current_editor.toPlainText().strip()):
+                            replace_current = True
+                            # Remove the empty untitled tab
+                            self.tab_widget.removeTab(current_index)
+                    
                     editor = CodeEditor()
                     if file_path.endswith('.py'):
                         editor.set_language("python")
@@ -152,12 +201,18 @@ class FileManager:
                     # Connect problems signal for problems window
                     if hasattr(editor, 'lintProblemsFound'):
                         editor.lintProblemsFound.connect(self.parent._update_problems)
-                except:
+                except Exception as e:
+                    # If CodeEditor fails, fall back to plain QTextEdit
+                    import traceback
+                    print(f"ERROR creating CodeEditor: {e}")
+                    traceback.print_exc()
                     editor = QtWidgets.QTextEdit()
                     language = "python"
                 
                 editor.setPlainText(content)
                 tab_name = os.path.basename(file_path)
+                
+                # Add tab (will replace the position of removed empty tab if applicable)
                 index = self.tab_widget.addTab(editor, tab_name)
                 self._set_tab_icon(index, language)
                 self.tab_widget.setCurrentIndex(index)
@@ -278,6 +333,19 @@ class FileManager:
     
     def close_tab(self, index):
         """Close tab and clean up its problems"""
+        # Prevent closing the last tab if it's an empty untitled tab
+        if self.tab_widget.count() == 1:
+            editor_widget = self.tab_widget.widget(index)
+            tab_title = self.tab_widget.tabText(index)
+            
+            # If it's the only tab and it's an empty untitled, just clear it instead of closing
+            if (tab_title == "untitled" and 
+                hasattr(editor_widget, 'toPlainText') and 
+                not editor_widget.toPlainText().strip()):
+                # Just clear the content instead of closing
+                editor_widget.setPlainText("")
+                return
+        
         # Get the editor widget before closing
         editor_widget = self.tab_widget.widget(index)
         
@@ -291,9 +359,15 @@ class FileManager:
                     self.parent._refresh_current_tab_problems()
         
         # Close the tab
-        if self.tab_widget.count() <= 1:
-            self.new_file()
         self.tab_widget.removeTab(index)
+        
+        # If no tabs left, create a new one
+        if self.tab_widget.count() == 0:
+            self.new_file()
+        
+        # Save session after tab close
+        if hasattr(self.parent, '_save_session'):
+            QtCore.QTimer.singleShot(100, self.parent._save_session)
     
     def on_tab_changed(self, index):
         """Handle tab change"""

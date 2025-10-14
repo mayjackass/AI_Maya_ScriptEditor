@@ -7,6 +7,11 @@ import traceback
 from PySide6 import QtWidgets, QtCore
 
 
+class DebugStopException(Exception):
+    """Exception raised to stop debugging execution"""
+    pass
+
+
 class DebugManager:
     """Manages debugging with breakpoints"""
     
@@ -24,28 +29,32 @@ class DebugManager:
         
     def get_current_editor(self):
         """Get the currently active code editor."""
-        current_widget = self.parent.tabs.currentWidget()
+        current_widget = self.parent.tabWidget.currentWidget()
         if hasattr(current_widget, 'toPlainText'):  # Check if it's an editor
             return current_widget
         return None
     
     def run_with_breakpoints(self):
         """Execute code with breakpoint support."""
+        from .dialog_styles import create_message_box
+        
         editor = self.get_current_editor()
         if not editor:
-            QtWidgets.QMessageBox.warning(
+            msg_box = create_message_box(
                 self.parent, "Debug Error", 
-                "No active editor found."
+                "⚠️ No active editor found.", "warning"
             )
+            msg_box.exec()
             return
         
         # Get breakpoints
         breakpoints = editor.get_breakpoints()
         if not breakpoints:
-            QtWidgets.QMessageBox.information(
+            msg_box = create_message_box(
                 self.parent, "Debug Info",
-                "No breakpoints set. Click in the left margin to add breakpoints."
+                "ℹ️ No breakpoints set. Click in the left margin to add breakpoints.", "information"
             )
+            msg_box.exec()
             return
         
         # Get code
@@ -57,10 +66,19 @@ class DebugManager:
         self.is_debugging = True
         editor.clear_current_debug_line()
         
+        # Get console for output
+        console = getattr(self.parent, 'console', None)
+        if console:
+            console.append(f"\n{'='*50}\n🐛 Debug Mode - Breakpoints: {len(breakpoints)}\n{'='*50}\n")
+        
         try:
-            # Prepare globals and locals
-            self.debug_globals = {'__name__': '__main__'}
-            self.debug_locals = {}
+            # Prepare namespace - use same dict for globals and locals
+            # This ensures functions defined in code are available when called
+            self.debug_globals = {
+                '__name__': '__main__',
+                '__builtins__': __builtins__
+            }
+            self.debug_locals = self.debug_globals  # Use same dict!
             
             # Add Maya commands if available
             try:
@@ -74,32 +92,82 @@ class DebugManager:
             # Compile code
             compiled = compile(code, '<editor>', 'exec')
             
+            # Redirect stdout/stderr to console if available
+            if console:
+                import sys
+                from io import StringIO
+                old_stdout = sys.stdout
+                old_stderr = sys.stderr
+                sys.stdout = StringIO()
+                sys.stderr = StringIO()
+            
             # Execute with tracing for breakpoints
+            # Use same namespace for both globals and locals
             sys.settrace(self._trace_function)
-            exec(compiled, self.debug_globals, self.debug_locals)
+            exec(compiled, self.debug_globals, self.debug_globals)
             sys.settrace(None)
+            
+            # Restore and capture output
+            if console:
+                output = sys.stdout.getvalue()
+                errors = sys.stderr.getvalue()
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+                
+                if output:
+                    console.append(output)
+                if errors:
+                    console.append(f"<span style='color:#f48771'>{errors}</span>")
             
             # Clear debug line
             editor.clear_current_debug_line()
             
             # Show completion message
-            QtWidgets.QMessageBox.information(
-                self.parent, "Debug Complete",
-                f"Code executed successfully.\nBreakpoints hit: {len(breakpoints)}"
-            )
+            if console:
+                console.append(f"\n{'='*50}\n✅ Debug Complete\n{'='*50}\n")
+        
+        except DebugStopException:
+            # User stopped debugging - this is normal, not an error
+            sys.settrace(None)
+            
+            # Restore stdout/stderr if redirected
+            if console and 'old_stdout' in locals():
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+            
+            editor.clear_current_debug_line()
+            
+            if console:
+                console.append(f"\n{'='*50}\n⏹️ Debug Stopped by User\n{'='*50}\n")
             
         except Exception as e:
             sys.settrace(None)
+            
+            # Restore stdout/stderr if redirected
+            if console and 'old_stdout' in locals():
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+            
             editor.clear_current_debug_line()
             error_msg = f"Error: {str(e)}\n\n{traceback.format_exc()}"
-            QtWidgets.QMessageBox.critical(
-                self.parent, "Debug Error", error_msg
+            
+            if console:
+                console.append(f"<span style='color:#f48771'>🔴 Debug Error:\n{error_msg}</span>")
+            
+            from .dialog_styles import create_message_box
+            msg_box = create_message_box(
+                self.parent, "Debug Error", f"❌ {error_msg}", "critical"
             )
+            msg_box.exec()
         finally:
             self.is_debugging = False
     
     def _trace_function(self, frame, event, arg):
         """Trace function for breakpoint handling."""
+        # Check if debugging was stopped
+        if not self.is_debugging:
+            raise DebugStopException("Debugging stopped by user")
+        
         if event == 'line':
             editor = self.get_current_editor()
             if not editor:
@@ -120,16 +188,22 @@ class DebugManager:
     
     def _show_breakpoint_dialog(self, frame, lineno):
         """Show dialog when breakpoint is hit."""
+        from .dialog_styles import apply_dark_theme
+        
         dialog = QtWidgets.QDialog(self.parent)
         dialog.setWindowTitle(f"Breakpoint Hit - Line {lineno}")
         dialog.setModal(True)
         dialog.setMinimumWidth(500)
         dialog.setMinimumHeight(400)
         
+        # Apply consistent dark theme
+        apply_dark_theme(dialog)
+        
         layout = QtWidgets.QVBoxLayout(dialog)
         
         # Info label
-        info_label = QtWidgets.QLabel(f"<b>Breakpoint at line {lineno}</b>")
+        info_label = QtWidgets.QLabel(f"<b>🔴 Breakpoint at line {lineno}</b>")
+        info_label.setStyleSheet("color: #00ff41; font-size: 14px;")
         layout.addWidget(info_label)
         
         # Variables tree
@@ -156,12 +230,13 @@ class DebugManager:
         # Buttons
         button_layout = QtWidgets.QHBoxLayout()
         
-        continue_btn = QtWidgets.QPushButton("Continue (F5)")
+        continue_btn = QtWidgets.QPushButton("▶️ Continue (F5)")
         continue_btn.setShortcut("F5")
         continue_btn.clicked.connect(dialog.accept)
         button_layout.addWidget(continue_btn)
         
-        stop_btn = QtWidgets.QPushButton("Stop Debugging")
+        stop_btn = QtWidgets.QPushButton("⏹️ Stop Debugging")
+        stop_btn.setObjectName("stopBtn")  # For special styling
         stop_btn.clicked.connect(lambda: self._stop_debugging(dialog))
         button_layout.addWidget(stop_btn)
         
@@ -180,10 +255,13 @@ class DebugManager:
     
     def clear_all_breakpoints(self):
         """Clear all breakpoints from current editor."""
+        from .dialog_styles import create_message_box
+        
         editor = self.get_current_editor()
         if editor:
             editor.clear_all_breakpoints()
-            QtWidgets.QMessageBox.information(
+            msg_box = create_message_box(
                 self.parent, "Breakpoints Cleared",
-                "All breakpoints have been cleared."
+                "✅ All breakpoints have been cleared.", "information"
             )
+            msg_box.exec()

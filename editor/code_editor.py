@@ -1330,19 +1330,28 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             self._morpheus_hover_timer.stop()
             self._morpheus_hover_timer.start(2000)
             
-            # Show immediate tooltip
+            # Get icon paths
+            import os
+            assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
+            error_icon = os.path.join(assets_dir, 'syntax_error.png')
+            suggestion_icon = os.path.join(assets_dir, 'suggestion.png')
+            morpheus_icon = os.path.join(assets_dir, 'morpheus.png')
+            
+            # Show immediate tooltip with icons
             error_message = error_info['message']
-            tooltip_text = f"<b style='color:#f48771'>⚠ Syntax Error:</b><br>{error_message}"
+            tooltip_text = f"<b style='color:#f48771'><img src='{error_icon}' width='16' height='16'> Syntax Error:</b><br>{error_message}"
             tooltip_text += f"<br><i style='color:#888'>Line {line_number}</i>"
             
             # Add basic suggestion
             suggestion = self._generate_error_suggestion(error_message, line_number)
             if suggestion:
-                tooltip_text += f"<br><br><b style='color:#58a6ff'>💡 Suggestion:</b><br>{suggestion}"
+                tooltip_text += f"<br><br><b style='color:#58a6ff'><img src='{suggestion_icon}' width='16' height='16'> Suggestion:</b><br>{suggestion}"
             
             # Check if Morpheus is available
             if self._is_morpheus_available():
-                tooltip_text += "<br><br><i style='color:#888'>⏱ Hover for 2s to get AI suggestion...</i>"
+                tooltip_text += f"<br><br><i style='color:#888'><img src='{morpheus_icon}' width='16' height='16'> Hover for 2s to get Morpheus suggestion...</i>"
+            else:
+                tooltip_text += f"<br><br><i style='color:#888'><img src='{morpheus_icon}' width='16' height='16'> Turn Morpheus online to get AI suggestions</i>"
             
             QtWidgets.QToolTip.showText(event.globalPosition().toPoint(), tooltip_text, self)
         elif not self._morpheus_hover_timer.isActive():

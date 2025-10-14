@@ -367,6 +367,18 @@ class BetaManager:
         msg_box.setWindowTitle("Version Information")
         msg_box.setIcon(QtWidgets.QMessageBox.Information)
         
+        # Set custom icon (suggestion.png)
+        assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
+        icon_path = os.path.join(assets_dir, "suggestion.png")
+        if os.path.exists(icon_path):
+            icon_pixmap = QtGui.QPixmap(icon_path)
+            msg_box.setIconPixmap(icon_pixmap.scaled(48, 48, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
+        
+        # Set window icon (matrix.png)
+        matrix_icon_path = os.path.join(assets_dir, "matrix.png")
+        if os.path.exists(matrix_icon_path):
+            msg_box.setWindowIcon(QtGui.QIcon(matrix_icon_path))
+        
         if self.DEV_MODE:
             iteration = self.get_dev_iteration()
             msg_box.setText(f"NEO Script Editor {self.VERSION}")

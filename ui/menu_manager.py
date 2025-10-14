@@ -2,6 +2,7 @@
 Menu Manager
 Handles all menu bar creation and menu actions
 """
+import os
 from PySide6 import QtWidgets, QtGui, QtCore
 
 
@@ -271,14 +272,36 @@ class MenuManager:
     # Tools menu actions
     def _syntax_check(self):
         """Run syntax check on current file"""
+        from .dialog_styles import create_message_box
+        
         current_widget = self.parent.tabWidget.currentWidget()
         if current_widget:
             code = current_widget.toPlainText()
             try:
                 compile(code, '<string>', 'exec')
-                QtWidgets.QMessageBox.information(self.parent, "Syntax Check", "No syntax errors found!")
+                # Success - use suggestion.png icon
+                msg_box = create_message_box(self.parent, "Syntax Check", "✅ No syntax errors found!", "information")
+                
+                # Set custom icon (suggestion.png)
+                assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
+                success_icon_path = os.path.join(assets_dir, "suggestion.png")
+                if os.path.exists(success_icon_path):
+                    icon_pixmap = QtGui.QPixmap(success_icon_path)
+                    msg_box.setIconPixmap(icon_pixmap.scaled(48, 48, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
+                
+                msg_box.exec()
             except SyntaxError as e:
-                QtWidgets.QMessageBox.warning(self.parent, "Syntax Error", f"Syntax error at line {e.lineno}: {e.msg}")
+                # Error - use syntax_error.png icon
+                msg_box = create_message_box(self.parent, "Syntax Error", f"❌ Syntax error at line {e.lineno}: {e.msg}", "warning")
+                
+                # Set custom icon (syntax_error.png)
+                assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
+                error_icon_path = os.path.join(assets_dir, "syntax_error.png")
+                if os.path.exists(error_icon_path):
+                    icon_pixmap = QtGui.QPixmap(error_icon_path)
+                    msg_box.setIconPixmap(icon_pixmap.scaled(48, 48, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
+                
+                msg_box.exec()
     
     def _run_script(self):
         """Run current script"""
@@ -312,65 +335,15 @@ class MenuManager:
     
     def _show_about(self):
         """Show enhanced about dialog"""
+        from .dialog_styles import apply_dark_theme
+        
         dialog = QtWidgets.QDialog(self.parent)
         dialog.setWindowTitle("About NEO Script Editor")
         dialog.setMinimumSize(600, 700)
         dialog.setMaximumSize(600, 700)
         
-        # Apply Matrix theme styling
-        dialog.setStyleSheet("""
-            QDialog {
-                background: #000000;
-                color: #ffffff;
-            }
-            QLabel {
-                color: #ffffff;
-            }
-            QPushButton {
-                background: #00ff41;
-                border: 1px solid #00ff41;
-                color: #000000;
-                padding: 8px 24px;
-                border-radius: 6px;
-                font-weight: 600;
-                font-size: 13px;
-                min-width: 100px;
-            }
-            QPushButton:hover {
-                background: #00cc33;
-                border: 1px solid #00cc33;
-            }
-            QTextBrowser {
-                background: #000000;
-                border: 1px solid #00ff41;
-                border-radius: 6px;
-                color: #ffffff;
-                padding: 12px;
-            }
-            QTextBrowser QScrollBar:vertical {
-                background: #000000;
-                border: 1px solid #00ff41;
-                width: 12px;
-                border-radius: 6px;
-            }
-            QTextBrowser QScrollBar::handle:vertical {
-                background: #00ff41;
-                border-radius: 5px;
-                min-height: 20px;
-            }
-            QTextBrowser QScrollBar::handle:vertical:hover {
-                background: #00cc33;
-            }
-            QTextBrowser QScrollBar::add-line:vertical,
-            QTextBrowser QScrollBar::sub-line:vertical {
-                background: none;
-                border: none;
-            }
-            QTextBrowser QScrollBar::add-page:vertical,
-            QTextBrowser QScrollBar::sub-page:vertical {
-                background: #000000;
-            }
-        """)
+        # Apply consistent dark theme
+        apply_dark_theme(dialog)
         
         layout = QtWidgets.QVBoxLayout(dialog)
         layout.setSpacing(16)
@@ -380,15 +353,35 @@ class MenuManager:
         titleLayout = QtWidgets.QVBoxLayout()
         titleLayout.setSpacing(8)
         
+        # Create horizontal layout for icon + title
+        iconTitleLayout = QtWidgets.QHBoxLayout()
+        iconTitleLayout.setAlignment(QtCore.Qt.AlignCenter)
+        iconTitleLayout.setSpacing(12)
+        
+        # Add Matrix icon to the left
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "matrix.png")
+        if os.path.exists(icon_path):
+            iconLabel = QtWidgets.QLabel()
+            pixmap = QtGui.QPixmap(icon_path)
+            # Scale the icon to match title height (48x48)
+            scaled_pixmap = pixmap.scaled(48, 48, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+            iconLabel.setPixmap(scaled_pixmap)
+            iconLabel.setAlignment(QtCore.Qt.AlignVCenter)
+            iconTitleLayout.addWidget(iconLabel)
+        
         # Title
-        titleLabel = QtWidgets.QLabel("⚡ NEO Script Editor")
+        titleLabel = QtWidgets.QLabel("NEO Script Editor")
         titleLabel.setStyleSheet("""
             font-size: 32px;
             font-weight: bold;
             color: #00ff41;
             letter-spacing: 1px;
         """)
-        titleLabel.setAlignment(QtCore.Qt.AlignCenter)
+        titleLabel.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft)
+        iconTitleLayout.addWidget(titleLabel)
+        
+        # Add the horizontal layout to the main title layout
+        titleLayout.addLayout(iconTitleLayout)
         
         # Version
         versionLabel = QtWidgets.QLabel("Version 3.0 Beta • Testing Release")

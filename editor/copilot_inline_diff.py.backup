@@ -1,0 +1,524 @@
+"""
+GitHub Copilot-style Inline Diff System
+Shows red (old) and green (new) highlights with floating buttons
+"""
+from PySide6 import QtCore, QtGui, QtWidgets
+
+
+class FloatingButtonWidget(QtWidgets.QWidget):
+    """Floating Keep/Reject buttons at bottom-right of editor"""
+    
+    keep_clicked = QtCore.Signal()
+    reject_clicked = QtCore.Signal()
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(QtCore.Qt.Tool | QtCore.Qt.FramelessWindowHint | QtCore.Qt.WindowStaysOnTopHint)
+        self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+        
+        # Create layout
+        layout = QtWidgets.QHBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
+        
+        # Keep button
+        self.keep_btn = QtWidgets.QPushButton("✓ Keep")
+        self.keep_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #28a745;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #218838;
+            }
+            QPushButton:pressed {
+                background-color: #1e7e34;
+            }
+        """)
+        self.keep_btn.clicked.connect(self.keep_clicked.emit)
+        layout.addWidget(self.keep_btn)
+        
+        # Reject button
+        self.reject_btn = QtWidgets.QPushButton("✗ Reject")
+        self.reject_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #dc3545;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #c82333;
+            }
+            QPushButton:pressed {
+                background-color: #bd2130;
+            }
+        """)
+        self.reject_btn.clicked.connect(self.reject_clicked.emit)
+        layout.addWidget(self.reject_btn)
+        
+        # Shadow effect
+        shadow = QtWidgets.QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(10)
+        shadow.setColor(QtGui.QColor(0, 0, 0, 100))
+        shadow.setOffset(0, 2)
+        self.setGraphicsEffect(shadow)
+
+
+class CopilotInlineDiff:
+    """Manages multiple inline diffs with red/green highlights and floating buttons.
+    Simple approach: Insert green text as real line (can be undone with reject).
+    """
+    
+    def __init__(self, editor):
+        self.editor = editor
+        self.active = False
+        
+        # Support multiple diffs at once
+        self.active_diffs = []  # List of {old_line, new_line, old_code, new_code}
+        
+        # Single shared floating button for ALL diffs
+        self.floating_button = None
+        
+        # Store original resize event
+        self.original_resize = self.editor.resizeEvent
+        self.editor.resizeEvent = self._editor_resized
+    
+    def _draw_virtual_text(self):
+        """Draw virtual green text overlays without modifying document"""
+        from PySide6 import QtGui, QtCore
+        
+        viewport = self.editor.viewport()
+        painter = QtGui.QPainter(viewport)
+        painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+        
+        try:
+            font = self.editor.font()
+            painter.setFont(font)
+            font_metrics = self.editor.fontMetrics()
+            line_height = font_metrics.height()
+            
+            for vline in self.virtual_lines:
+                line_num = vline['line_num']
+                text = vline['text']
+                
+                # Get the text block for the line ABOVE where we want to draw
+                block = self.editor.document().findBlockByNumber(line_num - 1)
+                if not block.isValid():
+                    continue
+                
+                # Get the rectangle for this block
+                block_rect = self.editor.blockBoundingGeometry(block).translated(
+                    self.editor.contentOffset()
+                )
+                
+                # Position virtual text BELOW this block
+                y_position = int(block_rect.bottom())
+                
+                # Draw green background for the entire line width
+                bg_rect = QtCore.QRect(
+                    0,
+                    y_position,
+                    viewport.width(),
+                    line_height
+                )
+                painter.fillRect(bg_rect, QtGui.QColor(20, 80, 20, 150))  # Dark green with transparency
+                
+                # Get indentation from the original line
+                cursor = self.editor.textCursor()
+                cursor.movePosition(QtGui.QTextCursor.Start)
+                for _ in range(line_num - 1):
+                    cursor.movePosition(QtGui.QTextCursor.NextBlock)
+                cursor.movePosition(QtGui.QTextCursor.StartOfLine)
+                cursor.movePosition(QtGui.QTextCursor.EndOfLine, QtGui.QTextCursor.KeepAnchor)
+                original_line = cursor.selectedText()
+                
+                # Extract indentation
+                indentation = ''
+                for char in original_line:
+                    if char in (' ', '\t'):
+                        indentation += char
+                    else:
+                        break
+                
+                # Calculate x position based on indentation
+                indent_width = font_metrics.horizontalAdvance(indentation)
+                x_position = int(block_rect.left()) + indent_width
+                
+                # Draw the virtual text
+                painter.setPen(QtGui.QColor(200, 255, 200))  # Light green text
+                text_rect = QtCore.QRect(
+                    x_position,
+                    y_position,
+                    viewport.width() - x_position,
+                    line_height
+                )
+                painter.drawText(text_rect, QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter, text.lstrip())
+                
+        finally:
+            painter.end()
+    
+    def _editor_resized(self, event):
+        """Handle editor resize to reposition button"""
+        if self.original_resize:
+            self.original_resize(event)
+        if self.active and self.floating_button:
+            self._position_button()
+    
+    def show_inline_diff(self, replacement_info, new_code):
+        """
+        Wrapper method for compatibility with chat_manager calls.
+        Extracts line number and old code from replacement_info dict.
+        """
+        print(f"\n🔌 show_inline_diff() wrapper called")
+        print(f"   replacement_info keys: {replacement_info.keys()}")
+        print(f"   replacement_info: {replacement_info}")
+        
+        # Extract line number (could be 'line' or 'start_line')
+        line_number = replacement_info.get('start_line', replacement_info.get('line', 0))
+        old_code = replacement_info.get('old_code', '')
+        
+        print(f"   📍 Extracted line: {line_number}, old_code: {old_code[:50]}...")
+        
+        # Call the actual show_diff method
+        self.show_diff(line_number, old_code, new_code)
+        
+    def show_diff(self, line_number, old_code, new_code):
+        """
+        Show diff with simple insertion:
+        - Old code with RED background (highlighted in place)
+        - New code with GREEN background (INSERTED below old line)
+        - Floating buttons near the diff
+        
+        Green text IS inserted into document, but can be undone with reject.
+        """
+        print(f"\n🎨 CopilotInlineDiff.show_diff() - Simple Insertion Approach")
+        print(f"   📍 Line parameter (0-based, current document): {line_number}")
+        print(f"   Old: {old_code[:50]}...")
+        print(f"   New: {new_code[:50]}...")
+        
+        # INSERT green line below the red line
+        cursor = self.editor.textCursor()
+        cursor.beginEditBlock()
+        
+        # Move to the old line to get indentation
+        cursor.movePosition(QtGui.QTextCursor.Start)
+        for _ in range(line_number):
+            cursor.movePosition(QtGui.QTextCursor.NextBlock)
+        
+        # Get indentation
+        cursor.movePosition(QtGui.QTextCursor.StartOfLine)
+        cursor.movePosition(QtGui.QTextCursor.EndOfLine, QtGui.QTextCursor.KeepAnchor)
+        old_line_text = cursor.selectedText()
+        
+        indentation = ''
+        for char in old_line_text:
+            if char in (' ', '\t'):
+                indentation += char
+            else:
+                break
+        
+        # Move to end of line and insert new line with indentation
+        cursor.movePosition(QtGui.QTextCursor.EndOfLine)
+        cursor.insertText('\n' + indentation + new_code.lstrip())
+        
+        cursor.endEditBlock()
+        
+        # Store diff info
+        diff_info = {
+            'old_line_num': line_number,      # Red line (error)
+            'new_line_num': line_number + 1,  # Green line (fix, just inserted)
+            'old_code': old_code,
+            'new_code': new_code
+        }
+        
+        self.active_diffs.append(diff_info)
+        self.active = True
+        
+        # Apply RED and GREEN highlighting
+        self._apply_all_colors()
+        
+        # Create or update floating button
+        if not self.floating_button:
+            self.floating_button = FloatingButtonWidget(self.editor)
+            self.floating_button.keep_clicked.connect(self.accept_all_diffs)
+            self.floating_button.reject_clicked.connect(self.reject_all_diffs)
+        
+        # Update button text
+        if len(self.active_diffs) > 1:
+            self.floating_button.keep_btn.setText(f"✓ Keep All ({len(self.active_diffs)})")
+            self.floating_button.reject_btn.setText(f"✗ Reject All ({len(self.active_diffs)})")
+        # Update button text
+        if len(self.active_diffs) > 1:
+            self.floating_button.keep_btn.setText(f"✓ Keep All ({len(self.active_diffs)})")
+            self.floating_button.reject_btn.setText(f"✗ Reject All ({len(self.active_diffs)})")
+        else:
+            self.floating_button.keep_btn.setText("✓ Keep")
+            self.floating_button.reject_btn.setText("✗ Reject")
+        
+        # Show and position button
+        self.floating_button.show()
+        self._position_button()
+        
+        print(f"   ✅ Diff shown with simple insertion")
+    
+    def _position_button(self):
+        """
+        print(f"\n🎨 CopilotInlineDiff.show_diff() - VIRTUAL OVERLAY (like Copilot)")
+        print(f"   📍 Line parameter (0-based, current document): {line_number}")
+        print(f"   Old: {old_code[:50]}...")
+        print(f"   New: {new_code[:50]}...")
+        
+        # Store virtual line (will be rendered in paint event)
+        self.virtual_lines.append({
+            'line_num': line_number + 1,  # Virtual text appears after this line
+            'text': new_code
+        })
+        
+        # Store diff info WITHOUT modifying document
+        diff_info = {
+            'old_line_num': line_number,      # Red line (actual)
+            'new_line_num': line_number + 1,  # Virtual position (for button placement)
+            'old_code': old_code,
+            'new_code': new_code
+        }
+        
+        # Add to active diffs
+        self.active_diffs.append(diff_info)
+        self.active = True
+        
+        # Apply RED highlighting only (green is virtual)
+        self._apply_all_colors()
+        
+        # Create or update the single shared floating button
+        if not self.floating_button:
+            self.floating_button = FloatingButtonWidget(self.editor)
+            self.floating_button.keep_clicked.connect(self.accept_all_diffs)
+            self.floating_button.reject_clicked.connect(self.reject_all_diffs)
+        
+        # Update button text
+        if len(self.active_diffs) > 1:
+            self.floating_button.keep_btn.setText(f"✓ Keep All ({len(self.active_diffs)})")
+            self.floating_button.reject_btn.setText(f"✗ Reject All ({len(self.active_diffs)})")
+        else:
+            self.floating_button.keep_btn.setText("✓ Keep")
+            self.floating_button.reject_btn.setText("✗ Reject")
+        
+        # Apply red/green highlights for ALL diffs
+        self._apply_all_colors()
+        
+        # Scroll to make the highlighted code visible
+        # Scroll to make the highlighted code visible and CENTERED
+        # Position cursor at the old (red) line
+        scroll_cursor = self.editor.textCursor()
+        scroll_cursor.movePosition(QtGui.QTextCursor.Start)
+        for _ in range(line_number):
+            scroll_cursor.movePosition(QtGui.QTextCursor.NextBlock)
+        self.editor.setTextCursor(scroll_cursor)
+        
+        # Center the cursor in the viewport (not just make it visible)
+        self.editor.centerCursor()
+        print(f"   📜 Centered line {line_number + 1} (1-based) in viewport")
+        
+        # Show and position button near the highlighted code
+        self.floating_button.show()
+        self._position_button()
+        
+        self.active = True
+        print(f"   ✅ Diff displayed (total active: {len(self.active_diffs)})")
+        
+    def _position_button(self):
+        """Position the floating button RIGHT BELOW the highlighted code"""
+        if not self.active or not self.floating_button:
+            return
+        
+        # Get the cursor position for the first diff (the one we just centered)
+        if not self.active_diffs:
+            return
+            
+        # Get the new (green) line position - that's where we want the button below
+        new_line_num = self.active_diffs[-1]['new_line_num']  # Most recent diff
+        
+        # Get cursor at the green line
+        cursor = self.editor.textCursor()
+        cursor.movePosition(QtGui.QTextCursor.Start)
+        for _ in range(new_line_num):
+            cursor.movePosition(QtGui.QTextCursor.NextBlock)
+        cursor.movePosition(QtGui.QTextCursor.EndOfLine)
+        
+        # Get the visual position of the end of the green line
+        cursor_rect = self.editor.cursorRect(cursor)
+        
+        # Position button just below and to the right of the green line
+        button_width = self.floating_button.sizeHint().width()
+        button_height = self.floating_button.sizeHint().height()
+        
+        # Place button below the green line, right-aligned
+        x = cursor_rect.right() - button_width + 10
+        y = cursor_rect.bottom() + 5  # 5px below the line
+        
+        # Make sure button stays within editor bounds
+        editor_rect = self.editor.rect()
+        if x + button_width > editor_rect.right():
+            x = editor_rect.right() - button_width - 10
+        if x < 10:
+            x = 10
+        
+        # Convert to global coordinates
+        global_pos = self.editor.mapToGlobal(QtCore.QPoint(x, y))
+        self.floating_button.move(global_pos)
+        
+    def _apply_all_colors(self):
+        """Apply red backgrounds for ALL active diffs using ExtraSelections (green is virtual)"""
+        selections = []
+        
+        for diff_info in self.active_diffs:
+            # RED background for old code (the line with the error)
+            if diff_info['old_line_num'] >= 0 and diff_info['old_code'].strip():
+                red_cursor = self._get_line_cursor(diff_info['old_line_num'])
+                red_fmt = QtGui.QTextCharFormat()
+                red_fmt.setBackground(QtGui.QColor(80, 20, 20))  # Dark red
+                red_selection = QtWidgets.QTextEdit.ExtraSelection()
+                red_selection.cursor = red_cursor
+                red_selection.format = red_fmt
+                selections.append(red_selection)
+                print(f"   🔴 RED highlight applied to line {diff_info['old_line_num']}")
+            
+            # GREEN is virtual overlay - rendered in paint event, not ExtraSelection!
+            print(f"   🟢 GREEN will be drawn as virtual overlay (not in document)")
+        
+        # Apply all selections and trigger repaint
+        self.editor.apply_inline_diff_highlighting(selections)
+        self.editor.viewport().update()  # Trigger paint event for virtual text
+        print(f"   🎨 Total ExtraSelections to apply: {len(selections)} (red only)")
+        self.editor.apply_inline_diff_highlighting(selections)
+        print(f"   ✅ ExtraSelections applied to editor")
+        
+        # Trigger repaint to show virtual green lines
+        self.editor.viewport().update()
+        
+    def _get_line_cursor(self, line_number):
+        """Get a cursor selecting the entire line"""
+        cursor = self.editor.textCursor()
+        cursor.movePosition(QtGui.QTextCursor.Start)
+        for _ in range(line_number):
+            cursor.movePosition(QtGui.QTextCursor.NextBlock)  # Use NextBlock to match show_diff()
+        cursor.movePosition(QtGui.QTextCursor.StartOfLine)
+        cursor.movePosition(QtGui.QTextCursor.EndOfLine, QtGui.QTextCursor.KeepAnchor)
+        return cursor
+        
+    def accept_all_diffs(self):
+        """Keep ALL new code - INSERT virtual text and DELETE old lines"""
+        if not self.active or not self.active_diffs:
+            return
+            
+        print(f"✓ Accept ALL {len(self.active_diffs)} diffs - inserting virtual text into document")
+        
+        cursor = self.editor.textCursor()
+        cursor.beginEditBlock()
+        
+        # Process from bottom to top to preserve line numbers
+        for diff_info in reversed(sorted(self.active_diffs, key=lambda d: d['old_line_num'])):
+            old_line_num = diff_info['old_line_num']
+            new_code = diff_info['new_code']
+            old_code = diff_info['old_code']
+            
+            # Navigate to the old line
+            cursor.movePosition(QtGui.QTextCursor.Start)
+            for _ in range(old_line_num):
+                cursor.movePosition(QtGui.QTextCursor.NextBlock)
+            
+            # Select the entire old line
+            cursor.select(QtGui.QTextCursor.LineUnderCursor)
+            
+            # Replace with new code (preserving indentation)
+            cursor.insertText(new_code.rstrip())
+            
+            print(f"   ✓ Replaced line {old_line_num} with new code")
+        
+        cursor.endEditBlock()
+        
+        # Clear all diffs and virtual text
+        self.clear_diff()
+        print(f"   ✅ All diffs accepted!")
+        
+    def reject_all_diffs(self):
+        """Reject ALL diffs - just clear virtual overlay (document unchanged)"""
+        if not self.active or not self.active_diffs:
+            return
+            
+        print(f"✗ Reject ALL {len(self.active_diffs)} diffs - clearing virtual overlay")
+        
+        # Document was never modified - just clear visual indicators
+        self.clear_diff()
+        print(f"   ✅ All diffs rejected (document unchanged)!")
+    
+    def accept_specific_diff(self, diff_info):
+        """DEPRECATED - now using accept_all_diffs"""
+        pass
+        
+    def reject_specific_diff(self, diff_info):
+        """DEPRECATED - now using reject_all_diffs"""
+        pass
+        
+    def old_reject_specific_diff(self, diff_info):
+        """OLD CODE - kept for reference"""
+        if not self.active:
+            return
+            
+        print(f"✗ Reject diff at line {diff_info['old_line_num']+1}")
+        
+        cursor = self.editor.textCursor()
+        cursor.beginEditBlock()
+        
+        # Delete new (green) lines
+        new_code_lines = diff_info['new_code'].split('\n')
+        for _ in range(len(new_code_lines)):
+            cursor.movePosition(QtGui.QTextCursor.Start)
+            for _ in range(diff_info['new_line_num']):
+                cursor.movePosition(QtGui.QTextCursor.Down)
+            cursor.select(QtGui.QTextCursor.LineUnderCursor)
+            cursor.removeSelectedText()
+            cursor.deleteChar()
+        
+        cursor.endEditBlock()
+        
+        # Remove this diff from active list
+        self.active_diffs.remove(diff_info)
+        diff_info['widget'].hide()
+        diff_info['widget'].deleteLater()
+        
+        # Update highlights and button positions
+        if self.active_diffs:
+            self._apply_all_colors()
+            self._position_all_buttons()
+        else:
+            self.clear_diff()
+        
+        print(f"   ✅ Diff rejected! ({len(self.active_diffs)} remaining)")
+        
+    def clear_diff(self):
+        """Clear all diff state and virtual text"""
+        # Hide and delete the single floating button
+        if self.floating_button:
+            self.floating_button.hide()
+            self.floating_button.deleteLater()
+            self.floating_button = None
+        
+        self.active_diffs.clear()
+        self.virtual_lines.clear()  # Clear virtual overlay text
+        self.active = False
+        self.editor.apply_inline_diff_highlighting([])  # Clear red highlights
+        self.editor.viewport().update()  # Trigger repaint to remove virtual text
+        
+    def handle_click(self, line_number):
+        """No longer needed - using floating buttons instead"""
+        return False

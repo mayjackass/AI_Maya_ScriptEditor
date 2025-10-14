@@ -9,6 +9,7 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
         super().__init__(doc)
         self.rules = []
         self.error_details = {}  # Map of line_number -> {'column': int, 'message': str}
+        self.copilot_error_lines = set()  # Lines with red Copilot background
         self._setup_rules()
     
     def set_error_lines(self, error_lines):
@@ -27,6 +28,18 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
                 'column': error.get('column', 0),
                 'message': error.get('message', '')
             }
+    
+    def set_copilot_error_lines(self, lines):
+        """Set which lines should have red Copilot background.
+        
+        Args:
+            lines: List of line numbers (1-indexed) to highlight with red background
+        """
+        self.copilot_error_lines = set(lines)
+    
+    def clear_copilot_error_lines(self):
+        """Clear all Copilot error line highlights."""
+        self.copilot_error_lines = set()
 
     def _fmt(self, color, bold=False, italic=False):
         fmt = QtGui.QTextCharFormat()
@@ -336,9 +349,18 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
                 if not any(protected[start:min(start + length, len(text))]):
                     self.setFormat(start, length, fmt)
         
-        # Apply error highlighting if this line has errors (only underline, preserve colors)
+        # Apply Copilot red background if this line is marked (AFTER syntax colors!)
         current_block = self.currentBlock()
         line_number = current_block.blockNumber() + 1  # 1-indexed
+        if line_number in self.copilot_error_lines:
+            # Apply red background character by character, preserving existing colors
+            for i in range(len(text)):
+                existing_format = self.format(i)
+                combined_format = QtGui.QTextCharFormat(existing_format)
+                combined_format.setBackground(QtGui.QColor(255, 0, 0, 30))  # Transparent red
+                self.setFormat(i, 1, combined_format)
+        
+        # Apply error highlighting if this line has errors (only underline, preserve colors)
         if line_number in self.error_details:
             error_info = self.error_details[line_number]
             error_column = error_info.get('column', 0)

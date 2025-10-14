@@ -490,11 +490,32 @@ class ChatManager:
         # Disable send button
         self.sendBtn.setEnabled(False)
         
+        # Smart detection: Only include code context if user is asking about code
+        # Don't include code for greetings, thanks, or general questions
+        message_lower = message.lower()
+        
+        # Keywords that indicate user wants code help
+        code_keywords = ['fix', 'error', 'bug', 'wrong', 'broken', 'issue', 'problem', 
+                        'explain', 'what does', 'how does', 'why', 'review', 'check',
+                        'optimize', 'improve', 'refactor', 'help with', 'this code']
+        
+        # Keywords that indicate just conversation (don't include code)
+        conversation_keywords = ['hello', 'hi', 'hey', 'thanks', 'thank you', 'ok', 
+                                'okay', 'cool', 'nice', 'good', 'great', 'bye']
+        
+        # Check if it's just a greeting/conversation
+        is_conversation = any(message_lower.strip().startswith(kw) for kw in conversation_keywords)
+        is_conversation = is_conversation or any(kw == message_lower.strip() for kw in conversation_keywords)
+        
+        # Check if user is asking about code
+        is_code_question = any(kw in message_lower for kw in code_keywords)
+        
         # Auto-detect and include current editor code (like GitHub Copilot)
+        # BUT ONLY if user is actually asking about code
         context = ""
         current_editor = self.parent.tabWidget.currentWidget()
         
-        if current_editor:
+        if current_editor and is_code_question and not is_conversation:
             code = current_editor.toPlainText().strip()
             if code:  # Only include if there's actual code
                 # Get file info
@@ -506,8 +527,18 @@ class ChatManager:
                 # Count lines for better AI instruction
                 line_count = len(code.split('\n'))
                 
+                # 🎯 Get current syntax errors (like VS Code diagnostics)
+                errors = current_editor.get_syntax_errors() if hasattr(current_editor, 'get_syntax_errors') else []
+                error_context = ""
+                if errors:
+                    error_context = "\n\n[SYNTAX ERRORS DETECTED]:\n"
+                    for error in errors[:5]:  # Limit to first 5 errors
+                        line_num = error.get('line', 0) + 1  # Convert to 1-based
+                        msg = error.get('message', 'Unknown error')
+                        error_context += f"  Line {line_num}: {msg}\n"
+                
                 # Auto-include code context with EXPLICIT instructions for targeted responses
-                context = f"""[Current Editor Context - {tab_name} ({language.upper()}) - {line_count} lines]
+                context = f"""[Current Editor Context - {tab_name} ({language.upper()}) - {line_count} lines]{error_context}
 
 ⚠️ IMPORTANT: The code below is for REFERENCE ONLY.
 If the user asks to fix/review: ONLY return the 1-5 lines that need fixing.
@@ -626,20 +657,16 @@ DO NOT return all {line_count} lines back - only return the problematic section.
                 badge_bg = "#1a2332"
             
             code_html = f'''
-<div style="margin: 16px 0; border: 1px solid #30363d; border-radius: 6px; background-color: #0d1117; font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;">
-    <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; background-color: #161b22; border-bottom: 1px solid #30363d;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="color: #f0f6fc; font-size: 14px; font-weight: 600;">Python</span>
-            <span style="background: {badge_bg}; color: {code_type_color}; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">{code_type}</span>
+<div style="margin: 8px 0; border: 1px solid #30363d; border-radius: 4px; background-color: #0d1117; font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;">
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 12px; background-color: #161b22; border-bottom: 1px solid #30363d;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="color: #f0f6fc; font-size: 12px; font-weight: 600;">Python</span>
+            <span style="background: {badge_bg}; color: {code_type_color}; padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 600;">{code_type}</span>
         </div>
-        <div style="display: flex; gap: 16px;">
-            <a href="fix_{block_id}" style="color: #238636; text-decoration: none; font-size: 14px;">Keep</a>
-            <a href="copy_{block_id}" style="color: #00ff41; text-decoration: none; font-size: 14px;">Copy</a>
-            <a href="undo_{block_id}" style="color: #f85149; text-decoration: none; font-size: 14px;">Undo</a>
-        </div>
+        <a href="copy_{block_id}" style="color: #00ff41; text-decoration: none; font-size: 12px; font-weight: 500;">Copy code</a>
     </div>
-    <div style="padding: 16px;">
-        <pre style="margin: 0; color: #e6edf3; font-size: 14px; line-height: 1.5; white-space: pre-wrap; font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;">{escaped_code}</pre>
+    <div style="padding: 10px;">
+        <pre style="margin: 0; color: #e6edf3; font-size: 13px; line-height: 1.4; white-space: pre-wrap; font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;">{escaped_code}</pre>
     </div>
 </div>
 '''
@@ -666,24 +693,11 @@ DO NOT return all {line_count} lines back - only return the problematic section.
         if current_placeholders:
             count = len(current_placeholders)
             msg = f"Multiple code suggestions available ({count} blocks)" if count > 1 else "Code suggestion available"
-            self.parent.dock_manager.console.append_tagged("MORPHEUS", f"{msg} - use buttons above input field", "#00ff41")
-            
-            # Store the latest code block ID and show action buttons
+            # 🎯 AUTOMATICALLY show inline diff preview for the latest code block
             if self._code_blocks:
                 self.currentCodeBlockId = list(self._code_blocks.keys())[-1]
-                self.actionButtonsWidget.setVisible(True)
-                
-                # Connect buttons to actions for the current code block
-                try:
-                    self.keepBtn.clicked.disconnect()
-                    self.copyBtn.clicked.disconnect()
-                    self.undoBtn.clicked.disconnect()
-                except:
-                    pass
-                
-                self.keepBtn.clicked.connect(lambda: self._keep_and_hide(self._code_blocks[self.currentCodeBlockId]))
-                self.copyBtn.clicked.connect(lambda: self._copy_and_hide(self._code_blocks[self.currentCodeBlockId]))
-                self.undoBtn.clicked.connect(lambda: self._undo_and_hide())
+                latest_code = self._code_blocks[self.currentCodeBlockId]
+                QtCore.QTimer.singleShot(100, lambda: self._auto_show_inline_diff(latest_code))
         
         return formatted_message
     
@@ -704,12 +718,9 @@ DO NOT return all {line_count} lines back - only return the problematic section.
                 
             code = self._code_blocks[block_id]
             
+            # Only handle copy action now
             if action == "copy":
                 self.copy_code_to_clipboard(code)
-            elif action == "fix":
-                self.keep_as_fix(code)
-            elif action == "undo":
-                self.undo_editor_change()
             
             # Ensure chat is preserved
             QtCore.QTimer.singleShot(100, self.ensure_chat_preserved)
@@ -756,9 +767,79 @@ DO NOT return all {line_count} lines back - only return the problematic section.
         """Undo and hide action buttons"""
         self.undo_last_change()
         self.actionButtonsWidget.setVisible(False)
+    
+    def _auto_show_inline_diff(self, code):
+        """Automatically show inline diff preview when AI suggests code"""
+        try:
+            editor = self.get_active_editor()
+            if not editor:
+                return
+            
+            current_code = editor.toPlainText()
+            
+            # Only auto-show for non-empty editors
+            if not current_code.strip():
+                return
+            
+            print(f"\n🔍 _auto_show_inline_diff() called")
+            print(f"   AI suggested code: {code[:100]}...")
+            
+            # 🎯 Get current syntax errors (like GitHub Copilot uses VS Code diagnostics)
+            errors = editor.get_syntax_errors() if hasattr(editor, 'get_syntax_errors') else []
+            hint_line = None
+            
+            if errors:
+                # Error line numbers from syntax checker are 1-based, convert to 0-based for editor
+                error_line_1based = errors[0].get('line', 1)
+                hint_line = error_line_1based - 1  # Convert to 0-based
+                error_msg = errors[0].get('message', 'Unknown error')
+                print(f"   🎯 Found {len(errors)} error(s)")
+                print(f"   🔴 First error at line {error_line_1based} (1-based) = line {hint_line} (0-based): {error_msg}")
+                print(f"   💡 Will use 0-based line {hint_line} as the target for inline diff")
+                
+                # 🎯 FORCE use the error line - don't do similarity matching!
+                # This is exactly what GitHub Copilot does
+                current_lines = current_code.split('\n')
+                if 0 <= hint_line < len(current_lines):
+                    replacement_info = {
+                        'start_line': hint_line,
+                        'end_line': hint_line + 1,
+                        'old_code': current_lines[hint_line],
+                        'match_quality': 1.0  # Forced match
+                    }
+                    print(f"   ✅ Using error line {hint_line} (0-based) directly (GitHub Copilot style)")
+                    print(f"   Old code: {current_lines[hint_line][:80]}...")
+                    
+                    # Show inline diff preview with red/green highlighting
+                    editor.show_inline_replacement(replacement_info, code)
+                    self.parent.dock_manager.console.append_tagged("MORPHEUS", "💡 Inline diff preview shown in editor", "#00ff41")
+                    return
+            else:
+                # Fallback to cursor position
+                cursor = editor.textCursor()
+                hint_line = cursor.blockNumber()  # 0-based
+                print(f"   📍 No errors found, using cursor position at line {hint_line}")
+            
+            # Try to find matching code to replace
+            replacement_info = self.find_code_to_replace(current_code, code, hint_line=hint_line)
+            
+            if replacement_info:
+                print(f"   ✅ Found replacement at line {replacement_info.get('start_line')}")
+                print(f"   Old code matched: {replacement_info.get('old_code')[:80]}...")
+                
+                # Show inline diff preview with red/green highlighting
+                editor.show_inline_replacement(replacement_info, code)
+                self.parent.dock_manager.console.append_tagged("MORPHEUS", "💡 Inline diff preview shown in editor", "#00ff41")
+            else:
+                print(f"   ❌ No match found for AI code")
+            
+        except Exception as e:
+            print(f"Auto inline diff error: {e}")
+            import traceback
+            traceback.print_exc()
 
     def keep_as_fix(self, code):
-        """Replace specific code section with VSCode-style preview"""
+        """Show inline replacement preview for code fixes"""
         try:
             editor = self.get_active_editor()
             if not editor:
@@ -777,55 +858,103 @@ DO NOT return all {line_count} lines back - only return the problematic section.
             replacement_info = self.find_code_to_replace(current_code, code)
             
             if replacement_info:
-                # Show VSCode-style inline diff directly in the editor
+                # Show inline diff preview in the editor with red/green highlighting
                 editor.show_inline_replacement(replacement_info, code)
                 self.parent.dock_manager.console.append_tagged("INFO", "💡 Review the suggested changes in the editor", "#00ff41")
             else:
-                # If no match found, offer to append or replace all
-                self.show_replacement_options(editor, code)
+                # If no match found, insert at cursor position
+                cursor = editor.textCursor()
+                cursor.insertText("\n" + code + "\n")
+                editor.setTextCursor(cursor)
+                self.parent.dock_manager.console.append_tagged("SUCCESS", "✅ Code inserted at cursor!", "#28a745")
                 
         except Exception as e:
             self.parent.dock_manager.console.append_tagged("ERROR", f"Failed to apply fix: {e}", "#dc3545")
     
-    def find_code_to_replace(self, current_code, suggested_code):
-        """Find the best matching code section to replace - optimized for targeted fixes with context awareness"""
+    def find_code_to_replace(self, current_code, suggested_code, hint_line=None):
+        """Find the best matching code section to replace - optimized for targeted fixes with context awareness
+        
+        Args:
+            current_code: The full current code in the editor
+            suggested_code: The AI-suggested fix code
+            hint_line: Optional line number (0-based) where user's cursor is, as a hint for the error location
+        """
         import difflib
         
         current_lines = current_code.split('\n')
         suggested_lines = suggested_code.split('\n')
+        
+        # 🎯 Strategy 0: If hint_line provided, check that line first
+        if hint_line is not None and 0 <= hint_line < len(current_lines):
+            print(f"   🎯 Strategy 0: Checking hint line {hint_line}")
+            hint_line_text = current_lines[hint_line].strip()
+            suggested_line = suggested_lines[0].strip() if len(suggested_lines) > 0 else ""
+            
+            if len(hint_line_text) >= 5 and len(suggested_line) >= 5:
+                similarity = difflib.SequenceMatcher(None, hint_line_text, suggested_line).ratio()
+                print(f"      Hint line: '{hint_line_text[:60]}...'")
+                print(f"      Suggested: '{suggested_line[:60]}...'")
+                print(f"      Similarity: {similarity:.2f}")
+                
+                # If somewhat similar (60%+), use the hint line
+                if similarity >= 0.6:
+                    print(f"   ✅ Strategy 0 SUCCESS: Using hint line {hint_line}")
+                    return {
+                        'start_line': hint_line,
+                        'end_line': hint_line + 1,
+                        'old_code': current_lines[hint_line],
+                        'match_quality': similarity
+                    }
         
         # Strategy 1: Smart line matching with context (for single-line fixes)
         if len(suggested_lines) == 1:
             # Single line fix - need to be smart about which occurrence
             suggested_line = suggested_lines[0].strip()
             
+            # Skip if suggested line is too short (likely not meaningful)
+            if len(suggested_line) < 5:
+                print(f"   ⚠️ Strategy 1 skipped: suggested line too short ({len(suggested_line)} chars)")
+                return None
+            
             # Look for lines that are SIMILAR but not exact (the fixed version)
             best_match_line = -1
             best_similarity = 0
             
+            print(f"   🔍 Strategy 1: Looking for line similar to: '{suggested_line[:60]}...'")
+            
             for i, current_line in enumerate(current_lines):
+                current_stripped = current_line.strip()
+                
+                # Skip very short lines (unlikely to be meaningful)
+                if len(current_stripped) < 5:
+                    continue
+                
                 # Skip exact matches (we want to find the broken version)
-                if current_line.strip() == suggested_line:
+                if current_stripped == suggested_line:
                     continue
                 
                 # Calculate similarity (looking for "almost the same")
                 similarity = difflib.SequenceMatcher(None, 
-                    current_line.strip(), 
+                    current_stripped, 
                     suggested_line).ratio()
                 
-                # If very similar (70-95%), this is likely the broken line
-                if 0.7 <= similarity < 1.0 and similarity > best_similarity:
+                # If very similar (75-95%), this is likely the broken line
+                if 0.75 <= similarity < 1.0 and similarity > best_similarity:
                     best_match_line = i
                     best_similarity = similarity
+                    print(f"      Line {i}: similarity {similarity:.2f} - '{current_stripped[:60]}...'")
             
-            if best_match_line >= 0:
+            if best_match_line >= 0 and best_similarity >= 0.75:
                 # Found the broken line that needs fixing
+                print(f"   ✅ Strategy 1 match: line {best_match_line}, similarity {best_similarity:.2f}")
                 return {
                     'start_line': best_match_line,
                     'end_line': best_match_line + 1,
                     'old_code': current_lines[best_match_line],
                     'match_quality': best_similarity
                 }
+            else:
+                print(f"   ❌ Strategy 1 failed: best similarity was {best_similarity:.2f}")
         
         # Strategy 2: Try exact substring match (for multi-line targeted fixes)
         suggested_text = suggested_code.strip()
@@ -900,49 +1029,14 @@ DO NOT return all {line_count} lines back - only return the problematic section.
     
     def show_replacement_preview(self, editor, replacement_info, new_code):
         """Show VSCode-style diff preview dialog"""
+        from .dialog_styles import apply_dark_theme
+        
         dialog = QtWidgets.QDialog(self.parent)
         dialog.setWindowTitle("Preview Changes")
         dialog.setMinimumSize(800, 600)
-        dialog.setStyleSheet("""
-            QDialog {
-                background: #0d1117;
-                color: #f0f6fc;
-            }
-            QLabel {
-                color: #f0f6fc;
-                font-size: 13px;
-                font-weight: 600;
-            }
-            QTextEdit {
-                background: #161b22;
-                border: 1px solid #30363d;
-                border-radius: 6px;
-                color: #f0f6fc;
-                font-family: 'Consolas', 'Monaco', monospace;
-                font-size: 13px;
-                padding: 8px;
-            }
-            QPushButton {
-                background: #238636;
-                border: 1px solid #2ea043;
-                color: white;
-                padding: 8px 16px;
-                border-radius: 6px;
-                font-weight: 500;
-                font-size: 13px;
-                min-width: 80px;
-            }
-            QPushButton:hover {
-                background: #2ea043;
-            }
-            QPushButton#cancelBtn {
-                background: #21262d;
-                border: 1px solid #30363d;
-            }
-            QPushButton#cancelBtn:hover {
-                background: #30363d;
-            }
-        """)
+        
+        # Apply consistent dark theme
+        apply_dark_theme(dialog)
         
         layout = QtWidgets.QVBoxLayout(dialog)
         
@@ -1308,94 +1402,14 @@ DO NOT return all {line_count} lines back - only return the problematic section.
 
     def show_settings_dialog(self):
         """Show AI provider settings dialog"""
+        from .dialog_styles import apply_dark_theme
+        
         dialog = QtWidgets.QDialog(self.parent)
         dialog.setWindowTitle("AI Provider Settings")
         dialog.setMinimumWidth(500)
-        dialog.setStyleSheet("""
-            QDialog {
-                background: #0d1117;
-                color: #f0f6fc;
-            }
-            QGroupBox {
-                color: #f0f6fc;
-                border: 1px solid #30363d;
-                border-radius: 6px;
-                margin-top: 8px;
-                padding-top: 8px;
-                font-weight: 600;
-            }
-            QGroupBox::title {
-                color: #00ff41;
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
-            }
-            QLabel {
-                color: #8b949e;
-            }
-            QLabel a {
-                color: #00ff41;
-            }
-            QLineEdit {
-                background: #21262d;
-                border: 1px solid #30363d;
-                border-radius: 4px;
-                padding: 6px;
-                color: #f0f6fc;
-            }
-            QLineEdit:focus {
-                border: 1px solid #00ff41;
-            }
-            QComboBox {
-                background: #21262d;
-                border: 1px solid #30363d;
-                border-radius: 4px;
-                padding: 6px;
-                color: #f0f6fc;
-            }
-            QComboBox:hover {
-                border-color: #00ff41;
-            }
-            QComboBox::drop-down {
-                border: none;
-            }
-            QComboBox QAbstractItemView {
-                background: #21262d;
-                border: 1px solid #30363d;
-                selection-background-color: transparent;
-                color: #f0f6fc;
-                outline: none;
-            }
-            QComboBox QAbstractItemView::item {
-                padding: 4px 8px;
-                min-height: 20px;
-                border-left: 3px solid transparent;
-            }
-            QComboBox QAbstractItemView::item:selected {
-                border-left: 3px solid #00ff41;
-                background: transparent;
-            }
-            QPushButton {
-                background: #00cc33;
-                border: 1px solid #00ff41;
-                color: #000000;
-                padding: 8px 16px;
-                border-radius: 6px;
-                font-weight: 600;
-                min-width: 80px;
-            }
-            QPushButton:hover {
-                background: #00ff41;
-            }
-            QPushButton#cancelBtn {
-                background: #21262d;
-                border: 1px solid #30363d;
-                color: #f0f6fc;
-            }
-            QPushButton#cancelBtn:hover {
-                background: #30363d;
-            }
-        """)
+        
+        # Apply consistent dark theme
+        apply_dark_theme(dialog)
         
         layout = QtWidgets.QVBoxLayout(dialog)
         
