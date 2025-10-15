@@ -324,10 +324,6 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         # Setup connections
         self._setup_connections()
         
-        print("[Startup] UI setup complete (chat loading in background)")
-        # Setup connections
-        self._setup_connections()
-        
         print("[OK] UI setup complete with all managers")
     
     def _setup_toolbar(self):

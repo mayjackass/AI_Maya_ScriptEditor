@@ -165,6 +165,14 @@ class FileManager:
             )
         
         if file_path:
+            # Check if file is already open in a tab
+            for i in range(self.tab_widget.count()):
+                if hasattr(self.parent, 'tab_file_paths') and i in self.parent.tab_file_paths:
+                    if self.parent.tab_file_paths[i] == file_path:
+                        # File already open - just switch to that tab
+                        self.tab_widget.setCurrentIndex(i)
+                        return
+            
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     content = f.read()
@@ -232,6 +240,9 @@ class FileManager:
                         editor.highlighter._reset_all_block_states()
                         # Then rehighlight the entire document
                         editor.highlighter.rehighlight()
+                        # Also trigger immediate syntax error check for loaded file
+                        if hasattr(editor, '_check_syntax_errors'):
+                            editor._check_syntax_errors()
                     QtCore.QTimer.singleShot(50, delayed_rehighlight)
                 
             except Exception as e:
@@ -280,10 +291,30 @@ class FileManager:
         """Save current file"""
         current_widget = self.tab_widget.currentWidget()
         if current_widget:
+            # Determine file filter based on current language
+            if hasattr(current_widget, 'get_language'):
+                lang = current_widget.get_language()
+                if lang == "python":
+                    file_filter = "Python Files (*.py);;All Files (*)"
+                    default_ext = ".py"
+                elif lang == "mel":
+                    file_filter = "MEL Files (*.mel);;All Files (*)"
+                    default_ext = ".mel"
+                else:
+                    file_filter = "All Files (*)"
+                    default_ext = ""
+            else:
+                file_filter = "All Files (*)"
+                default_ext = ""
+            
             file_path, _ = QtWidgets.QFileDialog.getSaveFileName(
-                self.parent, "Save File", "", "All Files (*)"
+                self.parent, "Save File", "", file_filter
             )
             if file_path:
+                # Add default extension if no extension provided
+                if default_ext and not os.path.splitext(file_path)[1]:
+                    file_path += default_ext
+                
                 try:
                     content = current_widget.toPlainText()
                     with open(file_path, 'w', encoding='utf-8') as f:
@@ -293,6 +324,10 @@ class FileManager:
                     current_index = self.tab_widget.currentIndex()
                     self.tab_widget.setTabText(current_index, tab_name)
                     
+                    # Track file path for this tab
+                    if hasattr(self.parent, 'tab_file_paths'):
+                        self.parent.tab_file_paths[current_index] = file_path
+                    
                 except Exception as e:
                     QtWidgets.QMessageBox.warning(self.parent, "Error", f"Failed to save: {e}")
     
@@ -300,10 +335,30 @@ class FileManager:
         """Save current file as (always prompt for location)"""
         current_widget = self.tab_widget.currentWidget()
         if current_widget:
+            # Determine file filter based on current language
+            if hasattr(current_widget, 'get_language'):
+                lang = current_widget.get_language()
+                if lang == "python":
+                    file_filter = "Python Files (*.py);;All Files (*)"
+                    default_ext = ".py"
+                elif lang == "mel":
+                    file_filter = "MEL Files (*.mel);;All Files (*)"
+                    default_ext = ".mel"
+                else:
+                    file_filter = "All Files (*)"
+                    default_ext = ""
+            else:
+                file_filter = "All Files (*)"
+                default_ext = ""
+            
             file_path, _ = QtWidgets.QFileDialog.getSaveFileName(
-                self.parent, "Save File As", "", "All Files (*)"
+                self.parent, "Save File As", "", file_filter
             )
             if file_path:
+                # Add default extension if no extension provided
+                if default_ext and not os.path.splitext(file_path)[1]:
+                    file_path += default_ext
+                
                 try:
                     content = current_widget.toPlainText()
                     with open(file_path, 'w', encoding='utf-8') as f:
@@ -346,24 +401,53 @@ class FileManager:
                 editor_widget.setPlainText("")
                 return
         
-        # Get the editor widget before closing
-        editor_widget = self.tab_widget.widget(index)
+        # Block signals during tab removal to prevent cascading closes
+        self.tab_widget.blockSignals(True)
         
-        # Remove problems for this editor from the main window tracker
-        if editor_widget and hasattr(self.parent, 'editor_problems'):
-            editor_id = id(editor_widget)
-            if editor_id in self.parent.editor_problems:
-                del self.parent.editor_problems[editor_id]
-                # Refresh the problems display for current tab
-                if hasattr(self.parent, '_refresh_current_tab_problems'):
-                    self.parent._refresh_current_tab_problems()
-        
-        # Close the tab
-        self.tab_widget.removeTab(index)
-        
-        # If no tabs left, create a new one
-        if self.tab_widget.count() == 0:
-            self.new_file()
+        try:
+            # Get the editor widget before closing
+            editor_widget = self.tab_widget.widget(index)
+            
+            # Remove problems for this editor from the main window tracker
+            if editor_widget and hasattr(self.parent, 'editor_problems'):
+                editor_id = id(editor_widget)
+                if editor_id in self.parent.editor_problems:
+                    del self.parent.editor_problems[editor_id]
+                    # Refresh the problems display for current tab
+                    if hasattr(self.parent, '_refresh_current_tab_problems'):
+                        self.parent._refresh_current_tab_problems()
+            
+            # Remove the file path mapping for this tab BEFORE updating indices
+            if hasattr(self.parent, 'tab_file_paths') and index in self.parent.tab_file_paths:
+                del self.parent.tab_file_paths[index]
+            
+            # Close the tab
+            self.tab_widget.removeTab(index)
+            
+            # Update tab_file_paths dictionary - shift all indices after the closed tab
+            if hasattr(self.parent, 'tab_file_paths'):
+                new_paths = {}
+                for tab_idx, file_path in self.parent.tab_file_paths.items():
+                    if tab_idx > index:
+                        # Shift index down by 1
+                        new_paths[tab_idx - 1] = file_path
+                    elif tab_idx < index:
+                        # Keep the same index
+                        new_paths[tab_idx] = file_path
+                self.parent.tab_file_paths = new_paths
+            
+            # If no tabs left, create a new one
+            if self.tab_widget.count() == 0:
+                self.new_file()
+                
+        finally:
+            # Always unblock signals
+            self.tab_widget.blockSignals(False)
+            
+            # Manually trigger tab changed for the new current tab
+            current_index = self.tab_widget.currentIndex()
+            if current_index >= 0:
+                self.on_tab_changed(current_index)
         
         # Save session after tab close
         if hasattr(self.parent, '_save_session'):
@@ -411,40 +495,20 @@ class FileManager:
                     )
     
     def on_explorer_double_clicked(self, index, file_model):
-        """Handle explorer double-click"""
+        """Handle explorer double-click - check if already open first"""
         file_path = file_model.filePath(index)
         if os.path.isfile(file_path):
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                
-                try:
-                    from editor.code_editor import CodeEditor
-                    editor = CodeEditor()
-                    if file_path.endswith('.py'):
-                        editor.set_language("python")
-                        language = "python"
-                    elif file_path.endswith('.mel'):
-                        editor.set_language("mel")
-                        language = "mel"
-                    else:
-                        language = "python"  # Default
-                    
-                    # Connect problems signal for problems window
-                    if hasattr(editor, 'lintProblemsFound'):
-                        editor.lintProblemsFound.connect(self.parent._update_problems)
-                except:
-                    editor = QtWidgets.QTextEdit()
-                    language = "python"
-                
-                editor.setPlainText(content)
-                tab_name = os.path.basename(file_path)
-                index = self.tab_widget.addTab(editor, tab_name)
-                self._set_tab_icon(index, language)
-                self.tab_widget.setCurrentIndex(index)
-                
-            except Exception as e:
-                print(f"Explorer file open error: {e}")
+            # Check if file is already open in a tab
+            for i in range(self.tab_widget.count()):
+                # Check if this tab has the same file path
+                if hasattr(self.parent, 'tab_file_paths') and i in self.parent.tab_file_paths:
+                    if self.parent.tab_file_paths[i] == file_path:
+                        # File already open - just switch to that tab
+                        self.tab_widget.setCurrentIndex(i)
+                        return
+            
+            # File not open - use the standard open_file method
+            self.open_file(file_path)
     
     def get_recent_files(self):
         """Get list of recent files"""

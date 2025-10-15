@@ -148,6 +148,22 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         self.highlighter = None
         self.language = "python"  # Default language
         
+        # Performance optimizations for Maya
+        self._is_scrolling = False
+        self._scroll_timer = QtCore.QTimer()
+        self._scroll_timer.setSingleShot(True)
+        self._scroll_timer.timeout.connect(self._on_scroll_end)
+        
+        self._resize_timer = QtCore.QTimer()
+        self._resize_timer.setSingleShot(True)
+        self._resize_timer.timeout.connect(self._on_resize_end)
+        
+        # Add timer for tab switching detection
+        self._is_tab_switching = False
+        self._tab_timer = QtCore.QTimer()
+        self._tab_timer.setSingleShot(True)
+        self._tab_timer.timeout.connect(self._on_tab_switch_end)
+        
         # Error tracking
         self.syntax_errors = []
         self.error_highlights = []
@@ -377,9 +393,9 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         # Invalidate folding cache when text changes
         self._cache_valid = False
         
-        # Debounce error checking - wait 2000ms after user stops typing (Maya optimization)
+        # Debounce error checking - wait 500ms after user stops typing (Maya optimization)
         self.error_timer.stop()
-        self.error_timer.start(2000)  # Increased to 2s for Maya performance
+        self.error_timer.start(500)  # 0.5 seconds for better responsiveness
         
     def _check_syntax_errors(self):
         """Check for syntax errors and highlight them (VSCode style - multi-pass detection)."""
@@ -518,10 +534,19 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                 line_text = block.text() if block.isValid() else ""
                 
                 # Determine if this is an error or warning based on type
-                # Maya API usage issues are warnings, syntax errors are errors
-                problem_type = 'Warning' if 'Warning' in error_type or 'MayaAPI' in error_type else 'Error'
+                # Import errors are warnings (code might still run in Maya context)
+                # Command errors are ERRORS (code will fail at runtime)
+                # Syntax errors are ERRORS (code won't compile)
+                if 'ImportError' in error_type:
+                    problem_type = 'Warning'  # Missing imports - code might work in Maya Script Editor
+                elif 'CommandError' in error_type:
+                    problem_type = 'Error'  # Wrong command names - code will crash
+                elif 'Warning' in error_type:
+                    problem_type = 'Warning'  # Explicit warnings
+                else:
+                    problem_type = 'Error'  # All other errors (syntax, indentation, etc.)
                 
-                # Only highlight actual syntax errors with red underline
+                # Highlight errors (warnings handled by highlighter's set_error_details)
                 if problem_type == 'Error':
                     self._highlight_error_line(line_num, error_message)
                     self.errorDetected.emit(line_num, error_message)
@@ -917,11 +942,11 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         """Highlight error line with VSCode-style red underline."""
         # Store error info for the highlighter
         self.error_highlights.append((line_num, message))
-        
+    
     def _clear_error_highlights(self):
         """Clear all error highlights."""
         self.error_highlights.clear()
-        
+    
     def _update_error_highlighting(self):
         """Update the syntax highlighter with current error details and apply colored backgrounds."""
         if self.highlighter and hasattr(self.highlighter, 'set_error_details'):
@@ -929,8 +954,16 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             self.highlighter.set_error_details(self.syntax_errors)
             
             # Separate errors from warnings for background highlighting
-            error_lines = [e['line'] for e in self.syntax_errors if e.get('type', 'SyntaxError') not in ['MayaAPIWarning', 'Warning']]
-            warning_lines = [e['line'] for e in self.syntax_errors if e.get('type', 'SyntaxError') in ['MayaAPIWarning', 'Warning']]
+            # ImportErrors are warnings, CommandErrors are errors
+            error_lines = []
+            warning_lines = []
+            
+            for e in self.syntax_errors:
+                error_type = e.get('type', 'SyntaxError')
+                if 'ImportError' in error_type or 'Warning' in error_type:
+                    warning_lines.append(e['line'])
+                else:
+                    error_lines.append(e['line'])
             
             # Apply Copilot-style backgrounds (red for errors, yellow for warnings)
             if hasattr(self.highlighter, 'set_copilot_error_lines'):
@@ -998,6 +1031,42 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             QtCore.QRect(cr.left(), cr.top(), 
                         self._number_area_width(), cr.height())
         )
+        
+        # Mark as resizing to skip expensive operations
+        self._is_scrolling = True
+        self._resize_timer.stop()
+        self._resize_timer.start(150)  # Re-enable after 150ms
+    
+    def scrollContentsBy(self, dx, dy):
+        """Handle scrolling - disable expensive operations during scroll."""
+        super().scrollContentsBy(dx, dy)
+        
+        # Mark as scrolling to skip expensive paint operations (indentation guides only)
+        self._is_scrolling = True
+        self._scroll_timer.stop()
+        self._scroll_timer.start(100)  # Re-enable after scrolling stops
+
+    def _on_scroll_end(self):
+        """Called when scrolling ends."""
+        self._is_scrolling = False
+        self.viewport().update()  # Force one final repaint
+    
+    def showEvent(self, event):
+        """Handle tab switching - disable operations during switch."""
+        super().showEvent(event)
+        self._is_tab_switching = True
+        self._tab_timer.stop()
+        self._tab_timer.start(100)
+    
+    def _on_tab_switch_end(self):
+        """Called when tab switching ends."""
+        self._is_tab_switching = False
+        self.viewport().update()  # Force one final repaint
+    
+    def _on_resize_end(self):
+        """Called when resizing ends."""
+        self._is_scrolling = False
+        self.viewport().update()  # Force one final repaint
     
     def paintEvent(self, event):
         """Paint indentation guides like VSCode - optimized for Maya."""
@@ -1007,11 +1076,15 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         if not self.enable_indentation_guides:
             return
         
-        # Throttle paint events in Maya (skip every other paint for performance)
+        # Skip during scrolling/resizing/tab switching for better performance in Maya
+        if self._is_scrolling or self._is_tab_switching:
+            return
+        
+        # Throttle paint events in Maya (skip 2 out of 3 paints for performance)
         if not hasattr(self, '_paint_counter'):
             self._paint_counter = 0
         self._paint_counter += 1
-        if self._paint_counter % 2 == 0:  # Skip every other paint
+        if self._paint_counter % 3 != 0:  # Only paint every 3rd time
             return
         
         # Draw indentation guides
@@ -1599,7 +1672,9 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             # No error on this line - check for documentation tooltip
             self._handle_documentation_hover(cursor, event)
             self._reset_morpheus_timer()
-            self._hide_morpheus_suggestion()
+            # Only hide suggestion if mouse is not over the suggestion widget
+            if not self._is_mouse_over_suggestion_widget(event):
+                self._hide_morpheus_suggestion()
     
     def leaveEvent(self, event):
         """Hide tooltip when mouse leaves the editor."""
@@ -1845,8 +1920,8 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             tooltip_text = f"<b style='color:{type_color}'><img src='{error_icon}' width='16' height='16'> {type_label}:</b><br>{error_message}"
             tooltip_text += f"<br><i style='color:#888'>Line {line_number}</i>"
             
-            # Add basic suggestion
-            suggestion = self._generate_error_suggestion(error_message, line_number)
+            # Add basic suggestion (different for warnings vs errors)
+            suggestion = self._generate_error_suggestion(error_message, line_number, problem_type)
             if suggestion:
                 tooltip_text += f"<br><br><b style='color:#58a6ff'><img src='{suggestion_icon}' width='16' height='16'> Suggestion:</b><br>{suggestion}"
             
@@ -2228,9 +2303,9 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
         editor_global_pos = self.mapToGlobal(QtCore.QPoint(0, 0))
         screen = QtWidgets.QApplication.primaryScreen().geometry()
         
-        # Try to position above the line first
-        local_x = rect.left() + 50
-        local_y = rect.top() - widget_height - 15
+        # Position closer to the line - try to position to the right of the line number area
+        local_x = rect.left() + 20  # Closer to the line
+        local_y = rect.top() - widget_height - 10  # Slightly above
         
         # Check if there's space above
         global_test_y = self.mapToGlobal(QtCore.QPoint(0, local_y)).y()
@@ -2328,8 +2403,36 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
             self._morpheus_suggestion_widget = None
         self._current_suggestion_line = None
     
-    def _generate_error_suggestion(self, error_message, line_number):
-        """Generate a helpful suggestion based on the error message."""
+    def _is_mouse_over_suggestion_widget(self, event):
+        """Check if mouse is over the suggestion widget."""
+        if not self._morpheus_suggestion_widget or not self._morpheus_suggestion_widget.isVisible():
+            return False
+        
+        # Get mouse position in global coordinates
+        global_pos = event.globalPosition().toPoint()
+        
+        # Get widget geometry in global coordinates
+        widget_rect = self._morpheus_suggestion_widget.geometry()
+        widget_global_pos = self._morpheus_suggestion_widget.pos()
+        widget_global_rect = QtCore.QRect(widget_global_pos, widget_rect.size())
+        
+        # Expand the rect a bit to give some margin (20 pixels on all sides)
+        expanded_rect = widget_global_rect.adjusted(-20, -20, 20, 20)
+        
+        return expanded_rect.contains(global_pos)
+    
+    def _generate_error_suggestion(self, error_message, line_number, problem_type='Error'):
+        """Generate a helpful suggestion based on the error message and problem type."""
+        # For warnings, provide different suggestions
+        if problem_type == 'Warning':
+            if 'maya.cmds' in error_message.lower() or 'mayaapi' in error_message.lower():
+                return "Consider using PyMEL or maya.api for better performance and type safety"
+            elif 'deprecated' in error_message.lower():
+                return "Consider updating to the recommended alternative"
+            else:
+                return "This is a warning - code will still run but may have issues"
+        
+        # For errors, provide syntax-specific suggestions
         # Get the line content
         cursor = QtGui.QTextCursor(self.document().findBlockByLineNumber(line_number - 1))
         line_text = cursor.block().text().strip()
@@ -2367,5 +2470,5 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
             elif "(" in error_message or ")" in error_message:
                 return "Check parentheses - ensure they are properly matched"
         
-        # Generic suggestion
+        # Generic suggestion for errors
         return "Check syntax and indentation on this line"

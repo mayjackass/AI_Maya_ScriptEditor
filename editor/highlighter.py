@@ -34,7 +34,8 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
             }
             
             # Separate errors from warnings based on type
-            if 'Warning' in error_type or 'MayaAPI' in error_type:
+            # ImportErrors are warnings (missing imports), CommandErrors are errors (wrong commands)
+            if 'ImportError' in error_type or 'Warning' in error_type:
                 self.warning_details[error['line']] = line_data
             else:
                 self.error_details[error['line']] = line_data
@@ -368,26 +369,27 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
         # Set the current state for the next block
         self.setCurrentBlockState(current_state)
         
-        # Apply comments (only to unprotected text)
-        comment_match = re.search(r"#[^\n]*", text)
-        if comment_match:
-            start = comment_match.start()
-            length = len(comment_match.group())
-            if not any(protected[start:min(start + length, len(text))]):
-                com = self._fmt("#6A9955", italic=True)
-                self.setFormat(start, length, com)
-                for i in range(start, min(start + length, len(text))):
-                    protected[i] = True
+        # Find comment positions - search from START of line, not start_index!
+        comment_positions = []
+        for i in range(0, len(text)):  # Changed from start_index to 0
+            if text[i] == '#' and not protected[i]:
+                # Found a comment start that's not inside a string
+                comment_length = len(text) - i
+                comment_positions.append((i, comment_length))
+                # Mark ALL comment characters as protected so other rules skip them
+                for j in range(i, len(text)):
+                    protected[j] = True
+                break  # Only one comment per line (rest of line after #)
         
-        # Apply all other rules (keywords, etc.) only to unprotected text
+        # Apply all other rules (keywords, etc.) - WITHOUT checking protected
+        # We'll override with comments at the end anyway
         for pattern, fmt in self.rules:
             for match in pattern.finditer(text):
                 start = match.start()
                 length = match.end() - match.start()
-                if not any(protected[start:min(start + length, len(text))]):
-                    self.setFormat(start, length, fmt)
+                self.setFormat(start, length, fmt)
         
-        # Apply Copilot background highlighting if this line is marked (AFTER syntax colors!)
+        # Apply Copilot background highlighting if this line is marked
         current_block = self.currentBlock()
         line_number = current_block.blockNumber() + 1  # 1-indexed
         
@@ -457,6 +459,16 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
                     combined_format.setUnderlineStyle(QtGui.QTextCharFormat.UnderlineStyle.WaveUnderline)
                     combined_format.setUnderlineColor(QtGui.QColor("#FFA500"))  # Orange for warnings
                     self.setFormat(i, 1, combined_format)
+        
+        # Apply comments ABSOLUTE LAST - after EVERYTHING including errors/warnings
+        # Apply character-by-character and FORCE the green color to override everything
+        for comment_start, comment_length in comment_positions:
+            for i in range(comment_start, min(comment_start + comment_length, len(text))):
+                # Create a completely fresh format - don't use existing format
+                com = QtGui.QTextCharFormat()
+                com.setForeground(QtGui.QColor("#6A9955"))  # VS Code green
+                com.setFontItalic(True)
+                self.setFormat(i, 1, com)
     
     def _highlight_single_line_strings(self, text, formatted, start_index=0):
         """Handle single-line strings (excludes triple quotes completely)."""
