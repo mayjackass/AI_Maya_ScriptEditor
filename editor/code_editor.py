@@ -5,6 +5,7 @@ Comprehensive Python, PySide6/Qt, and Maya support with real-time error highligh
 import os, ast, sys, traceback
 from PySide6 import QtCore, QtGui, QtWidgets
 from .highlighter import PythonHighlighter, MELHighlighter
+from .hover_docs import get_documentation
 
 
 class _LineNumberArea(QtWidgets.QWidget):
@@ -1281,7 +1282,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             pass  # Keep errors visible for now
     
     def mouseMoveEvent(self, event):
-        """Handle mouse move events to show AI-powered suggestions on hover over errors."""
+        """Handle mouse move events to show AI-powered suggestions on hover over errors and documentation tooltips."""
         super().mouseMoveEvent(event)
         
         # Get cursor position at mouse location
@@ -1305,13 +1306,130 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                 break
         
         if error_info:
-            # Start/continue hover timer for Morpheus suggestion
+            # Show error tooltip and start/continue hover timer for Morpheus suggestion
             self._handle_error_hover(error_info, line_number, event)
         else:
-            # Hide tooltip and reset timer if no error on this line
-            QtWidgets.QToolTip.hideText()
+            # No error on this line - check for documentation tooltip
+            self._handle_documentation_hover(cursor, event)
             self._reset_morpheus_timer()
             self._hide_morpheus_suggestion()
+    
+    def _handle_documentation_hover(self, cursor, event):
+        """Show VS Code-style documentation tooltip with syntax highlighting and Pylance integration."""
+        # Select the word under cursor
+        cursor.select(QtGui.QTextCursor.WordUnderCursor)
+        word = cursor.selectedText().strip()
+        
+        if not word:
+            QtWidgets.QToolTip.hideText()
+            return
+        
+        # Get full code text and cursor position for intelligent analysis
+        code_text = self.toPlainText()
+        cursor_pos = cursor.position()
+        
+        # Try Pylance first if available
+        pylance_info = self._get_pylance_hover_info(word, cursor_pos)
+        
+        if pylance_info:
+            # Use Pylance information
+            tooltip_text = self._format_pylance_tooltip(word, pylance_info)
+        else:
+            # Fallback to our documentation system
+            from .hover_docs import get_documentation
+            result = get_documentation(word, code_text, cursor_pos)
+            
+            if result[0] is None:
+                QtWidgets.QToolTip.hideText()
+                return
+            
+            colored_signature, description, doc_type = result
+            tooltip_text = self._format_custom_tooltip(word, colored_signature, description, doc_type)
+        
+        QtWidgets.QToolTip.showText(event.globalPosition().toPoint(), tooltip_text, self)
+    
+    def _get_pylance_hover_info(self, word, position):
+        """Get hover information from Pylance if available."""
+        try:
+            # Try to get hover info from Pylance LSP
+            # This would integrate with VS Code's language server
+            # For now, return None to use fallback
+            return None
+        except:
+            return None
+    
+    def _format_pylance_tooltip(self, word, pylance_info):
+        """Format tooltip using Pylance information."""
+        import os
+        assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
+        suggestion_icon = os.path.join(assets_dir, 'suggestion.png')
+        
+        # Build tooltip with transparent background
+        tooltip_text = f"<div style='padding:8px; border:1px solid #30363d; border-radius:4px; max-width:500px'>"
+        
+        # Icon and word name
+        tooltip_text += f"<div style='margin-bottom:6px'>"
+        tooltip_text += f"<img src='{suggestion_icon}' width='14' height='14' style='vertical-align:middle'> "
+        tooltip_text += f"<b style='color:#d4d4d4; font-size:13px'>{word}</b></div>"
+        
+        # Pylance content
+        tooltip_text += f"<div style='color:#cccccc; font-size:12px'>{pylance_info}</div>"
+        tooltip_text += "</div>"
+        
+        return tooltip_text
+    
+    def _format_custom_tooltip(self, word, colored_signature, description, doc_type):
+        """Format tooltip using custom documentation with appropriate icons."""
+        import os
+        assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
+        
+        # Map doc types to icon files based on available assets
+        icon_map = {
+            'function': 'suggestion.png',     # Functions get suggestion icon
+            'class': 'file.png',              # Classes get file icon
+            'method': 'suggestion.png',       # Methods get suggestion icon
+            'keyword': 'python.png',          # Keywords get Python icon
+            'builtin': 'python.png',          # Built-ins get Python icon
+            'module': 'open_folder.png'       # Modules get folder icon
+        }
+        icon_file = icon_map.get(doc_type, 'suggestion.png')
+        icon_path = os.path.join(assets_dir, icon_file)
+        
+        # Build tooltip without background colors (fully transparent)
+        tooltip_text = f"<div style='padding:10px; max-width:500px'>"
+        
+        # Icon and word name
+        tooltip_text += f"<div style='margin-bottom:8px'>"
+        tooltip_text += f"<img src='{icon_path}' width='16' height='16' style='vertical-align:middle'> "
+        tooltip_text += f"<b style='color:#ffffff; font-size:13px'>{word}</b>"
+        
+        # Add type label
+        type_labels = {
+            'function': 'function',
+            'class': 'class',
+            'method': 'method',
+            'keyword': 'keyword',
+            'builtin': 'built-in',
+            'module': 'module'
+        }
+        type_label = type_labels.get(doc_type, '')
+        if type_label:
+            tooltip_text += f" <span style='color:#a0a0a0; font-size:11px; font-style:italic'>({type_label})</span>"
+        
+        tooltip_text += "</div>"
+        
+        # Colored signature (no background)
+        tooltip_text += colored_signature
+        
+        # Description
+        if description:
+            # Replace newlines with <br> for HTML
+            desc_html = description.replace('\n', '<br>')
+            tooltip_text += f"<div style='margin-top:8px; color:#e0e0e0; font-size:11px; line-height:1.5'>{desc_html}</div>"
+        
+        tooltip_text += "</div>"
+        
+        return tooltip_text
     
     def _handle_error_hover(self, error_info, line_number, event):
         """Handle hovering over an error line using Problems window data."""
