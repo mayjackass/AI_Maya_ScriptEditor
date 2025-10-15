@@ -5,6 +5,9 @@ Handles Morpheus AI chat interface, provider/model selection, and all AI interac
 import html
 import os
 import re
+import uuid
+import difflib
+import traceback
 from PySide6 import QtWidgets, QtCore, QtGui
 
 
@@ -53,14 +56,15 @@ class ChatManager:
         self._code_blocks = {}
         self._code_block_html = {}
         
+        # User messages storage for editing (msg_id -> conversation index in morpheus_manager.chat_history)
+        self._user_messages = {}
+        
         # Model selector connection tracking
         self._model_selector_connected = False
         
     def build_chat_dock(self):
         """Build Morpheus AI chat dock"""
         # Check for custom icon
-        import os
-        from PySide6 import QtGui
         icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "morpheus.png")
         
         # Create dock
@@ -186,7 +190,6 @@ class ChatManager:
             }
         """)
         self.offlineToggle.clicked.connect(self.toggle_offline_mode)
-        self.offline_mode = False  # Track offline mode state
         
         historyLayout.addWidget(self.prevChatBtn)
         historyLayout.addWidget(self.historyLabel)
@@ -448,7 +451,6 @@ class ChatManager:
             self.morpheus_manager.responseReady.connect(self.on_morpheus_response)
             
             # Load Morpheus icon for messages
-            import os
             icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "morpheus.png")
             if os.path.exists(icon_path):
                 # Create small icon HTML for chat messages
@@ -584,23 +586,49 @@ DO NOT return all {line_count} lines back - only return the problematic section.
                 # Matrix green color with regular font for better readability
                 text_color = "#00ff41"  # Matrix green
                 text_style = "font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif; color: #00ff41; line-height: 1.4;"
+                html_message = f"""
+                <div class="morpheus-response" style="margin-bottom: 16px; padding: 8px; border-left: 3px solid {color}; background: rgba(255,255,255,0.03);">
+                    <div style="color: {color}; font-weight: 600; margin-bottom: 4px;">
+                        {sender_display} <span style="color: #8b949e; font-size: 11px; font-weight: normal;">{timestamp}</span>
+                    </div>
+                    <div style="{text_style}">
+                        {formatted_message}
+                    </div>
+                </div>
+                <br>
+                """
+                    
             else:
+                # User message - store with ID for editing
+                msg_id = str(uuid.uuid4())[:8]
+                
                 formatted_message = html.escape(message).replace('\n', '<br>')
                 sender_display = sender
                 text_color = "#f0f6fc"
                 text_style = "color: #f0f6fc; line-height: 1.4;"
-            
-            html_message = f"""
-            <div style="margin-bottom: 16px; padding: 8px; border-left: 3px solid {color}; background: rgba(255,255,255,0.03);">
-                <div style="color: {color}; font-weight: 600; margin-bottom: 4px;">
-                    {sender_display} <span style="color: #8b949e; font-size: 11px; font-weight: normal;">{timestamp}</span>
+                
+                # Make user messages clickable with edit link
+                html_message = f"""
+                <div id="user-msg-{msg_id}" class="user-message user-msg-{msg_id}" style="margin-bottom: 16px; padding: 8px; border-left: 3px solid {color}; background: rgba(255,255,255,0.03);">
+                    <div style="color: {color}; font-weight: 600; margin-bottom: 4px;">
+                        {sender_display} <span style="color: #8b949e; font-size: 11px; font-weight: normal;">{timestamp}</span>
+                        <a href="edit:{msg_id}" style="color: #58a6ff; text-decoration: none; font-size: 11px; margin-left: 8px;">✎ edit</a>
+                    </div>
+                    <div style="{text_style}">
+                        {formatted_message}
+                    </div>
                 </div>
-                <div style="{text_style}">
-                    {formatted_message}
-                </div>
-            </div>
-            <br>
-            """
+                <br>
+                """
+                
+                # Map msg_id to the conversation index in morpheus_manager.chat_history
+                # This will be the NEXT index when the response is recorded
+                if self.morpheus_manager:
+                    conversation_index = len(self.morpheus_manager.chat_history)
+                    self._user_messages[msg_id] = {
+                        'message': message,
+                        'conversation_index': conversation_index
+                    }
             
             cursor = self.chatHistory.textCursor()
             cursor.movePosition(QtGui.QTextCursor.End)
@@ -632,7 +660,6 @@ DO NOT return all {line_count} lines back - only return the problematic section.
                 return ""
             
             # Generate unique ID
-            import uuid
             block_id = str(uuid.uuid4())[:8]
             
             # Store code
@@ -702,9 +729,29 @@ DO NOT return all {line_count} lines back - only return the problematic section.
         return formatted_message
     
     def handle_code_action(self, url):
-        """Handle code action button clicks"""
+        """Handle code action button clicks and edit message links"""
         try:
             url_str = url.toString()
+            
+            # Handle edit message links
+            if url_str.startswith('edit:'):
+                msg_id = url_str.replace('edit:', '')
+                if msg_id in self._user_messages:
+                    # Get original message
+                    msg_data = self._user_messages[msg_id]
+                    original_message = msg_data['message']
+                    
+                    print(f"\n=== EDIT CLICKED ===")
+                    print(f"Message ID: {msg_id}")
+                    print(f"Original message: {original_message[:50]}...")
+                    print("====================\n")
+                    
+                    # Remove this conversation and ALL conversations after it (like ChatGPT)
+                    self.remove_message_and_response(msg_id)
+                    
+                    # Show edit dialog
+                    self.show_edit_message_dialog(original_message)
+                return
             
             if '_' not in url_str:
                 return
@@ -749,10 +796,6 @@ DO NOT return all {line_count} lines back - only return the problematic section.
         except Exception as e:
             self.parent.dock_manager.console.append_tagged("ERROR", f"Failed to undo: {e}", "#dc3545")
     
-    def undo_last_change(self):
-        """Undo last change (wrapper for button action)"""
-        self.undo_editor_change()
-    
     def _keep_and_hide(self, code):
         """Keep code and hide action buttons"""
         self.keep_as_fix(code)
@@ -765,7 +808,7 @@ DO NOT return all {line_count} lines back - only return the problematic section.
     
     def _undo_and_hide(self):
         """Undo and hide action buttons"""
-        self.undo_last_change()
+        self.undo_editor_change()
         self.actionButtonsWidget.setVisible(False)
     
     def _auto_show_inline_diff(self, code):
@@ -835,7 +878,6 @@ DO NOT return all {line_count} lines back - only return the problematic section.
             
         except Exception as e:
             print(f"Auto inline diff error: {e}")
-            import traceback
             traceback.print_exc()
 
     def keep_as_fix(self, code):
@@ -879,8 +921,6 @@ DO NOT return all {line_count} lines back - only return the problematic section.
             suggested_code: The AI-suggested fix code
             hint_line: Optional line number (0-based) where user's cursor is, as a hint for the error location
         """
-        import difflib
-        
         current_lines = current_code.split('\n')
         suggested_lines = suggested_code.split('\n')
         
@@ -1022,8 +1062,6 @@ DO NOT return all {line_count} lines back - only return the problematic section.
                     'old_code': '\n'.join(current_lines[best_match_line:best_match_line + len(suggested_lines)]),
                     'match_quality': best_match_ratio
                 }
-        
-        return None
         
         return None
     
@@ -1241,8 +1279,11 @@ DO NOT return all {line_count} lines back - only return the problematic section.
         self.update_history_info()
 
     def clear_chat(self):
-        """Clear chat display"""
+        """Clear chat display and tracking"""
         self.chatHistory.clear()
+        self._user_messages.clear()  # Clear edit tracking when clearing chat
+        self._code_blocks.clear()
+        self._code_block_html.clear()
 
     def on_history_updated(self, chat_history):
         """Handle history updates"""
@@ -1258,9 +1299,10 @@ DO NOT return all {line_count} lines back - only return the problematic section.
             
         self.chatHistory.clear()
         
-        # Clear code blocks
+        # Clear code blocks and user messages tracking
         self._code_blocks.clear()
         self._code_block_html.clear()
+        self._user_messages.clear()  # Clear edit message tracking when reloading
         
         # Load conversation
         if self.morpheus_manager.current_chat_index >= 0:
@@ -1472,7 +1514,6 @@ DO NOT return all {line_count} lines back - only return the problematic section.
             provider = "claude" if "Claude" in provider_combo.currentText() else "openai"
             settings.setValue("AI_PROVIDER", provider)
             
-            import os
             if openai_key_input.text():
                 settings.setValue("OPENAI_API_KEY", openai_key_input.text())
                 os.environ["OPENAI_API_KEY"] = openai_key_input.text()
@@ -1495,5 +1536,158 @@ DO NOT return all {line_count} lines back - only return the problematic section.
         
         save_btn.clicked.connect(save_settings)
         cancel_btn.clicked.connect(dialog.reject)
+        
+        dialog.exec()
+    
+    def remove_message_and_response(self, msg_id):
+        """Remove a conversation and ALL conversations after it (like ChatGPT edit)"""
+        try:
+            if msg_id not in self._user_messages:
+                print(f"Message ID {msg_id} not found in storage")
+                return
+            
+            if not self.morpheus_manager:
+                print("No morpheus_manager available")
+                return
+            
+            # Get the conversation index
+            msg_data = self._user_messages[msg_id]
+            conversation_index = msg_data['conversation_index']
+            
+            print(f"\n=== REMOVING CONVERSATIONS ===")
+            print(f"Message ID: {msg_id}")
+            print(f"Conversation index: {conversation_index}")
+            print(f"Total conversations before: {len(self.morpheus_manager.chat_history)}")
+            print(f"Removing {len(self.morpheus_manager.chat_history) - conversation_index} conversations")
+            
+            # Remove from morpheus_manager.chat_history (this is the persistent storage)
+            self.morpheus_manager.chat_history = self.morpheus_manager.chat_history[:conversation_index]
+            
+            # Also update the persistent memory
+            if hasattr(self.morpheus_manager, 'memory') and 'conversations' in self.morpheus_manager.memory:
+                self.morpheus_manager.memory['conversations'] = self.morpheus_manager.chat_history.copy()
+                self.morpheus_manager._save_memory()
+            
+            # Clear user messages mapping for removed conversations
+            self._user_messages = {
+                mid: data for mid, data in self._user_messages.items()
+                if data['conversation_index'] < conversation_index
+            }
+            
+            # Reload the chat display
+            self.load_current_conversation()
+            
+            print(f"Total conversations after: {len(self.morpheus_manager.chat_history)}")
+            print("==============================\n")
+            
+        except Exception as e:
+            print(f"Error removing conversations: {e}")
+            import traceback
+            traceback.print_exc()
+            print(f"Error removing messages: {e}")
+            import traceback
+            traceback.print_exc()
+            print(f"Error removing message: {e}")
+            import traceback
+            traceback.print_exc()
+            print(f"Error removing message: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def show_edit_message_dialog(self, original_message):
+        """Show dialog to edit and resend a message"""
+        from .dialog_styles import apply_dark_theme
+        
+        dialog = QtWidgets.QDialog(self.parent)
+        dialog.setWindowTitle("Edit Message")
+        dialog.setMinimumSize(500, 300)
+        
+        apply_dark_theme(dialog)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.setSpacing(12)
+        layout.setContentsMargins(16, 16, 16, 16)
+        
+        # Label
+        label = QtWidgets.QLabel("Edit your message and send it to Morpheus again:")
+        label.setStyleSheet("color: #c9d1d9; font-size: 13px;")
+        layout.addWidget(label)
+        
+        # Text edit with original message
+        text_edit = QtWidgets.QPlainTextEdit()
+        text_edit.setPlainText(original_message)
+        text_edit.setStyleSheet("""
+            QPlainTextEdit {
+                background: #0d1117;
+                border: 1px solid #30363d;
+                border-radius: 6px;
+                padding: 8px;
+                color: #c9d1d9;
+                font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;
+                font-size: 13px;
+                line-height: 1.5;
+            }
+            QPlainTextEdit:focus {
+                border-color: #58a6ff;
+            }
+        """)
+        layout.addWidget(text_edit, 1)
+        
+        # Buttons
+        button_layout = QtWidgets.QHBoxLayout()
+        button_layout.addStretch()
+        
+        cancel_btn = QtWidgets.QPushButton("Cancel")
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                background: #21262d;
+                border: 1px solid #30363d;
+                color: #c9d1d9;
+                padding: 6px 16px;
+                border-radius: 6px;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background: #30363d;
+                border-color: #8b949e;
+            }
+        """)
+        cancel_btn.clicked.connect(dialog.reject)
+        
+        send_btn = QtWidgets.QPushButton("Send to Morpheus")
+        send_btn.setStyleSheet("""
+            QPushButton {
+                background: #238636;
+                border: 1px solid #2ea043;
+                color: white;
+                padding: 6px 16px;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background: #2ea043;
+            }
+        """)
+        
+        def send_edited_message():
+            edited_text = text_edit.toPlainText().strip()
+            if edited_text:
+                # Clear input and set edited message
+                self.chatInput.clear()
+                self.chatInput.setPlainText(edited_text)
+                # Send the message
+                self.send_message()
+                dialog.accept()
+        
+        send_btn.clicked.connect(send_edited_message)
+        
+        button_layout.addWidget(cancel_btn)
+        button_layout.addWidget(send_btn)
+        layout.addLayout(button_layout)
+        
+        # Focus on text edit and select all
+        text_edit.setFocus()
+        text_edit.selectAll()
         
         dialog.exec()

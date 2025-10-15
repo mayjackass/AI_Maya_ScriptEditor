@@ -166,8 +166,6 @@ class InlineDiffManager:
         
     def _highlight_affected_lines(self, start_line, end_line):
         """Highlight lines that will be replaced with red background"""
-        from PySide6.QtWidgets import QTextEdit
-        
         cursor = self.editor.textCursor()
         cursor.movePosition(QtGui.QTextCursor.Start)
         
@@ -188,8 +186,8 @@ class InlineDiffManager:
         # Store the original selection to restore later
         self.original_selection = cursor
         
-        # Create extra selection for highlighting using QTextEdit.ExtraSelection
-        extra_selection = QTextEdit.ExtraSelection()
+        # Create extra selection for highlighting
+        extra_selection = QtWidgets.QTextEdit.ExtraSelection()
         extra_selection.cursor = cursor
         extra_selection.format = fmt
         

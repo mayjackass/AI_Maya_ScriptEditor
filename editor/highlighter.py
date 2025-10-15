@@ -9,7 +9,9 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
         super().__init__(doc)
         self.rules = []
         self.error_details = {}  # Map of line_number -> {'column': int, 'message': str}
+        self.warning_details = {}  # Map of line_number -> {'column': int, 'message': str}
         self.copilot_error_lines = set()  # Lines with red Copilot background
+        self.copilot_warning_lines = set()  # Lines with yellow Copilot background
         self._setup_rules()
     
     def set_error_lines(self, error_lines):
@@ -20,26 +22,43 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
         """Set detailed error information including column positions.
         
         Args:
-            errors: List of dicts with 'line', 'column', 'message' keys
+            errors: List of dicts with 'line', 'column', 'message', 'type' keys
         """
         self.error_details = {}
+        self.warning_details = {}
         for error in errors:
-            self.error_details[error['line']] = {
+            error_type = error.get('type', 'SyntaxError')
+            line_data = {
                 'column': error.get('column', 0),
                 'message': error.get('message', '')
             }
+            
+            # Separate errors from warnings based on type
+            if 'Warning' in error_type or 'MayaAPI' in error_type:
+                self.warning_details[error['line']] = line_data
+            else:
+                self.error_details[error['line']] = line_data
     
     def set_copilot_error_lines(self, lines):
-        """Set which lines should have red Copilot background.
+        """Set which lines should have red Copilot background (actual errors).
         
         Args:
             lines: List of line numbers (1-indexed) to highlight with red background
         """
         self.copilot_error_lines = set(lines)
     
+    def set_copilot_warning_lines(self, lines):
+        """Set which lines should have yellow Copilot background (warnings).
+        
+        Args:
+            lines: List of line numbers (1-indexed) to highlight with yellow background
+        """
+        self.copilot_warning_lines = set(lines)
+    
     def clear_copilot_error_lines(self):
         """Clear all Copilot error line highlights."""
         self.copilot_error_lines = set()
+        self.copilot_warning_lines = set()
 
     def _fmt(self, color, bold=False, italic=False):
         fmt = QtGui.QTextCharFormat()
@@ -156,9 +175,28 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
         qt_modules = r"\b(QtCore|QtGui|QtWidgets|QtNetwork|QtSql|QtXml|QtOpenGL|QtMultimedia|QtTest|QtConcurrent|QtDBus|QtHelp|QtDesigner|QtUiTools|QtPrintSupport|QtSvg|QtCharts|QtDataVisualization|QtWebEngine|QtWebEngineWidgets|QtQuick|QtQml|QtPositioning|QtSensors|QtSerialPort|QtBluetooth|QtNfc|QtLocation|QtRemoteObjects|QtWebChannel|QtWebSockets)\b"
         self.rules += [(re.compile(qt_modules), imports)]
         
-        # 22. Maya Python API and Commands
-        maya_python = r"\b(maya|cmds|pm|pymel|OpenMaya|OpenMayaUI|OpenMayaAnim|OpenMayaFX|OpenMayaRender|MObject|MFn|MDagPath|MSelectionList|MItDag|MItDependencyNodes|MItGeometry|MItMeshPolygon|MItMeshVertex|MItMeshEdge|MItMeshFaceVertex|MItCurveCV|MItSurfaceCV|MItKeyframe|MAnimControl|MAnimMessage|MEventMessage|MNodeMessage|MUiMessage|MDGMessage|MModelMessage|MPolyMessage|MGlobal|MFileIO|MSceneMessage|MTimerMessage|MCommandResult|MArgList|MArgDatabase|MSyntax|MPxCommand|MPxNode|MPxDeformerNode|MPxGeometryFilter|MPxSurfaceShape|MPxLocatorNode|MPxManipContainer|MPxContext|MPxContextCommand|MPxToolCommand|MPxFileTranslator|executeDeferred|evalDeferred|scriptJob|connectAttr|disconnectAttr|getAttr|setAttr|addAttr|deleteAttr|attributeExists|objExists|listAttr|listConnections|listRelatives|listHistory|ls|select|duplicate|delete|group|parent|unparent|instance|reference|file|importFile|exportAll|loadPlugin|unloadPlugin|pluginInfo|nodeType|objectType|rename|hide|show|move|rotate|scale|xform|makeIdentity|polyEvaluate|polyListComponentConversion|filterExpand|hilite|toggle|pickWalk|mel)\b"
-        self.rules += [(re.compile(maya_python), type_hints)]
+        # 22. Maya Python API and Commands - COMPREHENSIVE (ALL COMMANDS)
+        # Maya modules (cmds, pm, pymel, OpenMaya)
+        maya_modules = r"\b(maya|cmds|pm|pymel|OpenMaya|OpenMayaUI|OpenMayaAnim|OpenMayaFX|OpenMayaRender)\b"
+        self.rules += [(re.compile(maya_modules), type_hints)]
+        
+        # Maya/PyMEL method calls - ALL Maya commands that appear after dots
+        # This catches: cmds.polySphere(), pm.selected(), node.getChildren(), etc.
+        maya_method_calls = r"(?<=\.)(polySphere|polyCube|polyCylinder|polyPlane|polyTorus|polyCone|polyPyramid|polyPipe|polyHelix|polyPrism|polyDisc|select|ls|createNode|setAttr|getAttr|delete|duplicate|parent|group|unparent|instance|listRelatives|listConnections|listHistory|connectAttr|disconnectAttr|keyframe|setKeyframe|currentTime|playblast|move|rotate|scale|xform|makeIdentity|polyEvaluate|polyUnite|polySeparate|rename|hide|show|objExists|attributeExists|addAttr|deleteAttr|listAttr|filterExpand|nodeType|objectType|file|saveAs|shadingNode|sets|hyperShade|shadingConnection|defaultNavigation|pointLight|spotLight|directionalLight|ambientLight|areaLight|render|renderWindowEditor|arnoldRender|selected|PyNode|getChildren|getParent|getShapes|getTranslation|setTranslation|getRotation|setRotation|getScale|setScale|numVertices|numFaces|numEdges|create|general|Transform|Mesh|Camera|Joint|Attribute|DependNode|nodetypes)\b"
+        self.rules += [(re.compile(maya_method_calls), funcdef)]
+        
+        # Maya common commands (standalone or after module) - ALL COMMANDS
+        maya_commands = r"\b(polySphere|polyCube|polyCylinder|polyPlane|polyTorus|polyCone|polyPyramid|polyPipe|polyHelix|polyPrism|polyDisc|select|ls|createNode|setAttr|getAttr|delete|duplicate|parent|group|unparent|instance|listRelatives|listConnections|listHistory|connectAttr|disconnectAttr|keyframe|setKeyframe|currentTime|playblast|move|rotate|scale|xform|makeIdentity|polyEvaluate|polyUnite|polySeparate|rename|hide|show|objExists|attributeExists|addAttr|deleteAttr|listAttr|filterExpand|nodeType|objectType|shadingNode|sets|hyperShade|lambert|blinn|phong|phongE|standardSurface|aiStandardSurface|pointLight|spotLight|directionalLight|ambientLight|areaLight|render)\b"
+        self.rules += [(re.compile(maya_commands), funcdef)]
+        
+        # PyMEL-specific methods and attributes - Expanded
+        pymel_methods = r"\b(selected|PyNode|getChildren|getParent|getShapes|getTranslation|setTranslation|getRotation|setRotation|getScale|setScale|numVertices|numFaces|numEdges|Transform|Mesh|Camera|Joint|Attribute|DependNode|nodetypes)\b"
+        self.rules += [(re.compile(pymel_methods), funcdef)]
+        
+        # Maya API classes - COMPREHENSIVE OpenMaya API 2.0
+        # ALL core API classes for advanced scripting, plugins, and high-performance operations
+        maya_api = r"\b(MObject|MDagPath|MSelectionList|MFnBase|MFnDependencyNode|MFnDagNode|MFnTransform|MFnMesh|MFnNurbsCurve|MFnNurbsSurface|MFnCamera|MFnLight|MFnSkinCluster|MFnBlendShapeDeformer|MItDag|MItDependencyNodes|MItSelectionList|MItMeshVertex|MItMeshPolygon|MItMeshEdge|MItGeometry|MItCurveCV|MItSurfaceCV|MPoint|MVector|MFloatVector|MMatrix|MTransformationMatrix|MColor|MPointArray|MVectorArray|MIntArray|MFloatArray|MPlug|MFnAttribute|MFnNumericAttribute|MFnTypedAttribute|MFnCompoundAttribute|MMessage|MNodeMessage|MEventMessage|MDGMessage|MModelMessage|MAnimMessage|MGlobal|MFileIO|MScriptUtil|MArgList|MArgDatabase|MSyntax|MPxNode|MPxCommand|MPxDeformerNode|MPxLocatorNode|MPxSurfaceShape|MItMeshFaceVertex|MAnimControl|MAnimMessage|MEventMessage|MNodeMessage|MUiMessage|MDGMessage|MModelMessage|MPolyMessage|MGlobal|MFileIO|MSceneMessage|MTimerMessage|MCommandResult|MArgList|MArgDatabase|MSyntax|MPxCommand|MPxNode|MPxDeformerNode|MPxGeometryFilter|MPxSurfaceShape|MPxLocatorNode|MPxManipContainer|MPxContext|MPxContextCommand|MPxToolCommand|MPxFileTranslator)\b"
+        self.rules += [(re.compile(maya_api), type_hints)]
         
         # 23. Popular Python Libraries
         popular_libs = r"\b(numpy|np|pandas|pd|matplotlib|plt|scipy|sklearn|tensorflow|tf|torch|cv2|PIL|Image|requests|json|xml|sqlite3|os|sys|re|math|random|datetime|time|collections|itertools|functools|operator|threading|multiprocessing|subprocess|argparse|logging|unittest|pytest|mock|pathlib|glob|shutil|tempfile|urllib|http|email|base64|hashlib|hmac|secrets|uuid|pickle|csv|configparser|traceback|warnings|contextlib|weakref|copy|types|inspect|ast|dis|gc|platform|socket|ssl|ftplib|smtplib|poplib|imaplib|telnetlib|xmlrpc|http|urllib|tkinter|asyncio|aiohttp|flask|django|fastapi|sqlalchemy|redis|pymongo|psycopg2|mysql|pytest|black|flake8|mypy|pydantic|dataclasses|enum|typing_extensions|click|rich|tqdm|jupyterlab|notebook|ipython|matplotlib|seaborn|plotly|bokeh|altair|streamlit|dash|kivy|pygame|arcade|pyglet|panda3d|blender|bpy|bmesh|mathutils|gpu|gpu_extras|addon_utils)\b"
@@ -349,18 +387,26 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
                 if not any(protected[start:min(start + length, len(text))]):
                     self.setFormat(start, length, fmt)
         
-        # Apply Copilot red background if this line is marked (AFTER syntax colors!)
+        # Apply Copilot background highlighting if this line is marked (AFTER syntax colors!)
         current_block = self.currentBlock()
         line_number = current_block.blockNumber() + 1  # 1-indexed
+        
+        # Red background for errors
         if line_number in self.copilot_error_lines:
-            # Apply red background character by character, preserving existing colors
             for i in range(len(text)):
                 existing_format = self.format(i)
                 combined_format = QtGui.QTextCharFormat(existing_format)
                 combined_format.setBackground(QtGui.QColor(255, 0, 0, 30))  # Transparent red
                 self.setFormat(i, 1, combined_format)
+        # Yellow/orange background for warnings
+        elif line_number in self.copilot_warning_lines:
+            for i in range(len(text)):
+                existing_format = self.format(i)
+                combined_format = QtGui.QTextCharFormat(existing_format)
+                combined_format.setBackground(QtGui.QColor(255, 165, 0, 25))  # Transparent orange
+                self.setFormat(i, 1, combined_format)
         
-        # Apply error highlighting if this line has errors (only underline, preserve colors)
+        # Apply error highlighting if this line has errors (red wavy underline, preserve colors)
         if line_number in self.error_details:
             error_info = self.error_details[line_number]
             error_column = error_info.get('column', 0)
@@ -385,7 +431,31 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
                     # Create a new format that combines existing colors with error underline
                     combined_format = QtGui.QTextCharFormat(existing_format)
                     combined_format.setUnderlineStyle(QtGui.QTextCharFormat.UnderlineStyle.WaveUnderline)
-                    combined_format.setUnderlineColor(QtGui.QColor("#ff0000"))
+                    combined_format.setUnderlineColor(QtGui.QColor("#ff0000"))  # Red for errors
+                    self.setFormat(i, 1, combined_format)
+        
+        # Apply warning highlighting if this line has warnings (yellow/orange wavy underline, preserve colors)
+        elif line_number in self.warning_details:
+            warning_info = self.warning_details[line_number]
+            warning_column = warning_info.get('column', 0)
+            
+            # Calculate where to start the underline
+            if warning_column > 0:
+                warning_start = max(0, warning_column - 1)
+            else:
+                warning_start = len(text) - len(text.lstrip())
+            
+            # Underline from warning position to end of actual content
+            warning_end = len(text.rstrip())
+            warning_length = warning_end - warning_start
+            
+            if warning_length > 0 and warning_start < len(text):
+                # Apply yellow/orange wavy underline character by character, preserving existing format
+                for i in range(warning_start, min(warning_start + warning_length, len(text))):
+                    existing_format = self.format(i)
+                    combined_format = QtGui.QTextCharFormat(existing_format)
+                    combined_format.setUnderlineStyle(QtGui.QTextCharFormat.UnderlineStyle.WaveUnderline)
+                    combined_format.setUnderlineColor(QtGui.QColor("#FFA500"))  # Orange for warnings
                     self.setFormat(i, 1, combined_format)
     
     def _highlight_single_line_strings(self, text, formatted, start_index=0):

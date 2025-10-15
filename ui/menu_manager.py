@@ -224,7 +224,24 @@ class MenuManager:
         
         help_menu.addSeparator()
         
-        docs_action = QtGui.QAction("&Documentation", self.parent)
+        # Documentation submenu
+        docs_submenu = help_menu.addMenu("Documentation")
+        
+        # MEL documentation
+        mel_docs_action = QtGui.QAction("MEL Documentation", self.parent)
+        mel_docs_action.setToolTip("Maya MEL command reference")
+        mel_docs_action.triggered.connect(self._open_mel_docs)
+        docs_submenu.addAction(mel_docs_action)
+        
+        # Maya Python API
+        maya_python_action = QtGui.QAction("Maya Python API", self.parent)
+        maya_python_action.setToolTip("Maya Python API documentation")
+        maya_python_action.triggered.connect(self._open_maya_python_docs)
+        docs_submenu.addAction(maya_python_action)
+        
+        help_menu.addSeparator()
+        
+        docs_action = QtGui.QAction("NEO Documentation", self.parent)
         docs_action.triggered.connect(self._open_documentation)
         help_menu.addAction(docs_action)
         
@@ -328,6 +345,21 @@ class MenuManager:
         import webbrowser
         webbrowser.open("https://github.com/mayjackass/AI_Maya_ScriptEditor#readme")
     
+    def _open_python_docs(self):
+        """Open Python official documentation"""
+        import webbrowser
+        webbrowser.open("https://docs.python.org/3/")
+    
+    def _open_mel_docs(self):
+        """Open Maya MEL command reference"""
+        import webbrowser
+        webbrowser.open("https://help.autodesk.com/view/MAYAUL/2026/ENU/?guid=GUID-E151A15C-BA1D-4E60-8DB6-9D92C6202170")
+    
+    def _open_maya_python_docs(self):
+        """Open Maya Python API documentation"""
+        import webbrowser
+        webbrowser.open("https://help.autodesk.com/view/MAYAUL/2026/ENU/?guid=GUID-703B18A2-89E5-48A8-988A-1ED815D5566F")
+    
     def _open_github(self):
         """Open GitHub repository"""
         import webbrowser
@@ -339,32 +371,32 @@ class MenuManager:
         
         dialog = QtWidgets.QDialog(self.parent)
         dialog.setWindowTitle("About NEO Script Editor")
-        dialog.setMinimumSize(600, 700)
-        dialog.setMaximumSize(600, 700)
+        dialog.setMinimumSize(550, 600)
+        dialog.setMaximumSize(550, 600)
         
         # Apply consistent dark theme
         apply_dark_theme(dialog)
         
         layout = QtWidgets.QVBoxLayout(dialog)
-        layout.setSpacing(16)
-        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(10)
+        layout.setContentsMargins(25, 20, 25, 20)
         
         # Logo/Title Section
         titleLayout = QtWidgets.QVBoxLayout()
-        titleLayout.setSpacing(8)
+        titleLayout.setSpacing(4)
         
         # Create horizontal layout for icon + title
         iconTitleLayout = QtWidgets.QHBoxLayout()
         iconTitleLayout.setAlignment(QtCore.Qt.AlignCenter)
-        iconTitleLayout.setSpacing(12)
+        iconTitleLayout.setSpacing(10)
         
         # Add Matrix icon to the left
         icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "matrix.png")
         if os.path.exists(icon_path):
             iconLabel = QtWidgets.QLabel()
             pixmap = QtGui.QPixmap(icon_path)
-            # Scale the icon to match title height (48x48)
-            scaled_pixmap = pixmap.scaled(48, 48, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+            # Scale the icon smaller (36x36)
+            scaled_pixmap = pixmap.scaled(36, 36, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
             iconLabel.setPixmap(scaled_pixmap)
             iconLabel.setAlignment(QtCore.Qt.AlignVCenter)
             iconTitleLayout.addWidget(iconLabel)
@@ -372,10 +404,10 @@ class MenuManager:
         # Title
         titleLabel = QtWidgets.QLabel("NEO Script Editor")
         titleLabel.setStyleSheet("""
-            font-size: 32px;
-            font-weight: bold;
-            color: #00ff41;
-            letter-spacing: 1px;
+            font-size: 22px;
+            font-weight: 600;
+            color: #cccccc;
+            letter-spacing: 0.5px;
         """)
         titleLabel.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft)
         iconTitleLayout.addWidget(titleLabel)
@@ -383,112 +415,51 @@ class MenuManager:
         # Add the horizontal layout to the main title layout
         titleLayout.addLayout(iconTitleLayout)
         
-        # Version
-        versionLabel = QtWidgets.QLabel("Version 3.0 Beta • Testing Release")
+        # Version and tagline
+        versionLabel = QtWidgets.QLabel("Version 3.1 Beta • Beta Testing Release")
         versionLabel.setStyleSheet("""
-            font-size: 14px;
-            color: #00ff41;
-            font-weight: 600;
+            font-size: 11px;
+            color: #888888;
+            font-weight: 400;
         """)
         versionLabel.setAlignment(QtCore.Qt.AlignCenter)
         
-        # Tagline
-        taglineLabel = QtWidgets.QLabel("AI-Powered Maya Script Editor with VSCode-Style Features")
-        taglineLabel.setStyleSheet("""
-            font-size: 13px;
-            color: #888888;
-            font-style: italic;
-            margin-top: 4px;
-        """)
-        taglineLabel.setAlignment(QtCore.Qt.AlignCenter)
-        
-        # Beta warning
-        betaWarningLabel = QtWidgets.QLabel("BETA RELEASE - For Testing Purposes Only")
-        betaWarningLabel.setStyleSheet("""
-            font-size: 12px;
-            color: #00ff41;
-            font-weight: 600;
-            background: rgba(0, 255, 65, 0.1);
-            border: 1px solid #00ff41;
-            border-radius: 4px;
-            padding: 6px 12px;
-            margin-top: 8px;
-        """)
-        betaWarningLabel.setAlignment(QtCore.Qt.AlignCenter)
-        
-        titleLayout.addWidget(titleLabel)
         titleLayout.addWidget(versionLabel)
-        titleLayout.addWidget(taglineLabel)
-        titleLayout.addWidget(betaWarningLabel)
         layout.addLayout(titleLayout)
         
         # Separator
         separator1 = QtWidgets.QFrame()
         separator1.setFrameShape(QtWidgets.QFrame.HLine)
-        separator1.setStyleSheet("background: #00ff41; max-height: 1px;")
+        separator1.setStyleSheet("background: #444444; max-height: 1px;")
         layout.addWidget(separator1)
         
-        # Author Section
+        # Author Section - compressed
         authorLayout = QtWidgets.QVBoxLayout()
-        authorLayout.setSpacing(4)
+        authorLayout.setSpacing(2)
         
-        authorTitleLabel = QtWidgets.QLabel("DEVELOPED BY")
-        authorTitleLabel.setStyleSheet("""
-            font-size: 11px;
-            color: #00ff41;
-            font-weight: 600;
-            letter-spacing: 1px;
-        """)
-        authorTitleLabel.setAlignment(QtCore.Qt.AlignCenter)
-        
-        authorNameLabel = QtWidgets.QLabel("Mayj Amilano")
-        authorNameLabel.setStyleSheet("""
-            font-size: 18px;
-            color: #ffffff;
-            font-weight: 600;
-        """)
-        authorNameLabel.setAlignment(QtCore.Qt.AlignCenter)
-        
-        authorHandleLabel = QtWidgets.QLabel("(@mayjackass)")
-        authorHandleLabel.setStyleSheet("""
-            font-size: 13px;
-            color: #888888;
+        authorLabel = QtWidgets.QLabel("Developed by Mayj Amilano (@mayjackass)")
+        authorLabel.setStyleSheet("""
+            font-size: 10px;
+            color: #777777;
             font-weight: 400;
         """)
-        authorHandleLabel.setAlignment(QtCore.Qt.AlignCenter)
+        authorLabel.setAlignment(QtCore.Qt.AlignCenter)
         
-        githubLabel = QtWidgets.QLabel('🔗 <a href="https://github.com/mayjackass" style="color: #00ff41; text-decoration: none;">github.com/mayjackass</a>')
-        githubLabel.setStyleSheet("font-size: 12px;")
-        githubLabel.setAlignment(QtCore.Qt.AlignCenter)
-        githubLabel.setOpenExternalLinks(True)
-        
-        copyrightLabel = QtWidgets.QLabel("© 2025 • All Rights Reserved")
-        copyrightLabel.setStyleSheet("""
-            font-size: 11px;
-            color: #888888;
-            margin-top: 4px;
-        """)
-        copyrightLabel.setAlignment(QtCore.Qt.AlignCenter)
-        
-        authorLayout.addWidget(authorTitleLabel)
-        authorLayout.addWidget(authorNameLabel)
-        authorLayout.addWidget(authorHandleLabel)
-        authorLayout.addWidget(githubLabel)
-        authorLayout.addWidget(copyrightLabel)
+        authorLayout.addWidget(authorLabel)
         layout.addLayout(authorLayout)
         
         # Separator
         separator2 = QtWidgets.QFrame()
         separator2.setFrameShape(QtWidgets.QFrame.HLine)
-        separator2.setStyleSheet("background: #00ff41; max-height: 1px;")
+        separator2.setStyleSheet("background: #444444; max-height: 1px;")
         layout.addWidget(separator2)
         
         # Features Section
         featuresLabel = QtWidgets.QLabel("KEY FEATURES")
         featuresLabel.setStyleSheet("""
-            font-size: 11px;
-            color: #00ff41;
-            font-weight: 600;
+            font-size: 10px;
+            color: #888888;
+            font-weight: 500;
             letter-spacing: 1px;
             margin-bottom: 8px;
         """)
@@ -496,47 +467,67 @@ class MenuManager:
         
         # Features list
         featuresBrowser = QtWidgets.QTextBrowser()
-        featuresBrowser.setMaximumHeight(220)
+        featuresBrowser.setMinimumHeight(320)
+        featuresBrowser.setMaximumHeight(380)
         featuresBrowser.setOpenExternalLinks(False)
         
         featuresBrowser.setHtml("""
             <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #000000; }
-                .feature { margin-bottom: 8px; line-height: 1.6; }
-                .feature-title { color: #00ff41; font-weight: 600; }
-                .text { color: #ffffff; font-size: 12px; }
+                body { 
+                    font-family: 'Segoe UI', sans-serif; 
+                    background: #1e1e1e; 
+                    margin: 0; 
+                    padding: 8px 12px; 
+                    color: #cccccc;
+                }
+                .feature { 
+                    margin-bottom: 10px; 
+                    line-height: 1.5; 
+                }
+                .feature-title { 
+                    color: #bbbbbb; 
+                    font-weight: 500; 
+                    font-size: 12px;
+                    display: block;
+                    margin-bottom: 2px;
+                }
+                .text { 
+                    color: #999999; 
+                    font-size: 11px;
+                    display: block;
+                }
             </style>
             <div class="feature">
-                <span class="feature-title">Morpheus AI</span> — 
-                <span class="text">Integrated AI assistant with OpenAI & Claude support, auto-context detection</span>
+                <span class="feature-title">Maya Command Validation</span>
+                <span class="text">320+ commands validated with smart typo detection</span>
             </div>
             <div class="feature">
-                <span class="feature-title">VSCode-Style Editor</span> — 
-                <span class="text">Advanced syntax highlighting, autocomplete, inline diff preview</span>
+                <span class="feature-title">Morpheus AI Assistant</span>
+                <span class="text">Integrated AI with OpenAI & Claude</span>
             </div>
             <div class="feature">
-                <span class="feature-title">Real-Time Analysis</span> — 
-                <span class="text">Multi-pass error detection (up to 10 errors), instant syntax validation</span>
+                <span class="feature-title">VSCode-Style Editor</span>
+                <span class="text">Advanced syntax highlighting and autocomplete</span>
             </div>
             <div class="feature">
-                <span class="feature-title">Smart Code Matching</span> — 
-                <span class="text">Intelligent code replacement with visual diff preview</span>
+                <span class="feature-title">Real-Time Analysis</span>
+                <span class="text">12 validation checks with instant error detection</span>
             </div>
             <div class="feature">
-                <span class="feature-title">Python & MEL</span> — 
-                <span class="text">Dual language support with tab icons and language-specific features</span>
+                <span class="feature-title">Smart Suggestions</span>
+                <span class="text">Typo correction and import detection</span>
             </div>
             <div class="feature">
-                <span class="feature-title">Problems Panel</span> — 
-                <span class="text">Tab-focused error tracking, column-based error positioning</span>
+                <span class="feature-title">Maya Documentation</span>
+                <span class="text">270+ command tooltips with complete API coverage</span>
             </div>
             <div class="feature">
-                <span class="feature-title">Modern UI</span> — 
-                <span class="text">Dark theme, customizable docks, clean GitHub-style interface</span>
+                <span class="feature-title">Problems Panel</span>
+                <span class="text">Maya-aware error tracking with fix suggestions</span>
             </div>
             <div class="feature">
-                <span class="feature-title">High Performance</span> — 
-                <span class="text">Optimized text rendering, lag-free typing, efficient syntax parsing</span>
+                <span class="feature-title">Modern UI</span>
+                <span class="text">Dark theme with customizable docks</span>
             </div>
         """)
         layout.addWidget(featuresBrowser)
@@ -544,23 +535,23 @@ class MenuManager:
         # Separator
         separator3 = QtWidgets.QFrame()
         separator3.setFrameShape(QtWidgets.QFrame.HLine)
-        separator3.setStyleSheet("background: #00ff41; max-height: 1px;")
+        separator3.setStyleSheet("background: #444444; max-height: 1px;")
         layout.addWidget(separator3)
         
         # Tech Stack
         techLabel = QtWidgets.QLabel("BUILT WITH")
         techLabel.setStyleSheet("""
-            font-size: 11px;
-            color: #00ff41;
-            font-weight: 600;
+            font-size: 9px;
+            color: #888888;
+            font-weight: 500;
             letter-spacing: 1px;
         """)
         layout.addWidget(techLabel)
         
-        techStackLabel = QtWidgets.QLabel("Python 3.9+ • PySide6/Qt • OpenAI API • Anthropic Claude • difflib")
+        techStackLabel = QtWidgets.QLabel("Python 3.9+ • PySide6 • OpenAI • Anthropic Claude")
         techStackLabel.setStyleSheet("""
-            font-size: 12px;
-            color: #888888;
+            font-size: 11px;
+            color: #777777;
             margin-bottom: 8px;
         """)
         techStackLabel.setAlignment(QtCore.Qt.AlignCenter)

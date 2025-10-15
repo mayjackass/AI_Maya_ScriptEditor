@@ -1,9 +1,10 @@
-# NEO Script Editor v3.0 Beta
+# NEO Script Editor v3.1 Beta
 ### *"I can only show you the door. You're the one that has to walk through it."*
 
-[![Version](https://img.shields.io/badge/version-3.0--beta-orange.svg)](https://github.com/mayjackass/AI_Maya_ScriptEditor)
+[![Version](https://img.shields.io/badge/version-3.1--beta-orange.svg)](https://github.com/mayjackass/AI_Maya_ScriptEditor)
 [![Status](https://img.shields.io/badge/status-beta--testing-yellow.svg)](https://github.com/mayjackass/AI_Maya_ScriptEditor)
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/)
+[![Maya](https://img.shields.io/badge/maya-320%2B%20commands-green.svg)](https://github.com/mayjackass/AI_Maya_ScriptEditor)
 [![License](https://img.shields.io/badge/license-Beta%20License-red.svg)](BETA_LICENSE.md)
 
 **Developed by:** Mayj Amilano ([mayjackass](https://github.com/mayjackass))  
@@ -15,7 +16,50 @@
 
 > **BETA NOTICE**: This is a time-limited beta release for testing and evaluation. Please report issues on [GitHub Issues](https://github.com/mayjackass/AI_Maya_ScriptEditor/issues).
 
-A next-generation AI-powered Maya script editor with **Morpheus AI** integration, VSCode-style features, and real-time code intelligence. Experience coding like using GitHub Copilot, but built specifically for Maya Python and MEL.
+A next-generation AI-powered Maya script editor with **Morpheus AI** integration, VSCode-style features, and **THE MOST COMPREHENSIVE Maya command validation** of any IDE! Experience coding like using GitHub Copilot, but built specifically for Maya Python and MEL with **intelligent error detection** for all 320+ Maya commands.
+
+---
+
+## Revolutionary Features
+
+### Comprehensive Maya Command Validation
+- 320+ Maya commands validated in real-time
+- Smart typo detection with "Did you mean...?" suggestions
+- All Maya APIs covered: cmds, PyMEL, OpenMaya, MEL
+- Intelligent fuzzy matching for typos (e.g., `setAttrs` → suggests `setAttr`)
+- 12 validation types: Missing imports, invalid commands, API usage errors, and more
+- Real-time feedback in Problems window before you even run the code!
+
+**Example:** Type `cmds.polySpere()` and the editor instantly detects: *"Unknown cmds command: 'polySpere'. Did you mean 'polySphere'?"*
+
+### Morpheus AI Assistant
+- Auto-context detection (sees your code automatically)
+- Multi-model support (OpenAI GPT-4, Anthropic Claude)
+- Conversation history with persistent storage
+- Smart code suggestions with inline diff preview
+- Knows all 320+ Maya commands and can explain validation errors
+- Offline mode toggle for working without API connection
+
+### VSCode-Style Editor
+- Inline diff preview with red/green highlighting
+- Real-time Maya command validation (catches typos instantly!)
+- Advanced autocomplete with Tab confirmation
+- Syntax highlighting for Python & MEL with 270+ Maya keywords
+
+### Smart Maya Code Analysis
+- 12 comprehensive validation checks (import detection, command validation, API usage, MEL syntax)
+- Fuzzy command matching algorithm (90%+ similarity detection)
+- Multi-pass error detection (up to 10 errors)
+- Column-based error positioning
+- Tab-focused problems panel
+- False positive reduction
+
+### Professional Maya-Aware Interface
+- Maya command tooltips with documentation (270+ commands)
+- GitHub Dark theme with gradient backgrounds
+- Custom Python/MEL tab icons
+- Customizable dock widgets
+- Problems window with intelligent Maya suggestions
 
 ---
 
@@ -83,8 +127,10 @@ ai_script_editor/
 │   └── copilot_manager.py # Copilot-style features
 │
 ├── editor/                # Code editor
-│   ├── code_editor.py    # Main editor with error detection
+│   ├── code_editor.py    # Main editor with Maya validation
 │   ├── highlighter.py    # Python/MEL syntax highlighting
+│   ├── hover_docs.py     # Maya command documentation (270+ commands)
+│   ├── maya_commands.py  # Maya command validation database (320+ commands)
 │   └── inline_diff.py    # VSCode-style inline diff
 │
 ├── ui/                    # User interface
@@ -131,14 +177,22 @@ ai_script_editor/
 
 ### Professional Code Editor
 - **Advanced Syntax Highlighting**: VS Code-style dark theme for Python and MEL
+- **270+ Maya Commands Highlighted**: polySphere, setAttr, shadingNode, MFnMesh, etc.
+- **Comprehensive Maya Validation**: 320+ commands checked in real-time
+- **Smart Typo Detection**: Fuzzy matching suggests correct commands
 - **Multi-Error Detection**: Finds ALL syntax errors, not just the first one
 - **Visual Error Indicators**: Red wavy underlines with detailed problem descriptions
 - **Line Numbers & Current Line Highlighting**: Professional IDE experience
 - **Smart Indentation**: Auto-indent with Tab/Shift+Tab support
 - **Undo/Redo**: Full edit history management
 
-### Intelligent Tools
-- **Problems Panel**: Real-time error reporting with line numbers
+### Intelligent Maya Tools
+- **Maya Command Validation**: Real-time checking of all cmds, PyMEL, OpenMaya, MEL commands
+- **Smart Suggestions**: "Did you mean 'polySphere'?" for typos like 'polySpere'
+- **Import Detection**: Catches missing maya.cmds, PyMEL, OpenMaya imports
+- **API Usage Validation**: Detects common mistakes (missing [0], setAttr without value, etc.)
+- **Problems Panel**: Real-time Maya-aware error reporting with helpful fixes
+- **Command Tooltips**: Hover documentation for 270+ Maya commands
 - **Find & Replace**: `Ctrl+F` / `Ctrl+H` with regex support
 - **File Explorer**: Dockable folder browser with double-click to open
 - **Output Console**: Live execution logs and Maya command feedback
@@ -252,23 +306,39 @@ python run_all_tests.py
 
 ## Morpheus AI Tips
 
-**Ask Morpheus:**
+**Ask Morpheus About Maya:**
 - "How do I create a sphere in Maya?"
+- "Why is setAttrs giving me an error?" *(Morpheus knows it should be setAttr!)*
+- "What's the difference between cmds and PyMEL?"
 - "Optimize this loop for better performance"
 - "What's wrong with my script?"
-- "Explain this error message"
-- "Show me a better way to write this"
+- "Explain this Maya API error"
+- "Show me how to use shadingNode correctly"
 
 **Morpheus responds with:**
 - Philosophical coding wisdom
 - Matrix-inspired metaphors
 - Practical Python/MEL solutions
+- Maya command validation explanations
 - Interactive code blocks you can Copy/Apply/Keep
+
+**Example:**
+> **You:** "Why am I getting 'setAttrs' error?"
+> 
+> **Morpheus:** "Ah, I see you've encountered a typo in the Matrix. The correct command is `setAttr` (singular), not `setAttrs` (plural). Maya's attribute commands use singular form - one attribute, one command. The NEO editor detected this automatically and suggested the fix. Here's the correct usage:
+> ```python
+> cmds.setAttr("pCube1.translateX", 10)
+> ```
+> Remember: Free your mind from typos. The editor sees what you cannot see yet."
 
 ## Documentation
 
 Comprehensive guides in the `docs/` folder:
+- `COMPREHENSIVE_MAYA_VALIDATION.md` - Complete Maya validation system docs
+- `MAYA_VALIDATION_QUICK_GUIDE.md` - Quick reference for common typos
+- `MAYA_VALIDATION_SUMMARY.md` - Implementation details
 - `MORPHEUS_AI.md` - AI system configuration
+- `COMPLETE_MAYA_INTEGRATION.md` - Maya API documentation (270+ commands)
 - `SYNTAX_HIGHLIGHTING.md` - Editor features
 - `KEYBOARD_SHORTCUTS.md` - Full shortcut reference
 - `PROJECT_STRUCTURE.md` - Codebase architecture

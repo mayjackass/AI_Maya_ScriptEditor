@@ -4,8 +4,60 @@ Comprehensive Python, PySide6/Qt, and Maya support with real-time error highligh
 """
 import os, ast, sys, traceback
 from PySide6 import QtCore, QtGui, QtWidgets
+try:
+    import shiboken6
+except ImportError:
+    shiboken6 = None
 from .highlighter import PythonHighlighter, MELHighlighter
 from .hover_docs import get_documentation
+
+
+class _CustomTooltip(QtWidgets.QTextEdit):
+    """Custom tooltip widget that properly renders HTML content using QTextEdit."""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(QtCore.Qt.ToolTip | QtCore.Qt.FramelessWindowHint | QtCore.Qt.WindowStaysOnTopHint)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose, False)  # Don't auto-delete
+        self.setReadOnly(True)  # Make it read-only like a tooltip
+        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        
+        # Set stylesheet for tooltip appearance
+        self.setStyleSheet("""
+            QTextEdit {
+                background-color: #2b2b2b;
+                color: #cccccc;
+                border: 1px solid #454545;
+                border-radius: 4px;
+                padding: 8px;
+            }
+        """)
+    
+    def show_at(self, pos, html_text):
+        """Show tooltip at specified position with HTML content."""
+        self.setHtml(html_text)
+        
+        # Let document calculate its ideal size without constraints first
+        doc = self.document()
+        doc.adjustSize()  # Adjust to content
+        
+        # Get the ideal size
+        ideal_size = doc.size().toSize()
+        
+        # Set reasonable limits but let it be smaller if content is small
+        max_width = 600
+        max_height = 400
+        min_width = 200
+        
+        # Calculate actual size with padding
+        width = min(max(ideal_size.width() + 30, min_width), max_width)
+        height = min(ideal_size.height() + 30, max_height)
+        
+        self.setFixedSize(width, height)
+        self.move(pos)
+        self.show()
+        self.raise_()
 
 
 class _LineNumberArea(QtWidgets.QWidget):
@@ -135,14 +187,17 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         self.line_number_area = _LineNumberArea(self)
         self.line_number_area.show()  # Ensure it's visible
         
-        # Connect signals
+        # Connect signals - Optimized for Maya
         self.blockCountChanged.connect(self._update_number_area_width)
         self.updateRequest.connect(self._update_number_area)
-        # Remove cursorPositionChanged to reduce repaints (performance optimization for Maya)
-        # self.cursorPositionChanged.connect(self._update_number_area_width)
+        # REMOVED: cursorPositionChanged for Maya performance
+        
+        # Debounce line number updates for Maya performance
+        self._line_update_timer = QtCore.QTimer()
+        self._line_update_timer.setSingleShot(True)
+        self._line_update_timer.timeout.connect(lambda: self.line_number_area.update())
         
         self._update_number_area_width()
-        self.line_number_area.update()  # Force initial update
         
         # Enable hover tooltips for error messages
         self.setMouseTracking(True)
@@ -322,9 +377,9 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         # Invalidate folding cache when text changes
         self._cache_valid = False
         
-        # Debounce error checking - wait 1500ms after user stops typing (longer for Maya performance)
+        # Debounce error checking - wait 2000ms after user stops typing (Maya optimization)
         self.error_timer.stop()
-        self.error_timer.start(1500)  # Increased from 500ms for better Maya performance
+        self.error_timer.start(2000)  # Increased to 2s for Maya performance
         
     def _check_syntax_errors(self):
         """Check for syntax errors and highlight them (VSCode style - multi-pass detection)."""
@@ -364,19 +419,36 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                     break  # No more errors
                 except SyntaxError as e:
                     if e.lineno and e.lineno not in error_lines:
+                        error_msg = str(e.msg or 'Syntax error')
+                        error_line = e.lineno
+                        
+                        # Special case: unmatched ')' often reported on wrong line
+                        # Check the NEXT line for the actual extra parenthesis
+                        if "unmatched ')'" in error_msg.lower() or "unmatched" in error_msg.lower():
+                            actual_lines = code.split('\n')
+                            # Check next 2 lines for double parentheses
+                            for offset in range(0, min(3, len(actual_lines) - error_line + 1)):
+                                check_line_num = error_line + offset
+                                if 1 <= check_line_num <= len(actual_lines):
+                                    check_line = actual_lines[check_line_num - 1]
+                                    # Look for patterns like ')) or ),) that indicate extra paren
+                                    if '))'  in check_line or '),)' in check_line or ');' in check_line:
+                                        error_line = check_line_num
+                                        break
+                        
                         errors.append({
-                            'line': e.lineno,
+                            'line': error_line,
                             'column': e.offset or 1,
-                            'message': str(e.msg or 'Syntax error'),
+                            'message': error_msg,
                             'type': 'SyntaxError'
                         })
-                        error_lines.add(e.lineno)
+                        error_lines.add(error_line)
                         
                         # Temporarily "fix" this line to find more errors
                         temp_lines = temp_code.split('\n')
-                        if 1 <= e.lineno <= len(temp_lines):
+                        if 1 <= error_line <= len(temp_lines):
                             # Comment out the problematic line
-                            temp_lines[e.lineno - 1] = f"# TEMP_FIX: {temp_lines[e.lineno - 1]}"
+                            temp_lines[error_line - 1] = f"# TEMP_FIX: {temp_lines[error_line - 1]}"
                             temp_code = '\n'.join(temp_lines)
                     else:
                         break  # No new errors found
@@ -422,6 +494,10 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             # Store and highlight errors (limit to first 10 like VSCode)
             self.syntax_errors = errors[:10]
             
+            # Pass 3: Check Maya-specific API errors (cmds, PyMEL, OpenMaya)
+            maya_errors = self._check_maya_api_errors(code, error_lines)
+            self.syntax_errors.extend(maya_errors[:5])  # Add up to 5 Maya errors
+            
             # Get all lines for validation
             all_lines = code.split('\n')
             
@@ -431,6 +507,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                 # Get the line number Python reported
                 line_num = error['line']
                 error_message = error['message']
+                error_type = error.get('type', 'SyntaxError')
                 
                 # Validate line number is within bounds
                 if line_num < 1 or line_num > len(all_lines):
@@ -440,13 +517,18 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                 block = self.document().findBlockByLineNumber(line_num - 1)
                 line_text = block.text() if block.isValid() else ""
                 
-                # Highlight and emit
-                self._highlight_error_line(line_num, error_message)
-                self.errorDetected.emit(line_num, error_message)
+                # Determine if this is an error or warning based on type
+                # Maya API usage issues are warnings, syntax errors are errors
+                problem_type = 'Warning' if 'Warning' in error_type or 'MayaAPI' in error_type else 'Error'
+                
+                # Only highlight actual syntax errors with red underline
+                if problem_type == 'Error':
+                    self._highlight_error_line(line_num, error_message)
+                    self.errorDetected.emit(line_num, error_message)
                 
                 # Add to problems list
                 problems.append({
-                    'type': 'Error',
+                    'type': problem_type,
                     'message': error_message,
                     'line': line_num,
                     'file': 'Current File',
@@ -472,6 +554,192 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             print(f"Error in syntax checking: {e}")
             import traceback
             traceback.print_exc()
+    
+    def _check_maya_api_errors(self, code, existing_error_lines):
+        """
+        COMPREHENSIVE Maya API validation (cmds, PyMEL, OpenMaya, MEL).
+        This is a KEY SELLING POINT - intelligent Maya command validation!
+        Returns list of error dictionaries.
+        """
+        errors = []
+        lines = code.split('\n')
+        
+        import re
+        # Import our comprehensive command database
+        try:
+            from .maya_commands import (
+                is_valid_maya_command, 
+                get_closest_command,
+                VALID_CMDS_COMMANDS,
+                VALID_PYMEL_COMMANDS,
+                VALID_OPENMAYA_CLASSES
+            )
+        except ImportError:
+            # Fallback if module not found (shouldn't happen)
+            return errors
+        
+        for i, line in enumerate(lines, 1):
+            # Skip lines that already have Python syntax errors
+            if i in existing_error_lines:
+                continue
+            
+            line_stripped = line.strip()
+            
+            # Skip empty lines and comments
+            if not line_stripped or line_stripped.startswith('#'):
+                continue
+            
+            # =================================================================
+            # IMPORT CHECKS
+            # =================================================================
+            
+            # Check 1: Maya cmds without proper import
+            if re.search(r'\bcmds\.', line) and not any('import' in l and 'cmds' in l for l in lines[:i]):
+                errors.append({
+                    'line': i,
+                    'column': line.find('cmds.') + 1,
+                    'message': 'maya.cmds not imported. Add: import maya.cmds as cmds',
+                    'type': 'MayaImportError'
+                })
+            
+            # Check 2: PyMEL without proper import
+            if (re.search(r'\bpm\.', line) or re.search(r'\bpymel\.', line)) and not any('import' in l and ('pymel' in l or 'pm' in l) for l in lines[:i]):
+                errors.append({
+                    'line': i,
+                    'column': max(line.find('pm.'), line.find('pymel.')) + 1,
+                    'message': 'PyMEL not imported. Add: import pymel.core as pm',
+                    'type': 'MayaImportError'
+                })
+            
+            # Check 3: OpenMaya without proper import
+            if re.search(r'\bOpenMaya\.|MObject|MDagPath|MFn', line) and not any('import' in l and 'OpenMaya' in l for l in lines[:i]):
+                errors.append({
+                    'line': i,
+                    'column': 1,
+                    'message': 'OpenMaya not imported. Add: import maya.api.OpenMaya as om',
+                    'type': 'MayaImportError'
+                })
+            
+            # =================================================================
+            # MAYA cmds COMMAND VALIDATION (THE KEY FEATURE!)
+            # =================================================================
+            
+            # Check 4: Validate ALL cmds commands against known database
+            cmds_match = re.search(r'cmds\.(\w+)\(', line)
+            if cmds_match:
+                cmd_name = cmds_match.group(1)
+                if not is_valid_maya_command(cmd_name, 'cmds'):
+                    # Unknown command - try to find closest match
+                    closest, score = get_closest_command(cmd_name, 'cmds')
+                    if closest and score > 0.6:
+                        errors.append({
+                            'line': i,
+                            'column': line.find(cmd_name) + 1,
+                            'message': f'Unknown cmds command: "{cmd_name}". Did you mean "{closest}"?',
+                            'type': 'MayaCommandError'
+                        })
+                    else:
+                        errors.append({
+                            'line': i,
+                            'column': line.find(cmd_name) + 1,
+                            'message': f'Unknown cmds command: "{cmd_name}". Check Maya documentation.',
+                            'type': 'MayaCommandError'
+                        })
+            
+            # Check 5: Validate PyMEL commands
+            pm_match = re.search(r'pm\.(\w+)\(', line)
+            if pm_match:
+                cmd_name = pm_match.group(1)
+                if not is_valid_maya_command(cmd_name, 'pm'):
+                    closest, score = get_closest_command(cmd_name, 'pm')
+                    if closest and score > 0.6:
+                        errors.append({
+                            'line': i,
+                            'column': line.find(cmd_name) + 1,
+                            'message': f'Unknown PyMEL command: "{cmd_name}". Did you mean "{closest}"?',
+                            'type': 'PyMELCommandError'
+                        })
+            
+            # =================================================================
+            # API USAGE ERRORS
+            # =================================================================
+            
+            # Check 6: Common cmds mistakes - using return value incorrectly
+            if re.search(r'(\w+)\s*=\s*cmds\.poly(Sphere|Cube|Cylinder|Plane|Torus|Cone)\(', line):
+                if '[0]' not in line:
+                    errors.append({
+                        'line': i,
+                        'column': 1,
+                        'message': 'Maya primitive returns [transform, shape]. Use: sphere = cmds.polySphere()[0]',
+                        'type': 'MayaAPIWarning'
+                    })
+            
+            # Check 7: setAttr without proper value
+            if re.search(r'cmds\.setAttr\([^,)]+\)$', line_stripped):
+                errors.append({
+                    'line': i,
+                    'column': line.find('setAttr') + 1,
+                    'message': 'setAttr requires a value. Usage: cmds.setAttr("node.attr", value)',
+                    'type': 'MayaAPIError'
+                })
+            
+            # Check 8: connectAttr needs exactly 2 arguments
+            connect_match = re.search(r'cmds\.connectAttr\((.*)\)', line_stripped)
+            if connect_match:
+                args = connect_match.group(1)
+                if ',' not in args or args.count(',') < 1:
+                    errors.append({
+                        'line': i,
+                        'column': line.find('connectAttr') + 1,
+                        'message': 'connectAttr needs source and destination. Usage: cmds.connectAttr("src.attr", "dst.attr")',
+                        'type': 'MayaAPIError'
+                    })
+            
+            # Check 9: Missing .attr in getAttr/setAttr
+            if re.search(r'cmds\.(get|set)Attr\(\s*["\'][\w]+["\']\s*[,\)]', line):
+                errors.append({
+                    'line': i,
+                    'column': 1,
+                    'message': 'Attribute access needs format "node.attribute" not just "node"',
+                    'type': 'MayaAPIError'
+                })
+            
+            # Check 10: PyMEL - trying to use >> without proper objects
+            if '>>' in line and 'pm.' in line:
+                if not re.search(r'\.\w+\s*>>\s*\w+\.\w+', line):
+                    errors.append({
+                        'line': i,
+                        'column': line.find('>>') + 1,
+                        'message': 'PyMEL >> operator connects attributes. Usage: source.attr >> dest.attr',
+                        'type': 'PyMELError'
+                    })
+            
+            # Check 11: OpenMaya - using MObject without null check
+            if 'MObject' in line and '=' in line and 'isNull' not in ' '.join(lines[i:min(i+3, len(lines))]):
+                if 'MObject(' in line:
+                    errors.append({
+                        'line': i,
+                        'column': 1,
+                        'message': 'Check MObject validity with mobject.isNull() before use',
+                        'type': 'OpenMayaWarning'
+                    })
+            
+            # =================================================================
+            # MEL SYNTAX CHECKING (Basic validation)
+            # =================================================================
+            
+            # Check 12: MEL eval syntax
+            if 'mel.eval' in line:
+                # Check for proper string quotes
+                if not re.search(r'mel\.eval\s*\(\s*["\']', line):
+                    errors.append({
+                        'line': i,
+                        'column': line.find('mel.eval') + 1,
+                        'message': 'mel.eval requires string argument. Usage: mel.eval("MEL command")',
+                        'type': 'MELError'
+                    })
+        
+        return errors
     
     def _find_actual_error_line(self, all_lines, reported_line, error_message):
         """Find the actual line with the error when Python's compile() reports wrong line.
@@ -655,24 +923,29 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         self.error_highlights.clear()
         
     def _update_error_highlighting(self):
-        """Update the syntax highlighter with current error details and apply red background."""
+        """Update the syntax highlighter with current error details and apply colored backgrounds."""
         if self.highlighter and hasattr(self.highlighter, 'set_error_details'):
             # Pass full error details including column information
             self.highlighter.set_error_details(self.syntax_errors)
             
-            # Also apply Copilot-style red background to error lines
-            error_lines = [e['line'] for e in self.syntax_errors]
+            # Separate errors from warnings for background highlighting
+            error_lines = [e['line'] for e in self.syntax_errors if e.get('type', 'SyntaxError') not in ['MayaAPIWarning', 'Warning']]
+            warning_lines = [e['line'] for e in self.syntax_errors if e.get('type', 'SyntaxError') in ['MayaAPIWarning', 'Warning']]
+            
+            # Apply Copilot-style backgrounds (red for errors, yellow for warnings)
             if hasattr(self.highlighter, 'set_copilot_error_lines'):
                 self.highlighter.set_copilot_error_lines(error_lines)
+            if hasattr(self.highlighter, 'set_copilot_warning_lines'):
+                self.highlighter.set_copilot_warning_lines(warning_lines)
             
-            # Force rehighlight to show errors
+            # Force rehighlight to show errors/warnings
             self.highlighter.rehighlight()
         elif self.highlighter and hasattr(self.highlighter, 'set_error_lines'):
             # Fallback for old API
             error_lines = {e['line'] for e in self.syntax_errors}
             self.highlighter.set_error_lines(error_lines)
             
-            # Also try to apply red background
+            # Try to apply backgrounds
             if hasattr(self.highlighter, 'set_copilot_error_lines'):
                 self.highlighter.set_copilot_error_lines(list(error_lines))
             
@@ -727,16 +1000,18 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         )
     
     def paintEvent(self, event):
-        """Paint indentation guides like VSCode - optimized."""
+        """Paint indentation guides like VSCode - optimized for Maya."""
         super().paintEvent(event)
         
         # Skip if indentation guides are disabled (for max performance)
         if not self.enable_indentation_guides:
             return
         
-        # Skip indentation guides if typing (performance optimization)
-        if hasattr(self, '_skip_paint_count') and self._skip_paint_count > 0:
-            self._skip_paint_count -= 1
+        # Throttle paint events in Maya (skip every other paint for performance)
+        if not hasattr(self, '_paint_counter'):
+            self._paint_counter = 0
+        self._paint_counter += 1
+        if self._paint_counter % 2 == 0:  # Skip every other paint
             return
         
         # Draw indentation guides
@@ -771,7 +1046,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                     # Draw vertical lines for each indentation level
                     indent_levels = indent_count // 4
                     if indent_levels > 0:
-                        for level in range(min(indent_levels, 10)):  # Limit to 10 levels max
+                        for level in range(min(indent_levels, 8)):  # Reduced from 10 to 8 for Maya
                             x = int(level * indent_width)
                             painter.drawLine(x, block_top, x, block_bottom)
             
@@ -936,14 +1211,18 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         else:
             self.breakpoints.add(line_number)
         
-        # Only update line number area, not entire viewport (performance)
-        self.line_number_area.update()
+        # Debounced update for Maya performance
+        if hasattr(self, '_line_update_timer'):
+            self._line_update_timer.stop()
+            self._line_update_timer.start(50)
     
     def clear_all_breakpoints(self):
         """Clear all breakpoints - OPTIMIZED."""
         if self.breakpoints:  # Only update if there were breakpoints
             self.breakpoints.clear()
-            self.line_number_area.update()
+            if hasattr(self, '_line_update_timer'):
+                self._line_update_timer.stop()
+                self._line_update_timer.start(50)
     
     def get_breakpoints(self):
         """Get list of all breakpoint line numbers."""
@@ -954,9 +1233,10 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         old_line = self.current_debug_line
         self.current_debug_line = line_number
         
-        # Only update if changed
-        if old_line != line_number:
-            self.line_number_area.update()
+        # Only update if changed - debounced for Maya
+        if old_line != line_number and hasattr(self, '_line_update_timer'):
+            self._line_update_timer.stop()
+            self._line_update_timer.start(50)
         
         # Scroll to the line
         if line_number:
@@ -968,7 +1248,9 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         """Clear the current debug line indicator - OPTIMIZED."""
         if self.current_debug_line is not None:
             self.current_debug_line = None
-            self.line_number_area.update()
+            if hasattr(self, '_line_update_timer'):
+                self._line_update_timer.stop()
+                self._line_update_timer.start(50)
         
     def _paint_line_numbers(self, event):
         """Paint line numbers with VSCode-style error indicators and breakpoints - OPTIMIZED."""
@@ -992,9 +1274,11 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         
         # Build error line set for O(1) lookup instead of O(n) list comprehension
         if has_errors:
-            error_lines = {error['line'] for error in self.syntax_errors}
+            error_lines = {error['line'] for error in self.syntax_errors if error.get('type', 'SyntaxError') not in ['MayaAPIWarning', 'Warning']}
+            warning_lines = {error['line'] for error in self.syntax_errors if error.get('type', 'SyntaxError') in ['MayaAPIWarning', 'Warning']}
         else:
             error_lines = set()
+            warning_lines = set()
         
         block = self.firstVisibleBlock()
         block_number = block.blockNumber()
@@ -1013,6 +1297,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                 
                 # Fast O(1) lookups
                 has_error = line_number in error_lines if has_errors else False
+                has_warning = line_number in warning_lines if has_errors else False
                 has_breakpoint = line_number in breakpoints if has_breakpoints else False
                 is_debug_line = line_number == current_debug
                 
@@ -1027,9 +1312,11 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                     debug_rect = QtCore.QRect(0, top, self.line_number_area.width(), font_height)
                     painter.fillRect(debug_rect, QtGui.QColor(200, 200, 0, 50))
                 
-                # Set color based on error status (no visual indicator to avoid confusion with breakpoints)
+                # Set color based on error/warning status
                 if has_error:
-                    painter.setPen(QtGui.QColor(255, 100, 100))  # Light red text for line numbers with errors
+                    painter.setPen(QtGui.QColor(255, 100, 100))  # Light red text for errors
+                elif has_warning:
+                    painter.setPen(QtGui.QColor(255, 165, 0))  # Orange text for warnings
                 else:
                     painter.setPen(QtGui.QColor(100, 100, 100))  # Normal gray
                 
@@ -1314,15 +1601,66 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             self._reset_morpheus_timer()
             self._hide_morpheus_suggestion()
     
+    def leaveEvent(self, event):
+        """Hide tooltip when mouse leaves the editor."""
+        super().leaveEvent(event)
+        self._hide_custom_tooltip()
+    
+    def focusOutEvent(self, event):
+        """Hide tooltip when editor loses focus (tab switching)."""
+        super().focusOutEvent(event)
+        self._hide_custom_tooltip()
+    
+    def hideEvent(self, event):
+        """Hide tooltip when editor is hidden."""
+        super().hideEvent(event)
+        self._hide_custom_tooltip()
+    
+    def _hide_custom_tooltip(self):
+        """Helper to hide custom tooltip and stop hover timer."""
+        # Stop hover timer
+        if hasattr(self, '_hover_timer'):
+            self._hover_timer.stop()
+        
+        # Hide tooltip
+        if hasattr(self, '_custom_tooltip') and self._custom_tooltip:
+            if shiboken6 and not shiboken6.isValid(self._custom_tooltip):
+                self._custom_tooltip = None
+            elif self._custom_tooltip:
+                self._custom_tooltip.hide()
+    
     def _handle_documentation_hover(self, cursor, event):
         """Show VS Code-style documentation tooltip with syntax highlighting and Pylance integration."""
+        # Initialize hover timer if not exists
+        if not hasattr(self, '_hover_timer'):
+            self._hover_timer = QtCore.QTimer(self)
+            self._hover_timer.setSingleShot(True)
+            self._hover_timer.timeout.connect(self._show_hover_tooltip)
+            self._hover_data = None
+            self._last_hover_word = None
+        
         # Select the word under cursor
         cursor.select(QtGui.QTextCursor.WordUnderCursor)
         word = cursor.selectedText().strip()
         
         if not word:
-            QtWidgets.QToolTip.hideText()
+            # Hide any existing custom tooltip and stop timer
+            self._hover_timer.stop()
+            self._last_hover_word = None
+            if hasattr(self, '_custom_tooltip') and self._custom_tooltip:
+                if shiboken6 and not shiboken6.isValid(self._custom_tooltip):
+                    self._custom_tooltip = None
+                elif self._custom_tooltip:
+                    self._custom_tooltip.hide()
             return
+        
+        # Check if we're still hovering on the same word
+        if self._last_hover_word == word and self._hover_timer.isActive():
+            # Still on same word, timer already running, do nothing
+            return
+        
+        # New word - update tracking
+        self._last_hover_word = word
         
         # Get full code text and cursor position for intelligent analysis
         code_text = self.toPlainText()
@@ -1340,13 +1678,40 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             result = get_documentation(word, code_text, cursor_pos)
             
             if result[0] is None:
-                QtWidgets.QToolTip.hideText()
+                # Hide any existing custom tooltip and stop timer
+                self._hover_timer.stop()
+                self._last_hover_word = None
+                if hasattr(self, '_custom_tooltip') and self._custom_tooltip:
+                    if shiboken6 and not shiboken6.isValid(self._custom_tooltip):
+                        self._custom_tooltip = None
+                    elif self._custom_tooltip:
+                        self._custom_tooltip.hide()
                 return
             
             colored_signature, description, doc_type = result
             tooltip_text = self._format_custom_tooltip(word, colored_signature, description, doc_type)
         
-        QtWidgets.QToolTip.showText(event.globalPosition().toPoint(), tooltip_text, self)
+        # Store hover data and start timer (200ms delay - faster response)
+        self._hover_data = {
+            'text': tooltip_text,
+            'position': event.globalPosition().toPoint()
+        }
+        self._hover_timer.start(200)  # Reduced from 500ms to 200ms
+    
+    def _show_hover_tooltip(self):
+        """Show the tooltip after hover delay."""
+        if not hasattr(self, '_hover_data') or not self._hover_data:
+            return
+        
+        # Create and show custom tooltip with HTML support
+        # Check if tooltip exists and is still valid
+        if not hasattr(self, '_custom_tooltip') or self._custom_tooltip is None:
+            self._custom_tooltip = _CustomTooltip(self)
+        elif shiboken6 and not shiboken6.isValid(self._custom_tooltip):
+            self._custom_tooltip = _CustomTooltip(self)
+        
+        self._custom_tooltip.show_at(self._hover_data['position'], self._hover_data['text'])
+        self._hover_data = None
     
     def _get_pylance_hover_info(self, word, position):
         """Get hover information from Pylance if available."""
@@ -1381,6 +1746,8 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
     def _format_custom_tooltip(self, word, colored_signature, description, doc_type):
         """Format tooltip using custom documentation with appropriate icons."""
         import os
+        import html as html_module
+        
         assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
         
         # Map doc types to icon files based on available assets
@@ -1390,18 +1757,21 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             'method': 'suggestion.png',       # Methods get suggestion icon
             'keyword': 'python.png',          # Keywords get Python icon
             'builtin': 'python.png',          # Built-ins get Python icon
-            'module': 'open_folder.png'       # Modules get folder icon
+            'module': 'open_folder.png',      # Modules get folder icon
+            'maya': 'python.png',             # Maya commands get Python icon
+            'pymel': 'python.png',            # PyMEL gets Python icon
+            'qt': 'file.png',                 # Qt gets file icon
+            'api': 'python.png'               # OpenMaya API gets Python icon
         }
         icon_file = icon_map.get(doc_type, 'suggestion.png')
         icon_path = os.path.join(assets_dir, icon_file)
         
-        # Build tooltip without background colors (fully transparent)
-        tooltip_text = f"<div style='padding:10px; max-width:500px'>"
+        # Build simple HTML that Qt definitely supports
+        tooltip_text = "<html><body>"
         
-        # Icon and word name
-        tooltip_text += f"<div style='margin-bottom:8px'>"
-        tooltip_text += f"<img src='{icon_path}' width='16' height='16' style='vertical-align:middle'> "
-        tooltip_text += f"<b style='color:#ffffff; font-size:13px'>{word}</b>"
+        # Icon and word name (using simple HTML)
+        tooltip_text += f'<p><img src="{icon_path}" width="16" height="16"> '
+        tooltip_text += f'<b><font color="#ffffff" size="4">{html_module.escape(word)}</font></b>'
         
         # Add type label
         type_labels = {
@@ -1410,24 +1780,29 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             'method': 'method',
             'keyword': 'keyword',
             'builtin': 'built-in',
-            'module': 'module'
+            'module': 'module',
+            'maya': 'maya command',
+            'pymel': 'pymel function',
+            'qt': 'qt class',
+            'api': 'maya api class'
         }
         type_label = type_labels.get(doc_type, '')
         if type_label:
-            tooltip_text += f" <span style='color:#a0a0a0; font-size:11px; font-style:italic'>({type_label})</span>"
+            tooltip_text += f' <font color="#a0a0a0"><i>({html_module.escape(type_label)})</i></font>'
         
-        tooltip_text += "</div>"
+        tooltip_text += "</p>"
         
-        # Colored signature (no background)
+        # Colored signature (already formatted as HTML from format_signature_with_colors)
         tooltip_text += colored_signature
         
         # Description
         if description:
-            # Replace newlines with <br> for HTML
-            desc_html = description.replace('\n', '<br>')
-            tooltip_text += f"<div style='margin-top:8px; color:#e0e0e0; font-size:11px; line-height:1.5'>{desc_html}</div>"
+            # Escape and convert newlines to <br>
+            desc_escaped = html_module.escape(description)
+            desc_html = desc_escaped.replace('\n', '<br>')
+            tooltip_text += f'<p><font color="#e0e0e0" size="2">{desc_html}</font></p>'
         
-        tooltip_text += "</div>"
+        tooltip_text += "</body></html>"
         
         return tooltip_text
     
@@ -1457,7 +1832,17 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             
             # Show immediate tooltip with icons
             error_message = error_info['message']
-            tooltip_text = f"<b style='color:#f48771'><img src='{error_icon}' width='16' height='16'> Syntax Error:</b><br>{error_message}"
+            problem_type = error_info.get('type', 'Error')  # Get type from Problems window
+            
+            # Choose color and label based on type
+            if problem_type == 'Warning':
+                type_color = '#FFA500'  # Orange for warnings
+                type_label = 'Warning'
+            else:
+                type_color = '#f48771'  # Red for errors
+                type_label = 'Syntax Error'
+            
+            tooltip_text = f"<b style='color:{type_color}'><img src='{error_icon}' width='16' height='16'> {type_label}:</b><br>{error_message}"
             tooltip_text += f"<br><i style='color:#888'>Line {line_number}</i>"
             
             # Add basic suggestion
@@ -1490,10 +1875,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         """Called after hovering on error for 2 seconds - uses Problems window data."""
         if self._current_suggestion_line and hasattr(self, '_hover_error_info') and self._hover_error_info:
             # Use the error info from Problems window that we stored
-            print(f"[TIMER] Timer fired for line {self._current_suggestion_line} from Problems window")
             self._request_morpheus_suggestion(self._hover_error_info, self._current_suggestion_line)
-        else:
-            print(f"[WARN] Timer fired but no error info stored")
     
     def _request_morpheus_suggestion(self, error_info, line_number):
         """Request AI suggestion from Morpheus using Problems window data.
@@ -1502,7 +1884,6 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         """
         # Check if Morpheus is available
         if not self._is_morpheus_available():
-            print("[WARN] Morpheus is not available")
             return
         
         # Use the error_info that was passed from Problems window
@@ -1517,28 +1898,8 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             # Fallback: read current line if no stored text (shouldn't happen)
             cursor = QtGui.QTextCursor(self.document().findBlockByLineNumber(actual_line - 1))
             line_text = cursor.block().text()
-            print(f"[WARN] No stored line_text, reading current: '{line_text.strip()}'")
         else:
             line_text = stored_line_text
-        
-        print(f"=" * 50)
-        print(f"[PROBLEMS] WINDOW DATA:")
-        print(f"   Line from Problems: {actual_line}")
-        print(f"   Error from Problems: {error_message}")
-        print(f"   Original Line Text: '{line_text.strip()}'")
-        print(f"=" * 50)
-        
-        # Get surrounding context using CURRENT editor content
-        context_lines = []
-        for i in range(max(0, actual_line - 4), min(self.document().blockCount(), actual_line + 3)):
-            block = self.document().findBlockByLineNumber(i)
-            prefix = ">>> " if (i + 1) == actual_line else "    "
-            context_lines.append(f"{prefix}Line {i+1}: {block.text()}")
-        
-        print(f"[CONTEXT] Around line {actual_line}:")
-        for ctx_line in context_lines:
-            print(f"   {ctx_line}")
-        print(f"=" * 50)
         
         # Build context string
         context = '\n'.join([self.document().findBlockByLineNumber(i).text() 
@@ -1614,10 +1975,7 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
             # Get Morpheus
             morpheus = main_window.chat_manager.morpheus
             if not morpheus or not morpheus.client:
-                print("[WARN] Morpheus client not available")
                 return
-            
-            print(f"[MORPHEUS] Sending request to Morpheus ({morpheus.provider})...")
             
             # Get response directly from API
             try:
@@ -1643,30 +2001,23 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
                     )
                     suggestion = response.choices[0].message.content.strip()
                 
-                print(f"[OK] Got Morpheus response: {suggestion[:50]}...")
-                
                 # Extract code from response
                 extracted = self._extract_code_from_response(suggestion)
                 
                 if extracted and extracted.strip() != original_line.strip():
                     # Schedule UI update on main thread
                     QtCore.QTimer.singleShot(0, lambda: self._show_morpheus_suggestion(extracted, line_number, original_line))
-                else:
-                    print("[WARN] No valid suggestion extracted")
                     
             except Exception as e:
-                print(f"[ERROR] Morpheus API error: {e}")
+                pass
                 
         except Exception as e:
-            print(f"Error sending Morpheus request: {e}")
             import traceback
             traceback.print_exc()
     
     def _extract_code_from_response(self, response):
         """Extract code from Morpheus response - handles multiple formats."""
         import re
-        
-        print(f"[EXTRACT] Extracting from response: {response[:100]}...")
         
         # Remove any quotes wrapping the entire response
         cleaned = response.strip()
@@ -1722,30 +2073,15 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
             code_lines.append(line)
         
         if code_lines:
-            result = code_lines[0]
-            print(f"[OK] Extracted from multi-line: {result}")
-            return result
+            return code_lines[0]
         
         # Strategy 4: Just return the cleaned response
-        print(f"[WARN] Returning cleaned response: {cleaned}")
         return cleaned
     
     def _show_morpheus_suggestion(self, suggestion, line_number, original_line):
         """Show Morpheus suggestion with green highlighting and action buttons."""
         from PySide6 import QtCore, QtGui, QtWidgets
         import os
-        
-        print(f"=" * 50)
-        print(f"[SUGGESTION] SHOWING SUGGESTION WIDGET:")
-        print(f"   Line from Problems window: {line_number}")
-        print(f"   Original line text: '{original_line.strip()}'")
-        print(f"   Morpheus suggestion: '{suggestion.strip()}'")
-        
-        # Verify the line number matches what's in the editor
-        cursor = QtGui.QTextCursor(self.document().findBlockByLineNumber(line_number - 1))
-        current_line_text = cursor.block().text()
-        print(f"   Current editor line {line_number}: '{current_line_text.strip()}'")
-        print(f"=" * 50)
         
         # Hide any existing suggestion widget
         self._hide_morpheus_suggestion()
@@ -1878,23 +2214,65 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
         
         layout.addWidget(container)
         
-        # Position widget near the error line
+        # Position widget near the error line, ensuring it stays visible
         cursor = QtGui.QTextCursor(self.document().findBlockByLineNumber(line_number - 1))
         rect = self.cursorRect(cursor)
-        global_pos = self.mapToGlobal(rect.topLeft())
         
+        # Adjust size first to know widget dimensions
         self._morpheus_suggestion_widget.adjustSize()
-        self._morpheus_suggestion_widget.move(global_pos.x() + 50, global_pos.y() - 10)
+        widget_width = self._morpheus_suggestion_widget.width()
+        widget_height = self._morpheus_suggestion_widget.height()
+        
+        # Get editor and screen geometry
+        editor_global_rect = self.rect()
+        editor_global_pos = self.mapToGlobal(QtCore.QPoint(0, 0))
+        screen = QtWidgets.QApplication.primaryScreen().geometry()
+        
+        # Try to position above the line first
+        local_x = rect.left() + 50
+        local_y = rect.top() - widget_height - 15
+        
+        # Check if there's space above
+        global_test_y = self.mapToGlobal(QtCore.QPoint(0, local_y)).y()
+        if global_test_y < editor_global_pos.y() or local_y < 0:
+            # Not enough space above, try below
+            local_y = rect.bottom() + 10
+            global_test_y = self.mapToGlobal(QtCore.QPoint(0, local_y)).y()
+            
+            # Check if there's space below
+            if global_test_y + widget_height > editor_global_pos.y() + self.height():
+                # Not enough space below either, position at center of viewport
+                viewport_center_y = self.viewport().height() // 2
+                local_y = viewport_center_y - widget_height // 2
+        
+        # Ensure horizontal position stays on screen
+        global_test_x = self.mapToGlobal(QtCore.QPoint(local_x, 0)).x()
+        if global_test_x + widget_width > screen.right():
+            local_x = max(10, rect.left() - widget_width - 10)  # Try left side
+        
+        if local_x < 0:
+            local_x = 10
+        
+        # Convert to global coordinates
+        global_pos = self.mapToGlobal(QtCore.QPoint(local_x, local_y))
+        
+        # Final safety check - ensure it's on screen
+        if global_pos.x() < screen.left():
+            global_pos.setX(screen.left() + 10)
+        if global_pos.y() < screen.top():
+            global_pos.setY(screen.top() + 10)
+        if global_pos.x() + widget_width > screen.right():
+            global_pos.setX(screen.right() - widget_width - 10)
+        if global_pos.y() + widget_height > screen.bottom():
+            global_pos.setY(screen.bottom() - widget_height - 10)
+        
+        self._morpheus_suggestion_widget.move(global_pos)
         self._morpheus_suggestion_widget.show()
+        self._morpheus_suggestion_widget.raise_()  # Bring to front
+        self._morpheus_suggestion_widget.activateWindow()  # Ensure focus
     
     def _accept_morpheus_suggestion(self, suggestion, line_number):
         """Apply the Morpheus suggestion to the code, preserving indentation."""
-        print(f"=" * 50)
-        print(f"[APPLY] APPLYING SUGGESTION:")
-        print(f"   THIS EDITOR ID: {id(self)}")
-        print(f"   Line number from Problems window: {line_number}")
-        print(f"   Morpheus suggestion: '{suggestion}'")
-        
         # SIMPLE: Just use the line number directly - don't search!
         # The line_number comes from Problems window and is for THIS editor
         actual_line_number = line_number
@@ -1905,34 +2283,27 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
         
         # Validate line number is within bounds
         if actual_line_number < 1 or actual_line_number > len(lines):
-            print(f"   [ERROR] Line {actual_line_number} is out of bounds (1-{len(lines)})")
             self._hide_morpheus_suggestion()
             return
         
         # Get the cursor for the line using 0-indexed block number
         block_index = actual_line_number - 1
-        print(f"   Block index (0-indexed): {block_index}")
         
         cursor = QtGui.QTextCursor(self.document().findBlockByLineNumber(block_index))
         cursor.movePosition(QtGui.QTextCursor.StartOfBlock)
         cursor.movePosition(QtGui.QTextCursor.EndOfBlock, QtGui.QTextCursor.KeepAnchor)
         
         original_text = cursor.selectedText()
-        print(f"   Line {actual_line_number} CURRENT content: '{original_text}'")
         
         # Calculate indentation from original line (count leading spaces/tabs)
         indent = len(original_text) - len(original_text.lstrip())
         indent_str = original_text[:indent]  # Preserve actual indent chars (spaces or tabs)
-        print(f"   Indentation: {indent} chars")
         
         # Clean the suggestion - remove any leading/trailing whitespace
         clean_suggestion = suggestion.strip()
-        print(f"   Clean suggestion: '{clean_suggestion}'")
         
         # Apply the original indentation to the cleaned suggestion
         indented_suggestion = indent_str + clean_suggestion
-        print(f"   Final text: '{indented_suggestion}'")
-        print(f"=" * 50)
         
         # Replace the line content (not including the newline)
         cursor.insertText(indented_suggestion)
