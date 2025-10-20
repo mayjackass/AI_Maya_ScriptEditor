@@ -74,6 +74,10 @@ class BetaManager:
     
     def is_expired(self):
         """Check if beta has expired"""
+        # Check for development mode bypass
+        if os.environ.get('NEO_DEV_MODE') == '1' or os.environ.get('NEO_BYPASS_EXPIRATION') == '1':
+            return False  # Bypass expiration in development mode
+        
         if not self.IS_BETA:
             return False
         
@@ -109,7 +113,8 @@ class BetaManager:
     
     def get_title_suffix(self):
         """Get suffix to add to window title"""
-        if self.DEV_MODE:
+        # Check for development mode bypass
+        if self.DEV_MODE or os.environ.get('NEO_DEV_MODE') == '1':
             return " - DEV MODE"
         if not self.IS_BETA:
             return ""
@@ -123,7 +128,7 @@ class BetaManager:
     def show_startup_notice(self, parent=None):
         """Show beta notice on startup if needed"""
         # Dev mode bypasses all checks
-        if self.DEV_MODE:
+        if self.DEV_MODE or os.environ.get('NEO_DEV_MODE') == '1' or os.environ.get('NEO_BYPASS_EXPIRATION') == '1':
             return True
         
         # Check if user dismissed notice today

@@ -56,33 +56,6 @@ def complete_neo_setup():
                 print(f"❌ [NEO] Standalone launch failed: {e}")
                 return None
         
-        def launch_neo_docked():
-            """Launch NEO Script Editor as dockable Maya workspace control"""
-            try:
-                from maya_dockable_launcher import show_neo_editor_docked
-                control = show_neo_editor_docked()
-                print("✅ [NEO] Dockable Script Editor launched")
-                return control
-            except Exception as e:
-                print(f"❌ [NEO] Dockable launch failed: {e}")
-                return None
-        
-        def hide_neo_docked():
-            """Hide the dockable NEO Script Editor"""
-            try:
-                from maya_dockable_launcher import hide_neo_editor
-                hide_neo_editor()
-            except Exception as e:
-                print(f"❌ [NEO] Hide failed: {e}")
-        
-        def delete_neo_docked():
-            """Delete the dockable NEO Script Editor completely"""
-            try:
-                from maya_dockable_launcher import delete_neo_editor
-                delete_neo_editor()
-            except Exception as e:
-                print(f"❌ [NEO] Delete failed: {e}")
-        
         def create_neo_shelf():
             """Create NEO shelf tab with buttons"""
             try:
@@ -95,10 +68,6 @@ def complete_neo_setup():
         # Make functions globally available
         import __main__
         __main__.launch_neo_editor = launch_neo_editor
-        __main__.launch_neo_docked = launch_neo_docked
-        __main__.neo_docked = launch_neo_docked
-        __main__.hide_neo_docked = hide_neo_docked
-        __main__.delete_neo_docked = delete_neo_docked
         __main__.create_neo_shelf = create_neo_shelf
         
         print("   ✅ NEO functions installed globally")
@@ -112,12 +81,12 @@ def complete_neo_setup():
         else:
             print("   ⚠️ NEO shelf creation had issues (but functions still work)")
         
-        # Step 3: Launch dockable NEO Script Editor
-        print("🪟 [3/3] Launching dockable NEO Script Editor...")
-        editor_control = launch_neo_docked()
+        # Step 3: Launch standalone NEO Script Editor
+        print("🪟 [3/3] Launching standalone NEO Script Editor...")
+        editor_window = launch_neo_editor()
         
-        if editor_control:
-            print("   ✅ NEO Script Editor launched and docked")
+        if editor_window:
+            print("   ✅ NEO Script Editor launched (standalone always-on-top)")
         else:
             print("   ⚠️ NEO Script Editor launch had issues")
         
@@ -126,16 +95,14 @@ def complete_neo_setup():
         print("🎉 NEO Script Editor setup complete!")
         print("📖 What was installed:")
         print("   • NEO shelf tab with logo buttons")
-        print("   • Dockable NEO Script Editor (currently open)")
+        print("   • Standalone NEO Script Editor (always on top)")
         print("   • Global convenience functions")
         print("")
         print("🎯 Available commands:")
-        print("   • neo_docked()         - Launch dockable editor")
         print("   • launch_neo_editor()  - Launch standalone editor")
-        print("   • hide_neo_docked()    - Hide docked editor")
         print("   • create_neo_shelf()   - Recreate shelf if needed")
         print("")
-        print("💡 Pro tip: Drag the NEO editor to the top for perfect workflow!")
+        print("💡 Pro tip: NEO editor stays on top for easy access!")
         print("💡 Click the NEO button in the shelf anytime to reopen")
         
         return True
@@ -147,11 +114,38 @@ def complete_neo_setup():
         return False
 
 
+def launch_neo_editor():
+    """Launch NEO Script Editor as standalone always-on-top window"""
+    try:
+        # Add paths
+        neo_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        if neo_dir not in sys.path:
+            sys.path.insert(0, neo_dir)
+        
+        from main_window import AiScriptEditor
+        window = AiScriptEditor()
+        window.show()
+        print("✅ [NEO] Standalone Script Editor launched")
+        return window
+    except Exception as e:
+        print(f"❌ [NEO] Standalone launch failed: {e}")
+        return None
+
+
+def create_neo_shelf():
+    """Create NEO shelf tab with buttons"""
+    try:
+        from maya_shelf_creator import create_neo_shelf
+        return create_neo_shelf()
+    except Exception as e:
+        print(f"❌ [NEO] Shelf creation failed: {e}")
+        return False
+
+
 def quick_neo_launch():
     """Quick launch - just open NEO without full setup"""
     try:
-        from maya_dockable_launcher import show_neo_editor_docked
-        return show_neo_editor_docked()
+        return launch_neo_editor()
     except Exception as e:
         print(f"❌ Quick launch failed: {e}")
         return None

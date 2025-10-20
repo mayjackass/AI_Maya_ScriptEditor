@@ -95,6 +95,41 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         if os.path.exists(icon_path):
             self.setWindowIcon(QtGui.QIcon(icon_path))
         
+        # Set window flags to keep it on top of Maya (like Maya's script editor)
+        try:
+            # Try to get Maya's main window as parent for better integration
+            import maya.OpenMayaUI as omui
+            import shiboken6
+            maya_main_window_ptr = omui.MQtUtil.mainWindow()
+            if maya_main_window_ptr:
+                maya_main_window = shiboken6.wrapInstance(int(maya_main_window_ptr), QtWidgets.QWidget)
+                self.setParent(maya_main_window)
+                # Use window flags that work well with Maya
+                self.setWindowFlags(
+                    QtCore.Qt.Tool |  # Tool windows stay on top and don't appear in taskbar
+                    QtCore.Qt.WindowCloseButtonHint |
+                    QtCore.Qt.WindowMinimizeButtonHint |
+                    QtCore.Qt.WindowMaximizeButtonHint
+                )
+            else:
+                # Fallback if Maya main window not found
+                self.setWindowFlags(
+                    QtCore.Qt.Window | 
+                    QtCore.Qt.WindowStaysOnTopHint |
+                    QtCore.Qt.WindowCloseButtonHint |
+                    QtCore.Qt.WindowMinimizeButtonHint |
+                    QtCore.Qt.WindowMaximizeButtonHint
+                )
+        except ImportError:
+            # Not running in Maya, use standard always-on-top
+            self.setWindowFlags(
+                QtCore.Qt.Window | 
+                QtCore.Qt.WindowStaysOnTopHint |
+                QtCore.Qt.WindowCloseButtonHint |
+                QtCore.Qt.WindowMinimizeButtonHint |
+                QtCore.Qt.WindowMaximizeButtonHint
+            )
+        
         self.resize(1200, 700)
         self.setStyleSheet(DARK_STYLE)
 
@@ -657,56 +692,74 @@ class AiScriptEditor(QtWidgets.QMainWindow):
     
     def _save_session(self):
         """Save current open tabs and content to settings"""
-        settings = QtCore.QSettings("AI_Script_Editor", "session")
+        try:
+            # Safety check: make sure widgets still exist
+            if not hasattr(self, 'tabWidget') or self.tabWidget is None:
+                print("[Session] TabWidget not available, skipping session save")
+                return
+            
+            # Additional Qt object validity check
+            try:
+                # Test if the C++ object is still valid
+                _ = self.tabWidget.count()
+            except RuntimeError:
+                print("[Session] TabWidget C++ object deleted, skipping session save")
+                return
+            
+            settings = QtCore.QSettings("AI_Script_Editor", "session")
+            
+            # Clear all old session data first
+            settings.clear()
+            
+            # Save tab count and active tab
+            tab_count = self.tabWidget.count()
         
-        # Clear all old session data first
-        settings.clear()
-        
-        # Save tab count and active tab
-        tab_count = self.tabWidget.count()
-        
-        # Save explorer state (root path)
-        if hasattr(self, 'explorerView') and hasattr(self, 'fileModel'):
-            root_index = self.explorerView.rootIndex()
-            root_path = self.fileModel.filePath(root_index)
-            settings.setValue("explorer_root_path", root_path)
-            print(f"[Session] Explorer root: {root_path}")
-        
-        print(f"[Session] Saving tabs from {tab_count} total tabs...")
-        
-        # Save each tab's state
-        saved_count = 0
-        for i in range(tab_count):
-            editor = self.tabWidget.widget(i)
-            if isinstance(editor, CodeEditor):
-                content = editor.toPlainText()
-                # Get file path from our tracking dictionary
-                file_path = self.tab_file_paths.get(i, "")
-                
-                # Skip empty untitled tabs - don't save them to session
-                if not content.strip() and not file_path:
-                    print(f"  Tab {i}: Skipping empty untitled tab")
-                    continue
-                
-                # Save tab data
-                settings.setValue(f"tab_{saved_count}_file_path", file_path)
-                settings.setValue(f"tab_{saved_count}_language", editor.language)
-                settings.setValue(f"tab_{saved_count}_content", content)
-                settings.setValue(f"tab_{saved_count}_title", self.tabWidget.tabText(i))
-                
-                # Save cursor position
-                cursor = editor.textCursor()
-                settings.setValue(f"tab_{saved_count}_cursor_position", cursor.position())
-                
-                print(f"  Tab {saved_count}: '{self.tabWidget.tabText(i)}' - {len(content)} chars, file: {file_path or 'untitled'}")
-                saved_count += 1
-        
-        # Save the actual count of saved tabs (not including skipped empty tabs)
-        settings.setValue("tab_count", saved_count)
-        settings.setValue("active_tab", min(self.tabWidget.currentIndex(), saved_count - 1) if saved_count > 0 else 0)
-        
-        settings.sync()  # Force write to disk
-        print(f"[Session] Saved {saved_count} tabs successfully to: {settings.fileName()}")
+            # Save explorer state (root path)
+            if hasattr(self, 'explorerView') and hasattr(self, 'fileModel'):
+                root_index = self.explorerView.rootIndex()
+                root_path = self.fileModel.filePath(root_index)
+                settings.setValue("explorer_root_path", root_path)
+                print(f"[Session] Explorer root: {root_path}")
+            
+            print(f"[Session] Saving tabs from {tab_count} total tabs...")
+            
+            # Save each tab's state
+            saved_count = 0
+            for i in range(tab_count):
+                editor = self.tabWidget.widget(i)
+                if isinstance(editor, CodeEditor):
+                    content = editor.toPlainText()
+                    # Get file path from our tracking dictionary
+                    file_path = self.tab_file_paths.get(i, "")
+                    
+                    # Skip empty untitled tabs - don't save them to session
+                    if not content.strip() and not file_path:
+                        print(f"  Tab {i}: Skipping empty untitled tab")
+                        continue
+                    
+                    # Save tab data
+                    settings.setValue(f"tab_{saved_count}_file_path", file_path)
+                    settings.setValue(f"tab_{saved_count}_language", editor.language)
+                    settings.setValue(f"tab_{saved_count}_content", content)
+                    settings.setValue(f"tab_{saved_count}_title", self.tabWidget.tabText(i))
+                    
+                    # Save cursor position
+                    cursor = editor.textCursor()
+                    settings.setValue(f"tab_{saved_count}_cursor_position", cursor.position())
+                    
+                    print(f"  Tab {saved_count}: '{self.tabWidget.tabText(i)}' - {len(content)} chars, file: {file_path or 'untitled'}")
+                    saved_count += 1
+            
+            # Save the actual count of saved tabs (not including skipped empty tabs)
+            settings.setValue("tab_count", saved_count)
+            settings.setValue("active_tab", min(self.tabWidget.currentIndex(), saved_count - 1) if saved_count > 0 else 0)
+            
+            settings.sync()  # Force write to disk
+            print(f"[Session] Saved {saved_count} tabs successfully to: {settings.fileName()}")
+            
+        except Exception as e:
+            print(f"[Session] Error saving session: {e}")
+            # Don't crash the application if session saving fails
     
     def _restore_session(self):
         """Restore tabs from previous session"""
