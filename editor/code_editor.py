@@ -2019,20 +2019,32 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
     def _is_morpheus_available(self):
         """Check if Morpheus AI is available and online."""
         try:
-            # Check if we have access to main window with Morpheus
-            if hasattr(self, 'parent') and self.parent():
-                main_window = self.parent()
-                while main_window.parent():
-                    main_window = main_window.parent()
+            # Use the existing helper method to get main window
+            main_window = self._get_main_window()
+            
+            if not main_window:
+                return False
+            
+            # Check if chat_manager exists and is initialized
+            if not hasattr(main_window, 'chat_manager'):
+                return False
                 
-                if hasattr(main_window, 'chat_manager') and main_window.chat_manager:
-                    # Check if Morpheus is in online mode (not offline)
-                    chat_manager = main_window.chat_manager
-                    if hasattr(chat_manager, 'offline_mode'):
-                        return not chat_manager.offline_mode  # Available if NOT in offline mode
-                    return True  # Assume online if offline_mode attribute doesn't exist
-            return False
-        except:
+            chat_manager = main_window.chat_manager
+            
+            # Chat manager might be None if not initialized yet
+            if chat_manager is None:
+                return False
+            
+            # Check if Morpheus is in online mode (not offline)
+            if hasattr(chat_manager, 'offline_mode'):
+                return not chat_manager.offline_mode  # Available if NOT in offline mode
+            
+            # If offline_mode attribute doesn't exist, assume online
+            return True
+            
+        except Exception as e:
+            # Debug: Print error in Maya script editor
+            print(f"[DEBUG] _is_morpheus_available error: {e}")
             return False
     
     def _request_morpheus_fix_async(self, error_message, line_text, context, line_number):
