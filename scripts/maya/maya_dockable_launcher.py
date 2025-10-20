@@ -22,10 +22,16 @@ except ImportError:
 
 # Add our script directory to path
 script_dir = os.path.dirname(os.path.abspath(__file__))
-if script_dir not in sys.path:
-    sys.path.insert(0, script_dir)
+neo_root_dir = os.path.dirname(os.path.dirname(script_dir))  # Go up two levels to ai_script_editor root
+if neo_root_dir not in sys.path:
+    sys.path.insert(0, neo_root_dir)
 
-from main_window import AiScriptEditor
+try:
+    from main_window import AiScriptEditor
+    print("[Maya] Successfully imported NEO Script Editor")
+except ImportError as e:
+    print(f"[ERROR] Failed to import NEO Script Editor: {e}")
+    AiScriptEditor = None
 
 
 class MayaDockableNeoEditor(MayaQWidgetDockableMixin, QtWidgets.QWidget):
@@ -39,6 +45,14 @@ class MayaDockableNeoEditor(MayaQWidgetDockableMixin, QtWidgets.QWidget):
     
     def __init__(self, parent=None):
         super(MayaDockableNeoEditor, self).__init__(parent=parent)
+        
+        # Check if we have the NEO Script Editor available
+        if AiScriptEditor is None:
+            self.setWindowTitle("NEO Script Editor - Import Error")
+            layout = QtWidgets.QVBoxLayout(self)
+            error_label = QtWidgets.QLabel("Error: Could not import NEO Script Editor\nCheck installation path")
+            layout.addWidget(error_label)
+            return
         
         # Set up the main layout
         self.setObjectName(self.CONTROL_NAME)

@@ -37,12 +37,16 @@ def create_neo_shelf():
         print("[NEO] Creating new NEO shelf tab...")
         shelf = cmds.shelfLayout("NEO", parent=shelf_tab_layout)
         
+        # Get the assets path for icons
+        assets_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets")
+        neo_icon = os.path.join(assets_path, "matrix.png") if os.path.exists(os.path.join(assets_path, "matrix.png")) else "pythonFamily.png"
+        
         # Add NEO button
         cmds.shelfButton(
             parent=shelf,
             label="NEO",
             annotation="Launch NEO Script Editor",
-            image="pythonFamily.png",
+            image=neo_icon,
             command="complete_neo_setup()",
             sourceType="python"
         )
