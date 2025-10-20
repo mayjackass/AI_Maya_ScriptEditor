@@ -110,8 +110,8 @@ A next-generation AI-powered Maya script editor with **Morpheus AI** integration
 
 ### Option 1: Maya Dockable Mode (Recommended) 🔥
 
-1. **Copy `userSetup_enhanced.py` to:** `Documents/maya/scripts/userSetup.py`
-2. **Restart Maya**
+1. **Copy `scripts/maya/userSetup.py` to:** `Documents/maya/scripts/userSetup.py`
+2. **Restart Maya**  
 3. **Run in Maya Script Editor:**
    ```python
    complete_neo_setup()  # Creates shelf + launches docked editor
@@ -179,12 +179,12 @@ ai_script_editor/
 ├── utils/                 # Utilities
 │   └── redirect_output.py # Output redirection
 │
-├── maya_dockable_launcher.py    # 🆕 Maya dockable integration
-├── maya_shelf_creator.py        # 🆕 NEO shelf tab with logo buttons  
-├── complete_setup.py            # 🆕 One-click complete setup
-├── userSetup_enhanced.py        # 🆕 Enhanced Maya userSetup.py
-├── MAYA_DOCKABLE_SETUP.md       # 🆕 Dockable setup guide
-├── SHELF_INTEGRATION.md         # 🆕 Shelf integration guide
+├── scripts/maya/              # 🆕 Maya Integration Scripts
+│   ├── maya_dockable_launcher.py     # Dockable Maya workspace control  
+│   ├── maya_shelf_creator.py         # NEO shelf tab with logo buttons
+│   ├── complete_setup.py             # One-click complete setup
+│   ├── maya_shelf_button.py          # Shelf button instructions
+│   └── userSetup.py                  # Enhanced Maya userSetup.py
 │
 ├── tests/                 # Test suite
 ├── docs/                  # Documentation
