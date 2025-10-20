@@ -69,7 +69,7 @@ class NEOInstaller:
             print("[WARNING] Could not find 'maya' in path, using version-specific directory")
             self.maya_scripts_dir = version_specific_dir
             
-        self.neo_install_dir = os.path.join(self.maya_scripts_dir, "ai_script_editor")
+        self.neo_install_dir = os.path.join(self.maya_scripts_dir, "neo_script_editor")
         
         # Ensure the global scripts directory exists
         if not os.path.exists(self.maya_scripts_dir):
@@ -465,10 +465,10 @@ def setup_neo_editor():
             if os.name == 'nt':  # Windows
                 maya_base_dir = maya_base_dir.replace('/', '\\\\')
             global_scripts_dir = os.path.join(maya_base_dir, "scripts")
-            neo_path = os.path.join(global_scripts_dir, "ai_script_editor")
+            neo_path = os.path.join(global_scripts_dir, "neo_script_editor")
         else:
             # Fallback to version-specific
-            neo_path = os.path.join(os.path.dirname(maya_scripts), "ai_script_editor")
+            neo_path = os.path.join(os.path.dirname(maya_scripts), "neo_script_editor")
         
         if neo_path not in sys.path and os.path.exists(neo_path):
             sys.path.insert(0, neo_path)
@@ -1086,7 +1086,7 @@ def setup_neo_editor():
         # Add NEO to Python path
         maya_scripts = cmds.internalVar(userScriptDir=True) if 'cmds' in globals() else None
         if maya_scripts:
-            neo_path = os.path.join(maya_scripts, "ai_script_editor")
+            neo_path = os.path.join(maya_scripts, "neo_script_editor")
             if neo_path not in sys.path and os.path.exists(neo_path):
                 sys.path.insert(0, neo_path)
         
@@ -1385,7 +1385,7 @@ MANUAL INSTALLATION (If drag & drop fails):
 4. Run: install_neo_script_editor()
 
 WHAT GETS INSTALLED:
-✓ NEO Script Editor files (ai_script_editor/)
+✓ NEO Script Editor files (neo_script_editor/)
 ✓ Maya integration (userSetup.py)  
 ✓ NEO shelf with Matrix logo buttons
 ✓ NEO menu in Maya's menu bar
