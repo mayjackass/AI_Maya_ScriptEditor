@@ -567,16 +567,21 @@ except ImportError:
                 sys.path.insert(0, maya_scripts_path)
             
             print("📋 Importing maya_shelf_creator...")
-            from maya_shelf_creator import create_neo_shelf
+            from maya_shelf_creator import force_recreate_shelf, debug_shelf_info
             
-            print("📋 Creating NEO shelf...")
-            success = create_neo_shelf()
+            print("[SHELF] Creating NEO shelf with matrix icon...")
+            print("[DEBUG] Shelf creation debug info:")
+            debug_shelf_info()
+            
+            success = force_recreate_shelf()
             
             if success:
-                print("✅ NEO shelf created successfully")
+                print("[SUCCESS] NEO shelf created")
+                print("[DEBUG] Final shelf state:")
+                debug_shelf_info()
                 return True
             else:
-                print("⚠️ NEO shelf creation had issues")
+                print("[WARNING] NEO shelf creation had issues")
                 return False
             
         except Exception as e:

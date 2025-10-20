@@ -49,21 +49,39 @@ def create_neo_shelf():
             parent=main_shelf
         )
         
-        # Get the path to our assets folder (go up two levels from scripts/maya/)
+        # Get the path to our assets folder 
+        # This works both from project source and installed location
         script_dir = os.path.dirname(os.path.abspath(__file__))  # scripts/maya/
-        project_root = os.path.dirname(os.path.dirname(script_dir))  # ai_script_editor/
-        assets_path = os.path.join(project_root, "assets")
         
-        # Use matrix icon specifically
-        matrix_icon = os.path.join(assets_path, "matrix.png")
+        # Try multiple possible asset paths
+        possible_asset_paths = [
+            # From installed location: scripts/maya/ -> ai_script_editor/assets/
+            os.path.join(os.path.dirname(os.path.dirname(script_dir)), "assets"),
+            # From project source: scripts/maya/ -> project_root/assets/
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(script_dir))), "assets"),
+            # Fallback: look for assets in parent directories
+            os.path.join(os.path.dirname(script_dir), "..", "assets"),
+            os.path.join(os.path.dirname(script_dir), "..", "..", "assets")
+        ]
         
-        if os.path.exists(matrix_icon):
+        # Find the matrix icon
+        matrix_icon = None
+        for assets_path in possible_asset_paths:
+            test_path = os.path.join(assets_path, "matrix.png")
+            if os.path.exists(test_path):
+                matrix_icon = test_path
+                print(f"[Maya] Found matrix icon at: {matrix_icon}")
+                break
+        
+        # Set icon path
+        if matrix_icon and os.path.exists(matrix_icon):
             icon_path = matrix_icon
             print(f"[Maya] Using NEO matrix icon: {icon_path}")
         else:
             # Fallback to Maya default
             icon_path = "pythonFamily.png"
-            print(f"[Warning] Matrix icon not found at {matrix_icon}, using Maya default: {icon_path}")
+            print(f"[Warning] Matrix icon not found, using Maya default: {icon_path}")
+            print(f"[Debug] Checked paths: {[os.path.join(p, 'matrix.png') for p in possible_asset_paths]}")
         
         # Create the NEO Script Editor button
         cmds.shelfButton(
@@ -138,10 +156,82 @@ def refresh_neo_shelf():
     return create_neo_shelf()
 
 
+def debug_shelf_info():
+    """Debug function to show current shelf information"""
+    if not MAYA_AVAILABLE:
+        print("[!] Maya not available")
+        return
+    
+    try:
+        shelf_name = "NEO"
+        
+        # Check if shelf exists
+        if cmds.shelfLayout(shelf_name, exists=True):
+            print(f"[Debug] '{shelf_name}' shelf exists")
+            
+            # Get shelf buttons
+            buttons = cmds.shelfLayout(shelf_name, query=True, childArray=True) or []
+            print(f"[Debug] Found {len(buttons)} buttons on shelf:")
+            
+            for i, button in enumerate(buttons):
+                if cmds.objectTypeUI(button) == "shelfButton":
+                    label = cmds.shelfButton(button, query=True, label=True)
+                    annotation = cmds.shelfButton(button, query=True, annotation=True)
+                    image = cmds.shelfButton(button, query=True, image1=True)
+                    print(f"  {i+1}. Label: '{label}', Annotation: '{annotation}', Image: '{image}'")
+        else:
+            print(f"[Debug] '{shelf_name}' shelf does not exist")
+            
+        # Show assets path info
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        possible_asset_paths = [
+            os.path.join(os.path.dirname(os.path.dirname(script_dir)), "assets"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(script_dir))), "assets"),
+            os.path.join(os.path.dirname(script_dir), "..", "assets"),
+            os.path.join(os.path.dirname(script_dir), "..", "..", "assets")
+        ]
+        
+        print(f"[Debug] Script dir: {script_dir}")
+        print(f"[Debug] Asset path search:")
+        for i, path in enumerate(possible_asset_paths):
+            matrix_path = os.path.join(path, "matrix.png")
+            exists = os.path.exists(matrix_path)
+            print(f"  {i+1}. {matrix_path} - {'EXISTS' if exists else 'NOT FOUND'}")
+            
+    except Exception as e:
+        print(f"[Debug] Error getting shelf info: {e}")
+
+
+def force_recreate_shelf():
+    """Force delete and recreate the NEO shelf"""
+    print("[Maya] Force recreating NEO shelf...")
+    
+    # Delete any existing NEO shelf
+    try:
+        if cmds.shelfLayout("NEO", exists=True):
+            cmds.deleteUI("NEO", layout=True)
+            print("[Maya] Deleted existing NEO shelf")
+    except:
+        pass
+    
+    # Wait a moment
+    cmds.refresh()
+    
+    # Create new shelf
+    result = create_neo_shelf()
+    
+    # Show debug info
+    debug_shelf_info()
+    
+    return result
+
+
 # Convenience functions
 create_shelf = create_neo_shelf
 delete_shelf = delete_neo_shelf
 refresh_shelf = refresh_neo_shelf
+force_recreate = force_recreate_shelf
+debug_shelf = debug_shelf_info
 
 
 if __name__ == "__main__":
