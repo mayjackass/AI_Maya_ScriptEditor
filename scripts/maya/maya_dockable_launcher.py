@@ -117,6 +117,7 @@ def create_workspace_control():
         neo_dock = MayaDockableNeoEditor()
         
         # Create workspace control
+        # Create workspace control with the widget
         workspace_control = cmds.workspaceControl(
             control_name,
             label=MayaDockableNeoEditor.WINDOW_TITLE,
@@ -135,9 +136,8 @@ def create_workspace_control():
             visible=True
         )
         
-        # Get the parent widget and add our dockable editor
-        control_widget = neo_dock
-        cmds.workspaceControl(control_name, edit=True, widgetClass=control_widget)
+        # Set the dockable widget as the content
+        neo_dock.show()
         
         print(f"[Maya] Created workspace control: {control_name}")
         print("[Maya] NEO Script Editor is now dockable like the built-in script editor!")
