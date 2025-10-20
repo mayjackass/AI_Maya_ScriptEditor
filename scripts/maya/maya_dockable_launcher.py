@@ -65,18 +65,21 @@ class MayaDockableNeoEditor(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         
         # Create the NEO Script Editor instance
         try:
-            # Create NEO Script Editor with parent to prevent separate window
-            self.neo_editor = AiScriptEditor(parent=self)
+            # Create NEO Script Editor without parent first
+            self.neo_editor = AiScriptEditor()
             print("[Maya] NEO Script Editor instance created successfully")
             
-            # Set as embedded widget 
+            # Set this widget as parent and configure for embedding
+            self.neo_editor.setParent(self)
             self.neo_editor.setWindowFlags(QtCore.Qt.Widget)
             
             # Add to our layout
             layout.addWidget(self.neo_editor)
             
-            # Ensure it's visible within the parent
+            # Force geometry update and show
+            self.neo_editor.resize(800, 600)
             self.neo_editor.setVisible(True)
+            self.neo_editor.activateWindow()
             
             print("[Maya] NEO Script Editor embedded in workspace control")
             

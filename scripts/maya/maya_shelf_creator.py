@@ -26,7 +26,7 @@ def create_neo_shelf():
     try:
         # Get the main shelf tab layout
         print("[NEO] Getting shelf tab layout...")
-        shelf_tab_layout = mel.eval('global string $gShelfTopLevel; $gShelfTopLevel')
+        shelf_tab_layout = mel.eval('string $temp = $gShelfTopLevel; $temp')
         print(f"[NEO] Shelf tab layout: {shelf_tab_layout}")
         
         # Check if NEO shelf already exists and delete it
