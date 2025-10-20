@@ -28,7 +28,7 @@ import shutil
 from functools import partial
 
 # Installer configuration
-GITHUB_REPO = "https://github.com/mayjackass/AI_Maya_ScriptEditor"
+GITHUB_REPO = "https://github.com/mayjackass/NEO_Script_Editor"
 INSTALLER_VERSION = "3.2.0"
 
 class NEOInstaller:
@@ -1406,7 +1406,7 @@ REQUIREMENTS:
 • Python 3.7+ (included with Maya)
 
 SUPPORT:
-• GitHub: github.com/mayjackass/AI_Maya_ScriptEditor
+• GitHub: github.com/mayjackass/NEO_Script_Editor
 • Issues: Use GitHub Issues tab
 • Version: 3.2 Beta (Expires Jan 31, 2026)
 
