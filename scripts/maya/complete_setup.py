@@ -4,7 +4,7 @@ NEO Script Editor - Complete Maya Setup
 One-click setup for NEO Script Editor with shelf integration.
 
 Run this once in Maya to set up everything:
-- Dockable NEO Script Editor
+- Standalone NEO Script Editor (always on top)
 - NEO shelf tab with buttons using NEO logo
 - All convenience functions
 """
@@ -30,9 +30,9 @@ if script_dir not in sys.path:
 def complete_neo_setup():
     """
     Complete setup for NEO Script Editor in Maya
-    - Creates shelf tab with NEO logo buttons
-    - Sets up all convenience functions
-    - Launches dockable NEO Script Editor
+    - Creates shelf tab with NEO logo buttons (if needed)
+    - Sets up all convenience functions  
+    - Launches standalone NEO Script Editor (always on top)
     """
     if not MAYA_AVAILABLE:
         print("[!] This function requires Maya")
@@ -72,14 +72,21 @@ def complete_neo_setup():
         
         print("   ✅ NEO functions installed globally")
         
-        # Step 2: Create NEO shelf with logo buttons
-        print("🎨 [2/3] Creating NEO shelf with logo buttons...")
-        shelf_success = create_neo_shelf()
+        # Step 2: Ensure NEO shelf exists (recreate if missing)
+        print("🎨 [2/3] Checking NEO shelf...")
         
-        if shelf_success:
-            print("   ✅ NEO shelf created with logo buttons")
+        # Check if shelf already exists
+        if cmds.shelfLayout("NEO", exists=True):
+            print("   ✅ NEO shelf already exists")
+            shelf_success = True
         else:
-            print("   ⚠️ NEO shelf creation had issues (but functions still work)")
+            print("   📋 Creating NEO shelf...")
+            shelf_success = create_neo_shelf()
+            
+            if shelf_success:
+                print("   ✅ NEO shelf created with logo buttons")
+            else:
+                print("   ⚠️ NEO shelf creation had issues (but functions still work)")
         
         # Step 3: Launch standalone NEO Script Editor
         print("🪟 [3/3] Launching standalone NEO Script Editor...")
@@ -93,7 +100,7 @@ def complete_neo_setup():
         # Success summary
         print("")
         print("🎉 NEO Script Editor setup complete!")
-        print("📖 What was installed:")
+        print("📖 What's available:")
         print("   • NEO shelf tab with logo buttons")
         print("   • Standalone NEO Script Editor (always on top)")
         print("   • Global convenience functions")

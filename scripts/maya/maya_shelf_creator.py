@@ -1,7 +1,7 @@
 """
 NEO Script Editor - Maya Shelf Creator
 =====================================
-Automatically creates a "NEO" shelf tab with the dockable NEO Script Editor button.
+Automatically creates a "NEO" shelf tab with the standalone NEO Script Editor button.
 Uses the Matrix/Morpheus icon from the assets folder.
 """
 
@@ -20,7 +20,7 @@ except ImportError:
 
 def create_neo_shelf():
     """
-    Create a dedicated "NEO" shelf tab with the dockable NEO Script Editor button
+    Create a dedicated "NEO" shelf tab with the standalone NEO Script Editor button
     """
     if not MAYA_AVAILABLE:
         print("[!] This function requires Maya")
@@ -79,17 +79,17 @@ def create_neo_shelf():
         
         # Create the NEO Script Editor button
         cmds.shelfButton(
-            annotation="Launch NEO Script Editor (Dockable)",
+            annotation="Launch NEO Script Editor (Standalone)",
             image1=icon_path,
             label="NEO",
             command="""
-# NEO Script Editor - Dockable Launch
+# NEO Script Editor - Standalone Launch
 try:
-    neo_docked()
+    launch_neo_editor()
     print("✅ NEO Script Editor launched!")
 except:
     print("❌ NEO not available. Make sure userSetup.py is installed.")
-    print("💡 Try: launch_neo_docked() or check Maya Script Editor for errors.")
+    print("💡 Try: launch_neo_editor() or check Maya Script Editor for errors.")
             """,
             parent=new_shelf,
             width=35,
@@ -100,50 +100,7 @@ except:
             marginHeight=1
         )
         
-        # Add a separator
-        cmds.separator(parent=new_shelf, width=10, style="shelf")
-        
-        # Create additional useful buttons
-        
-        # Hide NEO button
-        cmds.shelfButton(
-            annotation="Hide NEO Script Editor",
-            image1=os.path.join(assets_path, "syntax_error.png") if os.path.exists(os.path.join(assets_path, "syntax_error.png")) else "visibilityOff.png",
-            label="Hide",
-            command="""
-try:
-    hide_neo_docked()
-    print("👁️ NEO Script Editor hidden")
-except:
-    print("❌ Could not hide NEO Script Editor")
-            """,
-            parent=new_shelf,
-            width=32,
-            height=32,
-            imageOverlayLabel="Hide",
-            style="iconOnly"
-        )
-        
-        # Standalone NEO button
-        cmds.shelfButton(
-            annotation="Launch NEO Script Editor (Standalone Window)",
-            image1=icon_path,
-            label="NEO Win",
-            command="""
-try:
-    launch_neo_editor()
-    print("🪟 NEO Script Editor (standalone) launched!")
-except:
-    print("❌ NEO standalone not available")
-            """,
-            parent=new_shelf,
-            width=32,
-            height=32,
-            imageOverlayLabel="Win",
-            style="iconOnly"
-        )
-        
-        # Add separator
+        # Add a separator  
         cmds.separator(parent=new_shelf, width=10, style="shelf")
         
         # Maya Script Editor button (for comparison)
@@ -164,9 +121,7 @@ except:
         
         print(f"✅ [Maya] '{shelf_name}' shelf created successfully!")
         print("🎯 [Buttons created:]")
-        print("   • NEO (large) - Launch dockable NEO Script Editor")
-        print("   • Hide - Hide the docked NEO Script Editor")
-        print("   • Win - Launch standalone NEO Script Editor")
+        print("   • NEO (large) - Launch standalone NEO Script Editor")
         print("   • Maya - Maya's built-in Script Editor")
         print(f"💡 [Tip] The '{shelf_name}' shelf is now active and ready to use!")
         
