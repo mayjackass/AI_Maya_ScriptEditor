@@ -439,18 +439,23 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                         error_line = e.lineno
                         
                         # Special case: unmatched ')' often reported on wrong line
-                        # Check the NEXT line for the actual extra parenthesis
+                        # Python reports the error where it realizes there's a mismatch (later line)
+                        # but the actual extra ')' is usually on a PREVIOUS line (where it was added)
                         if "unmatched ')'" in error_msg.lower() or "unmatched" in error_msg.lower():
                             actual_lines = code.split('\n')
-                            # Check next 2 lines for double parentheses
-                            for offset in range(0, min(3, len(actual_lines) - error_line + 1)):
-                                check_line_num = error_line + offset
+                            # Check PREVIOUS lines (up to 5 lines back) for the extra parenthesis
+                            for offset in range(1, min(6, error_line)):
+                                check_line_num = error_line - offset
                                 if 1 <= check_line_num <= len(actual_lines):
                                     check_line = actual_lines[check_line_num - 1]
-                                    # Look for patterns like ')) or ),) that indicate extra paren
-                                    if '))'  in check_line or '),)' in check_line or ');' in check_line:
-                                        error_line = check_line_num
-                                        break
+                                    # Look for patterns like ):) or )):  that indicate extra paren at end
+                                    # Common patterns: def func():) or init(param):)
+                                    if ':)' in check_line or ')):' in check_line or '):' in check_line:
+                                        # Found likely location - check if this is a function/method definition
+                                        if 'def ' in check_line or ':)' in check_line:
+                                            error_line = check_line_num
+                                            error_msg = "Extra ')' found - check function/method definition"
+                                            break
                         
                         errors.append({
                             'line': error_line,
