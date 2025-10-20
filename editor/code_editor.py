@@ -1651,12 +1651,16 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         
         # Get the main window to access Problems window data
         main_window = self._get_main_window()
-        if not main_window:
+        if not main_window or not hasattr(main_window, 'editor_problems'):
             return
         
         # Get editor ID and problems for this editor from Problems window
         editor_id = id(self)
-        editor_problems = main_window.editor_problems.get(editor_id, [])
+        try:
+            editor_problems = main_window.editor_problems.get(editor_id, [])
+        except AttributeError:
+            # Main window doesn't have editor_problems attribute
+            return
         
         # Check if this line has an error in the Problems window
         error_info = None
@@ -1986,14 +1990,16 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
     def _get_main_window(self):
         """Get the main window instance."""
         try:
-            # Traverse up the parent hierarchy to find the main window
+            # Traverse up the parent hierarchy to find the AiScriptEditor instance
             widget = self
             while widget:
-                parent = widget.parent()
-                if parent is None:
-                    # We've reached the top - this should be the main window
-                    return widget
-                widget = parent
+                # Check if this is the AiScriptEditor main window
+                if hasattr(widget, 'editor_problems') and hasattr(widget, '__class__'):
+                    if widget.__class__.__name__ == 'AiScriptEditor':
+                        return widget
+                widget = widget.parent()
+                if widget is None:
+                    break
             return None
         except:
             return None

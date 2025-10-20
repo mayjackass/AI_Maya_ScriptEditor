@@ -91,9 +91,9 @@ class NEOInstaller:
             
             # Step 5: Create NEO shelf
             self._update_progress(progress_win, 70, "Creating NEO shelf...")
-            if not self._create_neo_shelf():
-                self._close_progress(progress_win)
-                return False
+            shelf_success = self._create_neo_shelf()
+            if not shelf_success:
+                print("⚠️ Shelf creation failed, but installation will continue")
             
             # Step 6: Add menu bar
             self._update_progress(progress_win, 80, "Adding menu bar...")
@@ -473,22 +473,29 @@ except ImportError:
         try:
             # Import the shelf creator from installed files
             maya_scripts_path = os.path.join(self.neo_install_dir, "scripts", "maya")
+            print(f"📋 Adding shelf creator path: {maya_scripts_path}")
+            
             if maya_scripts_path not in sys.path:
                 sys.path.insert(0, maya_scripts_path)
             
+            print("📋 Importing maya_shelf_creator...")
             from maya_shelf_creator import create_neo_shelf
+            
+            print("📋 Creating NEO shelf...")
             success = create_neo_shelf()
             
             if success:
                 print("✅ NEO shelf created successfully")
+                return True
             else:
-                print("⚠️ NEO shelf creation had issues (but installation continues)")
-            
-            return True  # Don't fail installation for shelf issues
+                print("⚠️ NEO shelf creation had issues")
+                return False
             
         except Exception as e:
-            print(f"⚠️ NEO shelf creation failed: {e}")
-            return True  # Don't fail installation for shelf issues
+            print(f"❌ NEO shelf creation failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
     
     def _add_menu_bar(self):
         """Add NEO Script Editor to Maya's menu bar"""
