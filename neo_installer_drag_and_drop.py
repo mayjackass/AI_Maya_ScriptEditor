@@ -3,12 +3,12 @@ NEO Script Editor - Drag & Drop Installer for Maya
 ==================================================
 
 INSTALLATION INSTRUCTIONS:
-1. Download this file: neo_installer.py
-2. Drag and drop it into Maya's viewport
+1. Extract the NEO Script Editor project ZIP file 
+2. Drag and drop this installer (neo_installer.py) into Maya's viewport
 3. Everything installs automatically!
 
 What this installer does:
-- Downloads/copies NEO Script Editor files to Maya scripts folder
+- Copies NEO Script Editor files from project folder to Maya scripts folder
 - Sets up userSetup.py automatically
 - Creates NEO shelf with logo buttons
 - Launches dockable NEO Script Editor
@@ -25,15 +25,10 @@ import maya.mel as mel
 import os
 import sys
 import shutil
-import urllib.request
-import json
-import zipfile
-import tempfile
 from functools import partial
 
 # Installer configuration
 GITHUB_REPO = "https://github.com/mayjackass/AI_Maya_ScriptEditor"
-GITHUB_ZIP = "https://github.com/mayjackass/AI_Maya_ScriptEditor/archive/refs/heads/main.zip"
 INSTALLER_VERSION = "3.2.0"
 
 class NEOInstaller:
@@ -42,16 +37,21 @@ class NEOInstaller:
     def __init__(self):
         self.maya_scripts_dir = None
         self.neo_install_dir = None
-        self.temp_dir = None
+        self.project_source_dir = None
         self.success = False
         
         # Maya paths
         self.maya_scripts_dir = cmds.internalVar(userScriptDir=True)
         self.neo_install_dir = os.path.join(self.maya_scripts_dir, "ai_script_editor")
         
+        # Find the project source directory (where this installer is located)
+        installer_path = __file__ if '__file__' in globals() else os.path.abspath(__file__)
+        self.project_source_dir = os.path.dirname(installer_path)
+        
         print("=" * 80)
         print("🚀 NEO Script Editor - Drag & Drop Installer v" + INSTALLER_VERSION)
         print("=" * 80)
+        print(f"Project Source Directory: {self.project_source_dir}")
         print(f"Maya Scripts Directory: {self.maya_scripts_dir}")
         print(f"NEO Install Directory: {self.neo_install_dir}")
         print()
@@ -67,9 +67,9 @@ class NEOInstaller:
             # Create progress window
             progress_win = self._create_progress_window()
             
-            # Step 1: Download NEO Script Editor
-            self._update_progress(progress_win, 10, "Downloading NEO Script Editor...")
-            if not self._download_neo_script_editor():
+            # Step 1: Validate project folder
+            self._update_progress(progress_win, 10, "Validating project folder...")
+            if not self._validate_project_folder():
                 self._close_progress(progress_win)
                 return False
             
@@ -111,9 +111,6 @@ class NEOInstaller:
             self._show_success_dialog()
             self.success = True
             
-            # Cleanup
-            self._cleanup()
-            
             return True
             
         except Exception as e:
@@ -136,10 +133,12 @@ class NEOInstaller:
                 "• VSCode-style editor with syntax highlighting\n"
                 "• Dedicated NEO shelf with logo buttons\n\n"
                 "This installer will:\n"
-                "✓ Download and install NEO Script Editor\n"
+                "✓ Copy NEO Script Editor from project folder\n"
                 "✓ Set up Maya integration (userSetup.py)\n"
                 "✓ Create NEO shelf and menu\n"
                 "✓ Launch the dockable editor\n\n"
+                f"Project folder: {os.path.basename(self.project_source_dir)}\n"
+                f"Install to: {self.maya_scripts_dir}\n\n"
                 "Continue with installation?"
             ),
             button=["Install", "Cancel"],
@@ -189,38 +188,48 @@ class NEOInstaller:
         if cmds.window(window, exists=True):
             cmds.deleteUI(window, window=True)
     
-    def _download_neo_script_editor(self):
-        """Download NEO Script Editor from GitHub"""
+    def _validate_project_folder(self):
+        """Validate that we have a complete NEO Script Editor project folder"""
         try:
-            # Create temporary directory
-            self.temp_dir = tempfile.mkdtemp(prefix="neo_installer_")
-            zip_path = os.path.join(self.temp_dir, "neo_script_editor.zip")
+            print(f"Validating project folder: {self.project_source_dir}")
             
-            print(f"Downloading from: {GITHUB_ZIP}")
-            print(f"Saving to: {zip_path}")
+            # Check if essential files exist in the project folder
+            essential_files = [
+                "main_window.py",
+                "run.py", 
+                "__init__.py"
+            ]
             
-            # Download with progress (simple version)
-            urllib.request.urlretrieve(GITHUB_ZIP, zip_path)
+            # Check for script files
+            scripts_maya_path = os.path.join(self.project_source_dir, "scripts", "maya")
+            if os.path.exists(scripts_maya_path):
+                essential_files.extend([
+                    os.path.join("scripts", "maya", "complete_setup.py"),
+                    os.path.join("scripts", "maya", "maya_dockable_launcher.py"),
+                    os.path.join("scripts", "maya", "maya_shelf_creator.py")
+                ])
+            else:
+                # If scripts/maya doesn't exist, we'll need to create minimal versions
+                print("⚠️ Full script files not found, will create minimal installation")
             
-            # Extract ZIP
-            extract_dir = os.path.join(self.temp_dir, "extracted")
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(extract_dir)
+            # Validate essential files
+            missing_files = []
+            for file_path in essential_files:
+                full_path = os.path.join(self.project_source_dir, file_path)
+                if not os.path.exists(full_path):
+                    missing_files.append(file_path)
             
-            # Find the extracted folder (usually AI_Maya_ScriptEditor-main or similar)
-            extracted_folders = os.listdir(extract_dir)
-            if not extracted_folders:
-                raise Exception("Downloaded ZIP appears to be empty")
-            
-            self.source_dir = os.path.join(extract_dir, extracted_folders[0])
-            print(f"✅ Downloaded and extracted to: {self.source_dir}")
+            if missing_files:
+                print(f"⚠️ Some files missing: {missing_files}")
+                print("Will proceed with available files and create missing components")
+            else:
+                print("✅ Project folder validation successful")
             
             return True
             
         except Exception as e:
-            print(f"❌ Download failed: {e}")
-            # Fallback: Ask user to manually download
-            self._show_manual_download_dialog()
+            print(f"❌ Project folder validation failed: {e}")
+            self._show_error_dialog(f"Project folder validation failed: {e}\n\nMake sure you extracted the complete NEO Script Editor project.")
             return False
     
     def _install_files(self):
@@ -231,24 +240,43 @@ class NEOInstaller:
                 print(f"Removing existing installation: {self.neo_install_dir}")
                 shutil.rmtree(self.neo_install_dir)
             
-            # Copy files
-            print(f"Copying files from {self.source_dir} to {self.neo_install_dir}")
-            shutil.copytree(self.source_dir, self.neo_install_dir)
+            # Copy files from project folder to Maya scripts directory
+            print(f"Copying files from {self.project_source_dir} to {self.neo_install_dir}")
+            
+            # Copy the entire project folder
+            shutil.copytree(self.project_source_dir, self.neo_install_dir)
             
             # Verify essential files exist
             essential_files = [
                 "main_window.py",
                 "run.py",
-                "__init__.py",
-                "scripts/maya/complete_setup.py",
-                "scripts/maya/maya_dockable_launcher.py",
-                "scripts/maya/maya_shelf_creator.py"
+                "__init__.py"
             ]
             
+            # Check for Maya scripts
+            maya_scripts_path = os.path.join(self.neo_install_dir, "scripts", "maya")
+            if os.path.exists(maya_scripts_path):
+                essential_files.extend([
+                    "scripts/maya/complete_setup.py",
+                    "scripts/maya/maya_dockable_launcher.py", 
+                    "scripts/maya/maya_shelf_creator.py"
+                ])
+            else:
+                # Create basic Maya integration files if they don't exist
+                print("Creating basic Maya integration files...")
+                self._create_basic_maya_integration()
+            
+            # Verify files
+            missing_files = []
             for file_path in essential_files:
                 full_path = os.path.join(self.neo_install_dir, file_path)
                 if not os.path.exists(full_path):
-                    raise Exception(f"Essential file missing after installation: {file_path}")
+                    missing_files.append(file_path)
+            
+            if missing_files:
+                print(f"⚠️ Some files missing after installation: {missing_files}")
+                print("Creating minimal replacements...")
+                self._create_minimal_files()
             
             print("✅ Files installed successfully")
             return True
@@ -338,6 +366,134 @@ class NEOInstaller:
             print(f"❌ Failed to append to userSetup.py: {e}")
             raise
     
+    def _create_basic_maya_integration(self):
+        """Create basic Maya integration files if they don't exist"""
+        try:
+            # Create scripts/maya directory
+            maya_scripts_dir = os.path.join(self.neo_install_dir, "scripts", "maya")
+            os.makedirs(maya_scripts_dir, exist_ok=True)
+            
+            # Create basic complete_setup.py
+            setup_content = '''"""
+NEO Script Editor - Complete Setup
+"""
+
+try:
+    import maya.cmds as cmds
+    import sys
+    import os
+    
+    def complete_neo_setup():
+        """Complete NEO setup"""
+        print("🚀 NEO Script Editor - Complete Setup")
+        
+        # Add to Python path
+        neo_dir = os.path.dirname(os.path.dirname(__file__))
+        if neo_dir not in sys.path:
+            sys.path.insert(0, neo_dir)
+        
+        try:
+            from main_window import launch_neo_editor
+            launch_neo_editor()
+            print("✅ NEO Script Editor launched")
+        except Exception as e:
+            print(f"❌ Launch failed: {e}")
+    
+    def neo_docked():
+        """Launch dockable NEO"""
+        complete_neo_setup()
+    
+    def launch_neo_editor():
+        """Launch standalone NEO"""
+        complete_neo_setup()
+
+except ImportError:
+    def complete_neo_setup():
+        print("NEO Script Editor requires Maya environment")
+    
+    def neo_docked():
+        print("NEO Script Editor requires Maya environment")
+    
+    def launch_neo_editor():
+        print("NEO Script Editor requires Maya environment")
+'''
+            
+            setup_path = os.path.join(maya_scripts_dir, "complete_setup.py")
+            with open(setup_path, 'w', encoding='utf-8') as f:
+                f.write(setup_content)
+            
+            # Create basic maya_shelf_creator.py
+            shelf_content = '''"""
+NEO Script Editor - Shelf Creator
+"""
+
+try:
+    import maya.cmds as cmds
+    
+    def create_neo_shelf():
+        """Create NEO shelf"""
+        print("Creating NEO shelf...")
+        
+        # Create or get NEO shelf
+        shelf_name = "NEO"
+        if cmds.shelfLayout(shelf_name, exists=True):
+            cmds.deleteUI(shelf_name, layout=True)
+        
+        shelf = cmds.shelfLayout(shelf_name, parent="ShelfLayout")
+        
+        # Add NEO button
+        cmds.shelfButton(
+            parent=shelf,
+            label="NEO",
+            annotation="Launch NEO Script Editor",
+            image="pythonFamily.png",
+            command="complete_neo_setup()",
+            sourceType="python"
+        )
+        
+        print("✅ NEO shelf created")
+        return True
+
+except ImportError:
+    def create_neo_shelf():
+        print("NEO Script Editor requires Maya environment")
+        return False
+'''
+            
+            shelf_path = os.path.join(maya_scripts_dir, "maya_shelf_creator.py")
+            with open(shelf_path, 'w', encoding='utf-8') as f:
+                f.write(shelf_content)
+            
+            # Create basic maya_dockable_launcher.py
+            dockable_content = '''"""
+NEO Script Editor - Dockable Launcher
+"""
+
+try:
+    import maya.cmds as cmds
+    
+    def launch_dockable_neo():
+        """Launch dockable NEO Script Editor"""
+        try:
+            from complete_setup import complete_neo_setup
+            complete_neo_setup()
+        except Exception as e:
+            print(f"Dockable launch failed: {e}")
+
+except ImportError:
+    def launch_dockable_neo():
+        print("NEO Script Editor requires Maya environment")
+'''
+            
+            dockable_path = os.path.join(maya_scripts_dir, "maya_dockable_launcher.py")
+            with open(dockable_path, 'w', encoding='utf-8') as f:
+                f.write(dockable_content)
+            
+            print("✅ Created basic Maya integration files")
+            
+        except Exception as e:
+            print(f"❌ Failed to create basic Maya integration: {e}")
+
     def _add_to_python_path(self):
         """Add NEO Script Editor to Python path"""
         if self.neo_install_dir not in sys.path:
@@ -444,15 +600,6 @@ class NEOInstaller:
             print(f"⚠️ NEO Script Editor launch failed: {e}")
             print("You can launch it manually with: complete_neo_setup()")
     
-    def _cleanup(self):
-        """Clean up temporary files"""
-        try:
-            if self.temp_dir and os.path.exists(self.temp_dir):
-                shutil.rmtree(self.temp_dir)
-                print("✅ Cleaned up temporary files")
-        except Exception as e:
-            print(f"⚠️ Cleanup failed: {e}")
-    
     def _show_success_dialog(self):
         """Show installation success dialog"""
         cmds.confirmDialog(
@@ -485,124 +632,16 @@ class NEOInstaller:
             title="Installation Failed",
             message=(
                 f"❌ Installation encountered an error:\n\n{error_message}\n\n"
-                "You can try:\n"
-                "• Manual installation from GitHub\n"
+                "Possible solutions:\n"
+                "• Make sure you extracted the complete project folder\n"
+                "• Check that the installer is in the project root\n"
                 "• Check Maya's Script Editor for detailed errors\n"
-                "• Report the issue on GitHub\n\n"
-                f"GitHub: {GITHUB_REPO}"
+                "• Try running Maya as administrator\n\n"
+                f"Get help: {GITHUB_REPO}"
             ),
             button=["OK"],
             defaultButton="OK"
         )
-    
-    def _show_manual_download_dialog(self):
-        """Show manual download instructions"""
-        result = cmds.confirmDialog(
-            title="Manual Download Required",
-            message=(
-                "Automatic download failed. Choose installation method:\n\n"
-                "AUTO: Try alternative download method\n"
-                "MANUAL: Get step-by-step instructions\n\n"
-                "Both methods will get you NEO Script Editor installed!"
-            ),
-            button=["Try Auto", "Manual Instructions", "Cancel"],
-            defaultButton="Try Auto",
-            cancelButton="Cancel"
-        )
-        
-        if result == "Try Auto":
-            return self._try_alternative_download()
-        elif result == "Manual Instructions":
-            cmds.confirmDialog(
-                title="Manual Installation Guide",
-                message=(
-                    "📥 Manual Installation Steps:\n\n"
-                    "1. Go to: github.com/mayjackass/AI_Maya_ScriptEditor\n"
-                    "2. Click 'Code' → 'Download ZIP'\n"
-                    "3. Extract ZIP file\n"
-                    "4. Copy 'AI_Maya_ScriptEditor-main' folder to:\n"
-                    f"   {self.maya_scripts_dir}\n"
-                    "5. Rename folder to: ai_script_editor\n"
-                    "6. Restart Maya\n"
-                    "7. Run: complete_neo_setup()\n\n"
-                    "💡 The installer created shortcuts for you!\n"
-                    "After restart, just run: complete_neo_setup()"
-                ),
-                button=["Got it!"],
-                defaultButton="Got it!"
-            )
-        
-        return False
-    
-    def _try_alternative_download(self):
-        """Try alternative download methods"""
-        try:
-            # Method 1: Try different GitHub URL
-            alt_urls = [
-                "https://codeload.github.com/mayjackass/AI_Maya_ScriptEditor/zip/refs/heads/main",
-                "https://github.com/mayjackass/AI_Maya_ScriptEditor/zipball/main"
-            ]
-            
-            for url in alt_urls:
-                try:
-                    print(f"Trying alternative URL: {url}")
-                    zip_path = os.path.join(self.temp_dir, "neo_alt.zip")
-                    urllib.request.urlretrieve(url, zip_path)
-                    
-                    # Extract and set source_dir
-                    extract_dir = os.path.join(self.temp_dir, "alt_extracted")
-                    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                        zip_ref.extractall(extract_dir)
-                    
-                    extracted_folders = os.listdir(extract_dir)
-                    if extracted_folders:
-                        self.source_dir = os.path.join(extract_dir, extracted_folders[0])
-                        print(f"✅ Alternative download successful: {self.source_dir}")
-                        return True
-                        
-                except Exception as e:
-                    print(f"Alternative URL failed: {e}")
-                    continue
-            
-            # Method 2: Create minimal installation from current installer
-            print("Creating minimal installation...")
-            return self._create_minimal_installation()
-            
-        except Exception as e:
-            print(f"All alternative methods failed: {e}")
-            return False
-    
-    def _create_minimal_installation(self):
-        """Create minimal NEO installation with essential files"""
-        try:
-            print("Creating minimal installation from installer resources...")
-            
-            # Create basic directory structure
-            os.makedirs(self.neo_install_dir, exist_ok=True)
-            
-            # Create essential directories
-            dirs_to_create = [
-                "scripts/maya",
-                "ai", 
-                "editor",
-                "ui",
-                "utils",
-                "assets",
-                "docs"
-            ]
-            
-            for dir_name in dirs_to_create:
-                os.makedirs(os.path.join(self.neo_install_dir, dir_name), exist_ok=True)
-            
-            # Create minimal files with basic content
-            self._create_minimal_files()
-            
-            print("✅ Minimal installation created")
-            return True
-            
-        except Exception as e:
-            print(f"❌ Minimal installation failed: {e}")
-            return False
     
     def _create_minimal_files(self):
         """Create minimal essential files"""
@@ -906,15 +945,16 @@ if __name__ == "__main__":
 🎯 NEO SCRIPT EDITOR - DRAG & DROP INSTALLER
 
 EASY INSTALLATION (Drag & Drop):
-1. Download this file: neo_installer.py  
-2. Drag it into Maya's viewport
+1. Extract the NEO Script Editor project ZIP file
+2. Drag neo_installer.py from the project folder into Maya's viewport
 3. Follow the installation wizard
 4. Restart Maya and enjoy NEO Script Editor!
 
 MANUAL INSTALLATION (If drag & drop fails):
-1. Open Maya's Script Editor (Python tab)
-2. Load this file or copy-paste the code
-3. Run: install_neo_script_editor()
+1. Extract the NEO Script Editor project ZIP file
+2. Open Maya's Script Editor (Python tab)
+3. Load neo_installer.py from the project folder or copy-paste the code
+4. Run: install_neo_script_editor()
 
 WHAT GETS INSTALLED:
 ✓ NEO Script Editor files (ai_script_editor/)
@@ -936,7 +976,7 @@ PERFECT WORKFLOW:
 
 REQUIREMENTS:
 • Maya 2022+ (Windows/Mac/Linux)
-• Internet connection (for download)
+• Complete NEO Script Editor project folder (extracted from ZIP)
 • Python 3.7+ (included with Maya)
 
 SUPPORT:
