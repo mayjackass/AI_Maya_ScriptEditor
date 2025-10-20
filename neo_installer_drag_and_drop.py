@@ -61,7 +61,7 @@ class NEOInstaller:
         try:
             # Show welcome dialog
             if not self._show_welcome_dialog():
-                print("❌ Installation cancelled by user")
+                print("[CANCEL] Installation cancelled by user")
                 return False
             
             # Create progress window
@@ -114,7 +114,7 @@ class NEOInstaller:
             return True
             
         except Exception as e:
-            print(f"❌ Installation failed: {e}")
+            print(f"[ERROR] Installation failed: {e}")
             import traceback
             traceback.print_exc()
             self._show_error_dialog(str(e))
@@ -224,12 +224,12 @@ class NEOInstaller:
                 print(f"⚠️ Some files missing: {missing_files}")
                 print("Will proceed with available files and create missing components")
             else:
-                print("✅ Project folder validation successful")
+                print("[SUCCESS] Project folder validation successful")
             
             return True
             
         except Exception as e:
-            print(f"❌ Project folder validation failed: {e}")
+            print(f"[ERROR] Project folder validation failed: {e}")
             self._show_error_dialog(f"Project folder validation failed: {e}\n\nMake sure you extracted the complete NEO Script Editor project.")
             return False
     
@@ -278,11 +278,11 @@ class NEOInstaller:
                 print("Creating minimal replacements...")
                 self._create_minimal_files()
             
-            print("✅ Files installed successfully")
+            print("[SUCCESS] Files installed successfully")
             return True
             
         except Exception as e:
-            print(f"❌ File installation failed: {e}")
+            print(f"[ERROR] File installation failed: {e}")
             return False
     
     def _setup_user_setup(self):
@@ -298,7 +298,7 @@ class NEOInstaller:
                 # Back up existing userSetup.py
                 backup_path = user_setup_path + ".backup_before_neo"
                 shutil.copy2(user_setup_path, backup_path)
-                print(f"✅ Backed up existing userSetup.py to: {backup_path}")
+                print(f"[BACKUP] Backed up existing userSetup.py to: {backup_path}")
                 
                 # Ask user what to do
                 result = cmds.confirmDialog(
@@ -318,10 +318,10 @@ class NEOInstaller:
                 
                 if result == "Replace":
                     shutil.copy2(neo_user_setup_path, user_setup_path)
-                    print("✅ Replaced userSetup.py with NEO version")
+                    print("[SUCCESS] Replaced userSetup.py with NEO version")
                 elif result == "Append":
                     self._append_to_user_setup(user_setup_path, neo_user_setup_path)
-                    print("✅ Appended NEO setup to existing userSetup.py")
+                    print("[SUCCESS] Appended NEO setup to existing userSetup.py")
                 else:
                     print("⚠️ Manual setup required - userSetup.py not modified")
                     return True  # Don't fail installation
@@ -330,17 +330,17 @@ class NEOInstaller:
                 if os.path.exists(neo_user_setup_path):
                     # Copy from project source
                     shutil.copy2(neo_user_setup_path, user_setup_path)
-                    print("✅ Created new userSetup.py from project")
+                    print("[SUCCESS] Created new userSetup.py from project")
                 else:
                     # Create minimal userSetup.py with embedded content
                     print("📝 Creating minimal userSetup.py (project version not found)")
                     self._create_minimal_user_setup(user_setup_path)
-                    print("✅ Created minimal userSetup.py")
+                    print("[SUCCESS] Created minimal userSetup.py")
             
             return True
             
         except Exception as e:
-            print(f"❌ userSetup.py setup failed: {e}")
+            print(f"[ERROR] userSetup.py setup failed: {e}")
             return False
 
     def _create_minimal_user_setup(self, user_setup_path):
@@ -399,7 +399,7 @@ except:
             
             # Check if NEO is already integrated
             if "setup_neo_editor" in existing_content:
-                print("✅ NEO setup already present in userSetup.py")
+                print("[INFO] NEO setup already present in userSetup.py")
                 return
             
             # Get NEO content (from file or embedded)
@@ -458,10 +458,10 @@ except:
             with open(existing_path, 'w', encoding='utf-8') as f:
                 f.write(combined_content)
             
-            print("✅ NEO setup appended to existing userSetup.py")
+            print("[SUCCESS] NEO setup appended to existing userSetup.py")
             
         except Exception as e:
-            print(f"❌ Failed to append to userSetup.py: {e}")
+            print(f"[ERROR] Failed to append to userSetup.py: {e}")
             raise
     
     def _create_basic_maya_integration(self):
@@ -493,9 +493,9 @@ try:
         try:
             from main_window import launch_neo_editor
             launch_neo_editor()
-            print("✅ NEO Script Editor launched")
+            print("[SUCCESS] NEO Script Editor launched")
         except Exception as e:
-            print(f"❌ Launch failed: {e}")
+            print(f"[ERROR] Launch failed: {e}")
     
     def launch_neo_editor():
         """Launch standalone NEO"""
@@ -542,7 +542,7 @@ try:
             sourceType="python"
         )
         
-        print("✅ NEO shelf created")
+        print("[SUCCESS] NEO shelf created")
         return True
 
 except ImportError:
@@ -555,10 +555,10 @@ except ImportError:
             with open(shelf_path, 'w', encoding='utf-8') as f:
                 f.write(shelf_content)
             
-            print("✅ Created basic Maya integration files")
+            print("[SUCCESS] Created basic Maya integration files")
             
         except Exception as e:
-            print(f"❌ Failed to create basic Maya integration: {e}")
+            print(f"[ERROR] Failed to create basic Maya integration: {e}")
 
     def _add_to_python_path(self):
         """Add NEO Script Editor to Python path"""
@@ -654,10 +654,10 @@ except ImportError:
             from complete_setup import complete_neo_setup
             complete_neo_setup()
             
-            print("✅ NEO Script Editor launched")
+            print("[SUCCESS] NEO Script Editor launched")
             
         except Exception as e:
-            print(f"⚠️ NEO Script Editor launch failed: {e}")
+            print(f"[WARNING] NEO Script Editor launch failed: {e}")
             print("You can launch it manually with: complete_neo_setup()")
     
     def _show_success_dialog(self):
@@ -884,7 +884,7 @@ except:
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(full_path, 'w', encoding='utf-8') as f:
             f.write(content)
-        print(f"✅ Created: {relative_path}")
+        print(f"[SUCCESS] Created: {relative_path}")
 
     def _show_about_dialog(self, *args):
         """Show about dialog"""
@@ -893,16 +893,16 @@ except:
             message=(
                 "NEO Script Editor v3.2 Beta\n"
                 '"I can only show you the door. You\'re the one that has to walk through it."\n\n'
-                "🔥 Features:\n"
+                "[FEATURES]\n"
                 "• Maya standalone integration (always on top)\n"
                 "• AI assistant (OpenAI/Claude)\n"
                 "• 320+ Maya command validation\n"
                 "• VSCode-style editor\n"
                 "• Real-time error detection\n\n"
-                "💡 Developer: Mayj Amilano (@mayjackass)\n"
-                "🌐 GitHub: github.com/mayjackass/AI_Maya_ScriptEditor\n"
-                "📅 Release: October 2025\n"
-                "⏰ Beta Expires: January 31, 2026\n\n"
+                "[INFO] Developer: Mayj Amilano (@mayjackass)\n"
+                "[WEB] GitHub: github.com/mayjackass/AI_Maya_ScriptEditor\n"
+                "[DATE] Release: October 2025\n"
+                "[TIME] Beta Expires: January 31, 2026\n\n"
                 "Thank you for using NEO Script Editor!"
             ),
             button=["Close"],
