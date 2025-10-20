@@ -80,6 +80,7 @@ CLEANUP_SUMMARY.md
 
 # Local development only (not on GitHub)
 archive/
+_archive/
 SIMPLE_GITHUB_UPDATE.md
 userSetup.py
 
