@@ -24,9 +24,10 @@ def create_neo_shelf():
     print("[NEO] Creating NEO shelf...")
     
     try:
-        # Get the main shelf tab layout
+        # Get the main shelf tab layout using Python maya.cmds instead of MEL
         print("[NEO] Getting shelf tab layout...")
-        shelf_tab_layout = mel.eval('string $temp = $gShelfTopLevel; $temp')
+        # Use Maya's internal command to get the shelf layout directly
+        shelf_tab_layout = cmds.tabLayout('ShelfLayout', query=True, fullPathName=True) or 'ShelfLayout'
         print(f"[NEO] Shelf tab layout: {shelf_tab_layout}")
         
         # Check if NEO shelf already exists and delete it

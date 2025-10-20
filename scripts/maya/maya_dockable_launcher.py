@@ -63,23 +63,31 @@ class MayaDockableNeoEditor(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         
-        # Create the NEO Script Editor instance
+        # Create the NEO Script Editor instance properly embedded
         try:
-            # Create NEO Script Editor without parent first
+            print("[Maya] Creating NEO Script Editor for dockable use...")
+            
+            # Create NEO Script Editor instance
             self.neo_editor = AiScriptEditor()
-            print("[Maya] NEO Script Editor instance created successfully")
+            print("[Maya] NEO Script Editor instance created")
             
-            # Set this widget as parent and configure for embedding
-            self.neo_editor.setParent(self)
-            self.neo_editor.setWindowFlags(QtCore.Qt.Widget)
+            # CRITICAL: Hide the standalone window that gets created automatically
+            self.neo_editor.hide()
             
-            # Add to our layout
-            layout.addWidget(self.neo_editor)
-            
-            # Force geometry update and show
-            self.neo_editor.resize(800, 600)
-            self.neo_editor.setVisible(True)
-            self.neo_editor.activateWindow()
+            # Extract the central widget content instead of trying to embed the whole window
+            central_widget = self.neo_editor.centralWidget()
+            if central_widget:
+                # Remove from original parent and add to our layout
+                central_widget.setParent(None)
+                central_widget.setParent(self)
+                layout.addWidget(central_widget)
+                print("[Maya] NEO Script Editor content embedded successfully")
+            else:
+                # Fallback: embed the whole editor but force it to be a widget
+                self.neo_editor.setParent(self)
+                self.neo_editor.setWindowFlags(QtCore.Qt.Widget)
+                layout.addWidget(self.neo_editor)
+                print("[Maya] NEO Script Editor embedded as fallback")
             
             print("[Maya] NEO Script Editor embedded in workspace control")
             
