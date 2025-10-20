@@ -2005,7 +2005,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             return None
     
     def _is_morpheus_available(self):
-        """Check if Morpheus AI is available."""
+        """Check if Morpheus AI is available and online."""
         try:
             # Check if we have access to main window with Morpheus
             if hasattr(self, 'parent') and self.parent():
@@ -2014,7 +2014,11 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                     main_window = main_window.parent()
                 
                 if hasattr(main_window, 'chat_manager') and main_window.chat_manager:
-                    return True
+                    # Check if Morpheus is in online mode (not offline)
+                    chat_manager = main_window.chat_manager
+                    if hasattr(chat_manager, 'offline_mode'):
+                        return not chat_manager.offline_mode  # Available if NOT in offline mode
+                    return True  # Assume online if offline_mode attribute doesn't exist
             return False
         except:
             return False
