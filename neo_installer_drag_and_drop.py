@@ -286,9 +286,8 @@ class NEOInstaller:
         """Setup or update userSetup.py"""
         try:
             user_setup_path = os.path.join(self.maya_scripts_dir, "userSetup.py")
-            neo_user_setup_path = os.path.join(self.project_source_dir, "scripts", "maya", "userSetup.py")
             
-            print(f"Looking for NEO userSetup.py at: {neo_user_setup_path}")
+            print(f"Setting up userSetup.py at: {user_setup_path}")
             
             # Check if userSetup.py already exists
             if os.path.exists(user_setup_path):
@@ -297,8 +296,16 @@ class NEOInstaller:
                 shutil.copy2(user_setup_path, backup_path)
                 print(f"[BACKUP] Backed up existing userSetup.py to: {backup_path}")
                 
+                # Check if NEO is already integrated
+                with open(user_setup_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                if "setup_neo_editor" in content:
+                    print("[INFO] NEO setup already present in userSetup.py")
+                    return True
+                
                 # Ask user what to do
-                result = cmds.confirmDialog(
+                result = self._create_themed_dialog(
                     title="Existing userSetup.py Found",
                     message=(
                         "You already have a userSetup.py file.\n\n"
@@ -308,31 +315,23 @@ class NEOInstaller:
                         "• Manual: Set up NEO manually later\n\n"
                         "Your existing file has been backed up."
                     ),
-                    button=["Replace", "Append", "Manual"],
-                    defaultButton="Replace",
-                    cancelButton="Manual"
+                    buttons=["Replace", "Append", "Manual"],
+                    default_button="Replace"
                 )
                 
                 if result == "Replace":
-                    shutil.copy2(neo_user_setup_path, user_setup_path)
+                    self._create_minimal_user_setup(user_setup_path)
                     print("[SUCCESS] Replaced userSetup.py with NEO version")
                 elif result == "Append":
-                    self._append_to_user_setup(user_setup_path, neo_user_setup_path)
+                    self._append_to_user_setup_existing(user_setup_path)
                     print("[SUCCESS] Appended NEO setup to existing userSetup.py")
                 else:
-                    print("⚠️ Manual setup required - userSetup.py not modified")
+                    print("[INFO] Manual setup required - userSetup.py not modified")
                     return True  # Don't fail installation
             else:
                 # No existing userSetup.py, create NEO version
-                if os.path.exists(neo_user_setup_path):
-                    # Copy from project source
-                    shutil.copy2(neo_user_setup_path, user_setup_path)
-                    print("[SUCCESS] Created new userSetup.py from project")
-                else:
-                    # Create minimal userSetup.py with embedded content
-                    print("📝 Creating minimal userSetup.py (project version not found)")
-                    self._create_minimal_user_setup(user_setup_path)
-                    print("[SUCCESS] Created minimal userSetup.py")
+                self._create_minimal_user_setup(user_setup_path)
+                print("[SUCCESS] Created new userSetup.py with NEO integration")
             
             return True
             
@@ -387,7 +386,7 @@ except:
         with open(user_setup_path, 'w', encoding='utf-8') as f:
             f.write(user_setup_content)
     
-    def _append_to_user_setup(self, existing_path, neo_path):
+    def _append_to_user_setup_existing(self, existing_path):
         """Append NEO setup to existing userSetup.py"""
         try:
             # Read existing userSetup.py
@@ -399,14 +398,9 @@ except:
                 print("[INFO] NEO setup already present in userSetup.py")
                 return
             
-            # Get NEO content (from file or embedded)
-            if os.path.exists(neo_path):
-                # Read NEO userSetup.py from project
-                with open(neo_path, 'r', encoding='utf-8') as f:
-                    neo_content = f.read()
-            else:
-                # Use embedded minimal content
-                neo_content = '''
+            # NEO integration content
+            neo_content = '''
+
 def setup_neo_editor():
     """Setup NEO Script Editor in Maya"""
     try:
@@ -429,13 +423,13 @@ def setup_neo_editor():
             __main__.complete_neo_setup = complete_neo_setup
             __main__.launch_neo_editor = launch_neo_editor
             
-            print("🚀 NEO Script Editor ready! Use: launch_neo_editor()")
+            print("[SUCCESS] NEO Script Editor ready! Use: launch_neo_editor()")
             
         except ImportError as e:
-            print(f"NEO Script Editor import failed: {e}")
+            print(f"[ERROR] NEO Script Editor import failed: {e}")
             
     except Exception as e:
-        print(f"NEO Script Editor setup failed: {e}")
+        print(f"[ERROR] NEO Script Editor setup failed: {e}")
 
 # Run setup when Maya starts
 try:
@@ -459,7 +453,6 @@ except:
             
         except Exception as e:
             print(f"[ERROR] Failed to append to userSetup.py: {e}")
-            raise
     
     def _create_basic_maya_integration(self):
         """Create basic Maya integration files if they don't exist"""
