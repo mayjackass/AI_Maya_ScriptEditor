@@ -236,31 +236,32 @@ class NEOInstaller:
             self._show_error_dialog(f"Project folder validation failed: {e}\n\nMake sure you extracted the complete NEO Script Editor project.")
             return False
     
+    def _force_remove_directory(self, path):
+        """Force remove directory with Windows permission handling"""
+        try:
+            import stat
+            
+            def handle_remove_readonly(func, path, exc):
+                """Error handler for removing read-only files"""
+                if os.path.exists(path):
+                    os.chmod(path, stat.S_IWRITE)
+                    func(path)
+            
+            shutil.rmtree(path, onerror=handle_remove_readonly)
+            print(f"Successfully removed: {path}")
+            
+        except Exception as e:
+            print(f"Warning: Could not fully remove {path}: {e}")
+            print("Continuing with installation...")
+
     def _install_files(self):
         """Install NEO Script Editor files to Maya scripts directory"""
         try:
-            # Remove existing installation if it exists (with better error handling)
+            # Remove existing installation if it exists
             if os.path.exists(self.neo_install_dir):
                 print(f"Removing existing installation: {self.neo_install_dir}")
-                try:
-                    # Try to remove read-only attributes first
-                    for root, dirs, files in os.walk(self.neo_install_dir):
-                        for file in files:
-                            file_path = os.path.join(root, file)
-                            try:
-                                os.chmod(file_path, 0o777)
-                            except:
-                                pass
-                    shutil.rmtree(self.neo_install_dir)
-                except Exception as remove_error:
-                    print(f"Warning: Could not remove some files: {remove_error}")
-                    # Try to rename the old folder instead
-                    backup_name = self.neo_install_dir + "_backup_" + str(int(os.path.getmtime(self.neo_install_dir)))
-                    try:
-                        os.rename(self.neo_install_dir, backup_name)
-                        print(f"Moved existing installation to: {backup_name}")
-                    except:
-                        print("Could not remove or rename existing installation - will try to continue anyway")
+                # Force remove with error handling for permission issues
+                self._force_remove_directory(self.neo_install_dir)
             
             # Copy files from project folder to Maya scripts directory (excluding VCS files)
             print(f"Copying files from {self.project_source_dir} to {self.neo_install_dir}")
@@ -269,9 +270,7 @@ class NEOInstaller:
             def ignore_patterns(dir, files):
                 ignore_list = []
                 for file in files:
-                    if (file.startswith('.git') or file == '__pycache__' or 
-                        file.endswith('.pyc') or file.startswith('.vscode') or
-                        file == '.gitignore' or file == '.gitattributes'):
+                    if file.startswith('.git') or file == '__pycache__' or file.endswith('.pyc'):
                         ignore_list.append(file)
                 return ignore_list
             
