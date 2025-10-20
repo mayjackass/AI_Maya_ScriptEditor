@@ -30,11 +30,7 @@ def create_neo_shelf():
         shelf_name = "NEO"
         
         # Check if NEO shelf already exists
-        existing_shelves = cmds.shelfLayout(query=True, childArray=True) or []
-        shelf_exists = any(cmds.shelfLayout(shelf, query=True, annotation=True) == shelf_name 
-                          for shelf in existing_shelves if cmds.shelfLayout(shelf, exists=True))
-        
-        if shelf_exists:
+        if cmds.shelfLayout(shelf_name, exists=True):
             print(f"[Maya] NEO shelf already exists")
             # Switch to the NEO shelf
             mel.eval(f'global string $gShelfTopLevel; tabLayout -edit -selectTab "{shelf_name}" $gShelfTopLevel;')
