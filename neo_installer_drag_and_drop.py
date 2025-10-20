@@ -318,7 +318,33 @@ class NEOInstaller:
             
             # Copy files from project folder to Maya scripts directory
             print(f"[INSTALL] Installing NEO Script Editor to: {self.neo_install_dir}")
-            shutil.copytree(self.project_source_dir, self.neo_install_dir)
+            
+            # Define ignore patterns for installation
+            def ignore_patterns(directory, files):
+                """Ignore unnecessary files during installation"""
+                ignore_list = []
+                for name in files:
+                    # Ignore Python cache
+                    if name == '__pycache__' or name.endswith('.pyc') or name.endswith('.pyo'):
+                        ignore_list.append(name)
+                    # Ignore version control
+                    elif name in ['.git', '.gitignore', '.gitattributes']:
+                        ignore_list.append(name)
+                    # Ignore virtual environments
+                    elif name in ['.venv', 'venv', 'env', 'ENV']:
+                        ignore_list.append(name)
+                    # Ignore IDE files
+                    elif name in ['.vscode', '.idea'] or name.endswith('.swp'):
+                        ignore_list.append(name)
+                    # Ignore archives
+                    elif name == '_archive':
+                        ignore_list.append(name)
+                    # Ignore distribution/build folders
+                    elif name in ['dist', 'build', 'temp_dist_*', 'temp_neo_dist', 'temp_verify']:
+                        ignore_list.append(name)
+                return ignore_list
+            
+            shutil.copytree(self.project_source_dir, self.neo_install_dir, ignore=ignore_patterns)
             
             # Restore user settings if they were backed up
             self._restore_user_settings()
