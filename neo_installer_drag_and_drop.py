@@ -160,7 +160,9 @@ class NEOInstaller:
             resizeToFitChildren=True
         )
         
-        cmds.columnLayout(adjustableColumn=True, marginWidth=20, marginHeight=20)
+        cmds.columnLayout(adjustableColumn=True, columnAlign="center", rowSpacing=5)
+        
+        cmds.separator(height=10, style="none")  # Top spacing
         
         cmds.text("progressLabel", label="Preparing installation...", font="boldLabelFont")
         cmds.separator(height=10)
@@ -169,6 +171,8 @@ class NEOInstaller:
         cmds.separator(height=10)
         
         cmds.text("statusLabel", label="Starting...", font="plainLabelFont")
+        
+        cmds.separator(height=10, style="none")  # Bottom spacing
         
         cmds.showWindow(window)
         cmds.refresh()
