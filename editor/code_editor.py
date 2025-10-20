@@ -437,6 +437,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                     if e.lineno and e.lineno not in error_lines:
                         error_msg = str(e.msg or 'Syntax error')
                         error_line = e.lineno
+                        original_error_line = e.lineno  # Keep track of Python's reported line
                         
                         # Special case: unmatched ')' often reported on wrong line
                         # Python reports the error where it realizes there's a mismatch (later line)
@@ -465,12 +466,18 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
                         })
                         error_lines.add(error_line)
                         
-                        # Temporarily "fix" this line to find more errors
+                        # Temporarily "fix" the CORRECTED line (not the original reported line)
+                        # This prevents cascade errors from the same root cause
                         temp_lines = temp_code.split('\n')
                         if 1 <= error_line <= len(temp_lines):
-                            # Comment out the problematic line
+                            # Comment out the problematic line at the corrected location
                             temp_lines[error_line - 1] = f"# TEMP_FIX: {temp_lines[error_line - 1]}"
                             temp_code = '\n'.join(temp_lines)
+                        
+                        # CRITICAL: Stop looking for more errors if we found an unmatched parenthesis
+                        # This type of error causes cascading false positives on subsequent lines
+                        if "unmatched ')'" in error_msg.lower() or "Extra ')' found" in error_msg:
+                            break
                     else:
                         break  # No new errors found
                 except Exception as e:
