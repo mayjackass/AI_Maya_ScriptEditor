@@ -11,7 +11,7 @@ What this installer does:
 - Copies NEO Script Editor files from project folder to Maya scripts folder
 - Sets up userSetup.py automatically
 - Creates NEO shelf with logo buttons
-- Launches dockable NEO Script Editor
+- Launches standalone always-on-top NEO Script Editor
 - Adds menu bar integration
 
 After installation, restart Maya and enjoy NEO Script Editor!
@@ -49,7 +49,7 @@ class NEOInstaller:
         self.project_source_dir = os.path.dirname(installer_path)
         
         print("=" * 80)
-        print("NEO Script Editor - Drag & Drop Installer v" + INSTALLER_VERSION)
+        print("🚀 NEO Script Editor - Drag & Drop Installer v" + INSTALLER_VERSION)
         print("=" * 80)
         print(f"Project Source Directory: {self.project_source_dir}")
         print(f"Maya Scripts Directory: {self.maya_scripts_dir}")
@@ -61,7 +61,7 @@ class NEOInstaller:
         try:
             # Show welcome dialog
             if not self._show_welcome_dialog():
-                print("[ERROR] Installation cancelled by user")
+                print("❌ Installation cancelled by user")
                 return False
             
             # Create progress window
@@ -114,7 +114,7 @@ class NEOInstaller:
             return True
             
         except Exception as e:
-            print(f"[ERROR] Installation failed: {e}")
+            print(f"❌ Installation failed: {e}")
             import traceback
             traceback.print_exc()
             self._show_error_dialog(str(e))
@@ -126,8 +126,8 @@ class NEOInstaller:
             title="NEO Script Editor Installer",
             message=(
                 "Welcome to NEO Script Editor v3.2 Beta!\n\n"
-                "FEATURES:\n"
-                "• Maya dockable integration (like built-in Script Editor)\n"
+                "🔥 Features:\n"
+                "• Maya standalone integration (always on top)\n"
                 "• AI assistant with OpenAI/Claude support\n"
                 "• 320+ Maya command validation\n"
                 "• VSCode-style editor with syntax highlighting\n"
@@ -136,7 +136,7 @@ class NEOInstaller:
                 "✓ Copy NEO Script Editor from project folder\n"
                 "✓ Set up Maya integration (userSetup.py)\n"
                 "✓ Create NEO shelf and menu\n"
-                "✓ Launch the dockable editor\n\n"
+                "✓ Launch the standalone editor\n\n"
                 f"Project folder: {os.path.basename(self.project_source_dir)}\n"
                 f"Install to: {self.maya_scripts_dir}\n\n"
                 "Continue with installation?"
@@ -161,17 +161,15 @@ class NEOInstaller:
         )
         
         cmds.columnLayout(adjustableColumn=True, columnAlign="center", rowSpacing=5)
-        
         cmds.separator(height=10, style="none")  # Top spacing
-        
+
         cmds.text("progressLabel", label="Preparing installation...", font="boldLabelFont")
         cmds.separator(height=10)
-        
+
         cmds.progressBar("progressBar", maxValue=100, width=360)
         cmds.separator(height=10)
-        
+
         cmds.text("statusLabel", label="Starting...", font="plainLabelFont")
-        
         cmds.separator(height=10, style="none")  # Bottom spacing
         
         cmds.showWindow(window)
@@ -209,7 +207,6 @@ class NEOInstaller:
             if os.path.exists(scripts_maya_path):
                 essential_files.extend([
                     os.path.join("scripts", "maya", "complete_setup.py"),
-                    os.path.join("scripts", "maya", "maya_dockable_launcher.py"),
                     os.path.join("scripts", "maya", "maya_shelf_creator.py")
                 ])
             else:
@@ -236,46 +233,19 @@ class NEOInstaller:
             self._show_error_dialog(f"Project folder validation failed: {e}\n\nMake sure you extracted the complete NEO Script Editor project.")
             return False
     
-    def _force_remove_directory(self, path):
-        """Force remove directory with Windows permission handling"""
-        try:
-            import stat
-            
-            def handle_remove_readonly(func, path, exc):
-                """Error handler for removing read-only files"""
-                if os.path.exists(path):
-                    os.chmod(path, stat.S_IWRITE)
-                    func(path)
-            
-            shutil.rmtree(path, onerror=handle_remove_readonly)
-            print(f"Successfully removed: {path}")
-            
-        except Exception as e:
-            print(f"Warning: Could not fully remove {path}: {e}")
-            print("Continuing with installation...")
-
     def _install_files(self):
         """Install NEO Script Editor files to Maya scripts directory"""
         try:
             # Remove existing installation if it exists
             if os.path.exists(self.neo_install_dir):
                 print(f"Removing existing installation: {self.neo_install_dir}")
-                # Force remove with error handling for permission issues
-                self._force_remove_directory(self.neo_install_dir)
+                shutil.rmtree(self.neo_install_dir)
             
-            # Copy files from project folder to Maya scripts directory (excluding VCS files)
+            # Copy files from project folder to Maya scripts directory
             print(f"Copying files from {self.project_source_dir} to {self.neo_install_dir}")
             
-            # Define patterns to ignore (VCS and temp files)
-            def ignore_patterns(dir, files):
-                ignore_list = []
-                for file in files:
-                    if file.startswith('.git') or file == '__pycache__' or file.endswith('.pyc'):
-                        ignore_list.append(file)
-                return ignore_list
-            
-            # Copy the entire project folder with ignore patterns
-            shutil.copytree(self.project_source_dir, self.neo_install_dir, ignore=ignore_patterns)
+            # Copy the entire project folder
+            shutil.copytree(self.project_source_dir, self.neo_install_dir)
             
             # Verify essential files exist
             essential_files = [
@@ -289,7 +259,6 @@ class NEOInstaller:
             if os.path.exists(maya_scripts_path):
                 essential_files.extend([
                     "scripts/maya/complete_setup.py",
-                    "scripts/maya/maya_dockable_launcher.py", 
                     "scripts/maya/maya_shelf_creator.py"
                 ])
             else:
@@ -430,19 +399,12 @@ try:
         except Exception as e:
             print(f"❌ Launch failed: {e}")
     
-    def neo_docked():
-        """Launch dockable NEO"""
-        complete_neo_setup()
-    
     def launch_neo_editor():
         """Launch standalone NEO"""
         complete_neo_setup()
 
 except ImportError:
     def complete_neo_setup():
-        print("NEO Script Editor requires Maya environment")
-    
-    def neo_docked():
         print("NEO Script Editor requires Maya environment")
     
     def launch_neo_editor():
@@ -494,31 +456,6 @@ except ImportError:
             shelf_path = os.path.join(maya_scripts_dir, "maya_shelf_creator.py")
             with open(shelf_path, 'w', encoding='utf-8') as f:
                 f.write(shelf_content)
-            
-            # Create basic maya_dockable_launcher.py
-            dockable_content = '''"""
-NEO Script Editor - Dockable Launcher
-"""
-
-try:
-    import maya.cmds as cmds
-    
-    def launch_dockable_neo():
-        """Launch dockable NEO Script Editor"""
-        try:
-            from complete_setup import complete_neo_setup
-            complete_neo_setup()
-        except Exception as e:
-            print(f"Dockable launch failed: {e}")
-
-except ImportError:
-    def launch_dockable_neo():
-        print("NEO Script Editor requires Maya environment")
-'''
-            
-            dockable_path = os.path.join(maya_scripts_dir, "maya_dockable_launcher.py")
-            with open(dockable_path, 'w', encoding='utf-8') as f:
-                f.write(dockable_content)
             
             print("✅ Created basic Maya integration files")
             
@@ -573,26 +510,13 @@ except ImportError:
             
             # Add menu items
             cmds.menuItem(
-                label="Launch Dockable NEO Script Editor",
-                command="neo_docked()",
+                label="Launch NEO Script Editor",
+                command="launch_neo_editor()",
                 parent=neo_menu,
                 image="pythonFamily.png"
             )
             
-            cmds.menuItem(
-                label="Launch Standalone NEO Script Editor", 
-                command="launch_neo_editor()",
-                parent=neo_menu,
-                image="commandButton.png"
-            )
-            
             cmds.menuItem(divider=True, parent=neo_menu)
-            
-            cmds.menuItem(
-                label="Create NEO Shelf",
-                command="create_neo_shelf()",
-                parent=neo_menu
-            )
             
             cmds.menuItem(
                 label="Complete NEO Setup",
@@ -636,22 +560,22 @@ except ImportError:
         cmds.confirmDialog(
             title="Installation Complete!",
             message=(
-                "INSTALLATION COMPLETE - NEO Script Editor v3.2 Beta installed successfully!\n\n"
-                "WHAT WAS INSTALLED:\n"
+                "🎉 NEO Script Editor v3.2 Beta installed successfully!\n\n"
+                "✅ What was installed:\n"
                 "• NEO Script Editor files\n"
                 "• Maya integration (userSetup.py)\n"
                 "• NEO shelf with logo buttons\n"
                 "• NEO menu in menu bar\n"
-                "• Dockable NEO Script Editor (currently open)\n\n"
-                "QUICK START:\n"
+                "• Standalone NEO Script Editor (always on top)\n\n"
+                "💡 Quick Start:\n"
                 "• Use the NEO shelf buttons for easy access\n"
-                "• Drag the editor to the top for perfect workflow\n"
+                "• Editor stays on top for easy workflow\n"
                 "• Set your AI API key in Tools → Settings\n\n"
-                "NEXT STEPS:\n"
+                "🔄 Next Steps:\n"
                 "• Restart Maya to ensure full integration\n"
                 "• Check out the docs/ folder for guides\n"
                 "• Report issues on GitHub\n\n"
-                "Enjoy coding with NEO!"
+                "Enjoy coding with NEO! 🚀"
             ),
             button=["Awesome!"],
             defaultButton="Awesome!"
@@ -791,10 +715,6 @@ try:
         except Exception as e:
             print(f"❌ Launch failed: {e}")
     
-    def neo_docked():
-        """Launch dockable NEO (minimal)"""
-        complete_neo_setup()
-    
     def launch_neo_editor():
         """Launch standalone NEO"""
         complete_neo_setup()
@@ -827,9 +747,6 @@ except ImportError:
     def complete_neo_setup():
         print("NEO Script Editor requires Maya environment")
     
-    def neo_docked():
-        print("NEO Script Editor requires Maya environment")
-    
     def launch_neo_editor():
         print("NEO Script Editor requires Maya environment")
         
@@ -859,16 +776,15 @@ def setup_neo_editor():
         
         # Import NEO functions
         try:
-            from scripts.maya.complete_setup import complete_neo_setup, neo_docked, create_neo_shelf, launch_neo_editor
+            from scripts.maya.complete_setup import complete_neo_setup, create_neo_shelf, launch_neo_editor
             
             # Make functions globally available
             import __main__
             __main__.complete_neo_setup = complete_neo_setup
-            __main__.neo_docked = neo_docked
             __main__.create_neo_shelf = create_neo_shelf  
             __main__.launch_neo_editor = launch_neo_editor
             
-            print("🚀 NEO Script Editor ready! Use: complete_neo_setup()")
+            print("🚀 NEO Script Editor ready! Use: launch_neo_editor()")
             
         except ImportError as e:
             print(f"NEO Script Editor import failed: {e}")
@@ -901,7 +817,7 @@ except:
                 "NEO Script Editor v3.2 Beta\n"
                 '"I can only show you the door. You\'re the one that has to walk through it."\n\n'
                 "🔥 Features:\n"
-                "• Maya dockable integration\n"
+                "• Maya standalone integration (always on top)\n"
                 "• AI assistant (OpenAI/Claude)\n"
                 "• 320+ Maya command validation\n"
                 "• VSCode-style editor\n"
@@ -992,18 +908,17 @@ WHAT GETS INSTALLED:
 ✓ Maya integration (userSetup.py)  
 ✓ NEO shelf with Matrix logo buttons
 ✓ NEO menu in Maya's menu bar
-✓ Dockable workspace control integration
+✓ Standalone script editor integration
 
 MAYA COMMANDS (Available after installation):
 • complete_neo_setup()  - Everything at once
-• neo_docked()          - Launch dockable editor
 • create_neo_shelf()    - Create NEO shelf  
-• launch_neo_editor()   - Standalone window
+• launch_neo_editor()   - Standalone window (always on top)
 
 PERFECT WORKFLOW:
 1. Run complete_neo_setup()
-2. Drag NEO editor to TOP of Maya interface  
-3. Now you have: Editor above, viewport below!
+2. Use launch_neo_editor() for standalone editing
+3. Enjoy AI-powered script editing with always-on-top behavior!
 
 REQUIREMENTS:
 • Maya 2022+ (Windows/Mac/Linux)
