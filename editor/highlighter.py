@@ -132,13 +132,13 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
         # 10. Import statements
         self.rules += [(re.compile(r"\b(import|from)\b"), imports)]
         
-        # 11. Keywords (excluding True/False/None which are constants)
-        kws = r"\b(and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|global|if|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield)\b"
-        self.rules += [(re.compile(kws), kw)]
-        
-        # 12. Built-in constants
+        # 11. Built-in constants (BEFORE keywords to take priority)
         constants = r"\b(True|False|None|Ellipsis|NotImplemented|__debug__)\b"
         self.rules += [(re.compile(constants), builtin_const)]
+        
+        # 12. Keywords (excluding True/False/None which are constants)
+        kws = r"\b(and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|global|if|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield)\b"
+        self.rules += [(re.compile(kws), kw)]
         
         # 13. Built-in functions and types
         builtins = r"\b(abs|all|any|ascii|bin|bool|bytearray|bytes|callable|chr|classmethod|compile|complex|delattr|dict|dir|divmod|enumerate|eval|exec|filter|float|format|frozenset|getattr|globals|hasattr|hash|help|hex|id|input|int|isinstance|issubclass|iter|len|list|locals|map|max|memoryview|min|next|object|oct|open|ord|pow|print|property|range|repr|reversed|round|set|setattr|slice|sorted|staticmethod|str|sum|super|tuple|type|vars|zip)\b"
@@ -381,13 +381,14 @@ class PythonHighlighter(QtGui.QSyntaxHighlighter):
                     protected[j] = True
                 break  # Only one comment per line (rest of line after #)
         
-        # Apply all other rules (keywords, etc.) - WITHOUT checking protected
-        # We'll override with comments at the end anyway
+        # Apply all other rules (keywords, etc.) - ONLY to unprotected text
         for pattern, fmt in self.rules:
             for match in pattern.finditer(text):
                 start = match.start()
                 length = match.end() - match.start()
-                self.setFormat(start, length, fmt)
+                # Only apply if this region is NOT protected (not inside strings/comments)
+                if start < len(protected) and not any(protected[i] for i in range(start, min(start + length, len(protected)))):
+                    self.setFormat(start, length, fmt)
         
         # Apply Copilot background highlighting if this line is marked
         current_block = self.currentBlock()
