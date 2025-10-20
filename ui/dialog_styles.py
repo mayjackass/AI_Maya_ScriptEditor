@@ -288,3 +288,272 @@ def create_message_box(parent, title, message, icon_type="information"):
     return msg_box
 
 
+def show_about_dialog(parent=None):
+    """
+    Show the standard NEO About dialog that can be used by both installer and main UI
+    
+    Args:
+        parent: Parent widget (can be None for standalone use)
+    """
+    from PySide6 import QtWidgets, QtCore, QtGui
+    
+    dialog = QtWidgets.QDialog(parent)
+    dialog.setWindowTitle("About NEO Script Editor")
+    dialog.setMinimumSize(550, 600)
+    dialog.setMaximumSize(550, 600)
+    
+    # Apply consistent dark theme
+    apply_dark_theme(dialog)
+    
+    layout = QtWidgets.QVBoxLayout(dialog)
+    layout.setSpacing(10)
+    layout.setContentsMargins(25, 20, 25, 20)
+    
+    # Logo/Title Section
+    titleLayout = QtWidgets.QVBoxLayout()
+    titleLayout.setSpacing(4)
+    
+    # Create horizontal layout for icon + title
+    iconTitleLayout = QtWidgets.QHBoxLayout()
+    iconTitleLayout.setAlignment(QtCore.Qt.AlignCenter)
+    iconTitleLayout.setSpacing(10)
+    
+    # Add Matrix icon to the left
+    icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "matrix.png")
+    if os.path.exists(icon_path):
+        iconLabel = QtWidgets.QLabel()
+        pixmap = QtGui.QPixmap(icon_path)
+        # Scale the icon smaller (36x36)
+        scaled_pixmap = pixmap.scaled(36, 36, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+        iconLabel.setPixmap(scaled_pixmap)
+        iconLabel.setAlignment(QtCore.Qt.AlignVCenter)
+        iconTitleLayout.addWidget(iconLabel)
+    
+    # Title
+    titleLabel = QtWidgets.QLabel("NEO Script Editor")
+    titleLabel.setStyleSheet("""
+        font-size: 22px;
+        font-weight: 600;
+        color: #cccccc;
+        letter-spacing: 0.5px;
+    """)
+    titleLabel.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft)
+    iconTitleLayout.addWidget(titleLabel)
+    
+    # Add the horizontal layout to the main title layout
+    titleLayout.addLayout(iconTitleLayout)
+    
+    # Version and tagline
+    versionLabel = QtWidgets.QLabel("Version 3.2 Beta • Beta Testing Release")
+    versionLabel.setStyleSheet("""
+        font-size: 11px;
+        color: #888888;
+        font-weight: 400;
+    """)
+    versionLabel.setAlignment(QtCore.Qt.AlignCenter)
+    
+    # Quote
+    quoteLabel = QtWidgets.QLabel('"I can only show you the door. You\'re the one that has to walk through it."')
+    quoteLabel.setStyleSheet("""
+        font-size: 12px;
+        color: #999999;
+        font-style: italic;
+        margin: 10px 0;
+    """)
+    quoteLabel.setAlignment(QtCore.Qt.AlignCenter)
+    quoteLabel.setWordWrap(True)
+    
+    titleLayout.addWidget(versionLabel)
+    titleLayout.addWidget(quoteLabel)
+    layout.addLayout(titleLayout)
+    
+    # Separator
+    separator1 = QtWidgets.QFrame()
+    separator1.setFrameShape(QtWidgets.QFrame.HLine)
+    separator1.setStyleSheet("background: #444444; max-height: 1px;")
+    layout.addWidget(separator1)
+    
+    # Author Section - compressed
+    authorLayout = QtWidgets.QVBoxLayout()
+    authorLayout.setSpacing(2)
+    
+    authorLabel = QtWidgets.QLabel("Developed by Mayj Amilano (@mayjackass)")
+    authorLabel.setStyleSheet("""
+        font-size: 10px;
+        color: #777777;
+        font-weight: 400;
+    """)
+    authorLabel.setAlignment(QtCore.Qt.AlignCenter)
+    
+    # GitHub link
+    githubLabel = QtWidgets.QLabel('<a href="https://github.com/mayjackass/AI_Maya_ScriptEditor">GitHub Repository</a>')
+    githubLabel.setStyleSheet("""
+        font-size: 10px;
+        color: #777777;
+        font-weight: 400;
+    """)
+    githubLabel.setAlignment(QtCore.Qt.AlignCenter)
+    githubLabel.setOpenExternalLinks(True)
+    
+    authorLayout.addWidget(authorLabel)
+    authorLayout.addWidget(githubLabel)
+    layout.addLayout(authorLayout)
+    
+    # Separator
+    separator2 = QtWidgets.QFrame()
+    separator2.setFrameShape(QtWidgets.QFrame.HLine)
+    separator2.setStyleSheet("background: #444444; max-height: 1px;")
+    layout.addWidget(separator2)
+    
+    # Features Section
+    featuresLabel = QtWidgets.QLabel("KEY FEATURES")
+    featuresLabel.setStyleSheet("""
+        font-size: 10px;
+        color: #888888;
+        font-weight: 500;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
+    """)
+    layout.addWidget(featuresLabel)
+    
+    # Features list
+    featuresBrowser = QtWidgets.QTextBrowser()
+    featuresBrowser.setMinimumHeight(280)
+    featuresBrowser.setMaximumHeight(320)
+    featuresBrowser.setOpenExternalLinks(False)
+    
+    featuresBrowser.setHtml("""
+        <style>
+            body { 
+                font-family: 'Segoe UI', sans-serif; 
+                background: #1e1e1e; 
+                margin: 0; 
+                padding: 8px 12px; 
+                color: #cccccc;
+            }
+            .feature { 
+                margin-bottom: 10px; 
+                line-height: 1.5; 
+            }
+            .feature-title { 
+                color: #bbbbbb; 
+                font-weight: 500; 
+                font-size: 12px;
+                display: block;
+                margin-bottom: 2px;
+            }
+            .text { 
+                color: #999999; 
+                font-size: 11px;
+                display: block;
+            }
+        </style>
+        <div class="feature">
+            <span class="feature-title">Maya Command Validation</span>
+            <span class="text">320+ commands validated with smart typo detection</span>
+        </div>
+        <div class="feature">
+            <span class="feature-title">Morpheus AI Assistant</span>
+            <span class="text">Integrated AI with OpenAI & Claude</span>
+        </div>
+        <div class="feature">
+            <span class="feature-title">VSCode-Style Editor</span>
+            <span class="text">Advanced syntax highlighting and autocomplete</span>
+        </div>
+        <div class="feature">
+            <span class="feature-title">Real-Time Analysis</span>
+            <span class="text">12 validation checks with instant error detection</span>
+        </div>
+        <div class="feature">
+            <span class="feature-title">Smart Suggestions</span>
+            <span class="text">Typo correction and import detection</span>
+        </div>
+        <div class="feature">
+            <span class="feature-title">Maya Documentation</span>
+            <span class="text">270+ command tooltips with complete API coverage</span>
+        </div>
+        <div class="feature">
+            <span class="feature-title">Problems Panel</span>
+            <span class="text">Maya-aware error tracking with fix suggestions</span>
+        </div>
+        <div class="feature">
+            <span class="feature-title">Modern UI</span>
+            <span class="text">Dark theme with customizable interface</span>
+        </div>
+    """)
+    layout.addWidget(featuresBrowser)
+    
+    # Separator
+    separator3 = QtWidgets.QFrame()
+    separator3.setFrameShape(QtWidgets.QFrame.HLine)
+    separator3.setStyleSheet("background: #444444; max-height: 1px;")
+    layout.addWidget(separator3)
+    
+    # Tech Stack & Release Info
+    techLabel = QtWidgets.QLabel("BUILT WITH")
+    techLabel.setStyleSheet("""
+        font-size: 9px;
+        color: #888888;
+        font-weight: 500;
+        letter-spacing: 1px;
+    """)
+    layout.addWidget(techLabel)
+    
+    techStackLabel = QtWidgets.QLabel("Python 3.9+ • PySide6 • OpenAI • Anthropic Claude")
+    techStackLabel.setStyleSheet("""
+        font-size: 11px;
+        color: #777777;
+        margin-bottom: 8px;
+    """)
+    techStackLabel.setAlignment(QtCore.Qt.AlignCenter)
+    layout.addWidget(techStackLabel)
+    
+    # Release info
+    releaseLabel = QtWidgets.QLabel("Released: October 2025 • Beta Expires: January 31, 2026")
+    releaseLabel.setStyleSheet("""
+        font-size: 10px;
+        color: #666666;
+        margin-bottom: 12px;
+    """)
+    releaseLabel.setAlignment(QtCore.Qt.AlignCenter)
+    layout.addWidget(releaseLabel)
+    
+    # Close button
+    buttonLayout = QtWidgets.QHBoxLayout()
+    buttonLayout.addStretch()
+    
+    closeBtn = QtWidgets.QPushButton("Close")
+    closeBtn.clicked.connect(dialog.accept)
+    closeBtn.setCursor(QtCore.Qt.PointingHandCursor)
+    
+    buttonLayout.addWidget(closeBtn)
+    buttonLayout.addStretch()
+    layout.addLayout(buttonLayout)
+    
+    # Show dialog
+    dialog.exec()
+
+
+def create_themed_dialog(parent, title, width=400, height=300):
+    """
+    Create a dialog with NEO theming applied
+    
+    Args:
+        parent: Parent widget
+        title: Dialog title
+        width: Dialog width
+        height: Dialog height
+    
+    Returns:
+        QtWidgets.QDialog: Themed dialog
+    """
+    from PySide6 import QtWidgets
+    
+    dialog = QtWidgets.QDialog(parent)
+    dialog.setWindowTitle(title)
+    dialog.setMinimumSize(width, height)
+    apply_dark_theme(dialog)
+    
+    return dialog
+
+

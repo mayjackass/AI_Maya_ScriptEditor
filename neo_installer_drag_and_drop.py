@@ -122,31 +122,28 @@ class NEOInstaller:
     
     def _show_welcome_dialog(self):
         """Show welcome dialog with installation options"""
-        result = cmds.confirmDialog(
+        return self._create_themed_dialog(
             title="NEO Script Editor Installer",
             message=(
                 "Welcome to NEO Script Editor v3.2 Beta!\n\n"
-                "🔥 Features:\n"
+                "[FEATURES]\n"
                 "• Maya standalone integration (always on top)\n"
                 "• AI assistant with OpenAI/Claude support\n"
                 "• 320+ Maya command validation\n"
                 "• VSCode-style editor with syntax highlighting\n"
-                "• Dedicated NEO shelf with logo buttons\n\n"
+                "• Dedicated NEO shelf with matrix icon\n\n"
                 "This installer will:\n"
-                "✓ Copy NEO Script Editor from project folder\n"
-                "✓ Set up Maya integration (userSetup.py)\n"
-                "✓ Create NEO shelf and menu\n"
-                "✓ Launch the standalone editor\n\n"
+                "• Copy NEO Script Editor from project folder\n"
+                "• Set up Maya integration (userSetup.py)\n"
+                "• Create NEO shelf and menu\n"
+                "• Launch the standalone editor\n\n"
                 f"Project folder: {os.path.basename(self.project_source_dir)}\n"
                 f"Install to: {self.maya_scripts_dir}\n\n"
                 "Continue with installation?"
             ),
-            button=["Install", "Cancel"],
-            defaultButton="Install",
-            cancelButton="Cancel",
-            dismissString="Cancel"
-        )
-        return result == "Install"
+            buttons=["Install", "Cancel"],
+            default_button="Install"
+        ) == "Install"
     
     def _create_progress_window(self):
         """Create progress window"""
@@ -662,36 +659,36 @@ except ImportError:
     
     def _show_success_dialog(self):
         """Show installation success dialog"""
-        cmds.confirmDialog(
+        self._create_themed_dialog(
             title="Installation Complete!",
             message=(
-                "🎉 NEO Script Editor v3.2 Beta installed successfully!\n\n"
-                "✅ What was installed:\n"
+                "NEO Script Editor v3.2 Beta installed successfully!\n\n"
+                "[INSTALLED]\n"
                 "• NEO Script Editor files\n"
                 "• Maya integration (userSetup.py)\n"
-                "• NEO shelf with logo buttons\n"
+                "• NEO shelf with matrix icon\n"
                 "• NEO menu in menu bar\n"
                 "• Standalone NEO Script Editor (always on top)\n\n"
-                "💡 Quick Start:\n"
-                "• Use the NEO shelf buttons for easy access\n"
+                "[QUICK START]\n"
+                "• Use the NEO shelf button for easy access\n"
                 "• Editor stays on top for easy workflow\n"
                 "• Set your AI API key in Tools → Settings\n\n"
-                "🔄 Next Steps:\n"
+                "[NEXT STEPS]\n"
                 "• Restart Maya to ensure full integration\n"
                 "• Check out the docs/ folder for guides\n"
                 "• Report issues on GitHub\n\n"
-                "Enjoy coding with NEO! 🚀"
+                "Enjoy coding with NEO!"
             ),
-            button=["Awesome!"],
-            defaultButton="Awesome!"
+            buttons=["Awesome!"],
+            default_button="Awesome!"
         )
     
     def _show_error_dialog(self, error_message):
         """Show installation error dialog"""
-        cmds.confirmDialog(
+        self._create_themed_dialog(
             title="Installation Failed",
             message=(
-                f"❌ Installation encountered an error:\n\n{error_message}\n\n"
+                f"[ERROR] Installation encountered an error:\n\n{error_message}\n\n"
                 "Possible solutions:\n"
                 "• Make sure you extracted the complete project folder\n"
                 "• Check that the installer is in the project root\n"
@@ -699,8 +696,8 @@ except ImportError:
                 "• Try running Maya as administrator\n\n"
                 f"Get help: {GITHUB_REPO}"
             ),
-            button=["OK"],
-            defaultButton="OK"
+            buttons=["OK"],
+            default_button="OK"
         )
     
     def _create_minimal_files(self):
@@ -886,28 +883,130 @@ except:
             f.write(content)
         print(f"[SUCCESS] Created: {relative_path}")
 
+    def _create_themed_dialog(self, title, message, buttons=["OK"], default_button="OK"):
+        """
+        Create a themed dialog using NEO's styling when possible, fallback to Maya
+        
+        Args:
+            title: Dialog title
+            message: Dialog message
+            buttons: List of button names
+            default_button: Default button name
+            
+        Returns:
+            str: Selected button name
+        """
+        try:
+            # Try to use PySide6 with NEO theming
+            import sys
+            import os
+            
+            # Add the ui directory to path
+            ui_path = os.path.join(self.project_source_dir, "ui")
+            if ui_path not in sys.path:
+                sys.path.insert(0, ui_path)
+            
+            from PySide6 import QtWidgets, QtCore
+            from dialog_styles import create_themed_dialog, apply_dark_theme
+            
+            # Create themed dialog
+            dialog = create_themed_dialog(None, title, 500, 300)
+            layout = QtWidgets.QVBoxLayout(dialog)
+            layout.setContentsMargins(20, 20, 20, 20)
+            layout.setSpacing(15)
+            
+            # Message label
+            messageLabel = QtWidgets.QLabel(message)
+            messageLabel.setWordWrap(True)
+            messageLabel.setStyleSheet("""
+                font-size: 13px;
+                color: #f0f6fc;
+                line-height: 1.4;
+            """)
+            layout.addWidget(messageLabel)
+            
+            # Buttons
+            buttonLayout = QtWidgets.QHBoxLayout()
+            buttonLayout.addStretch()
+            
+            result = [None]  # Use list to store result from lambda
+            
+            for i, button_text in enumerate(buttons):
+                btn = QtWidgets.QPushButton(button_text)
+                btn.setMinimumWidth(80)
+                btn.setCursor(QtCore.Qt.PointingHandCursor)
+                
+                # Set as default button
+                if button_text == default_button:
+                    btn.setDefault(True)
+                    btn.setFocus()
+                
+                # Create lambda with proper closure
+                btn.clicked.connect(lambda checked=False, text=button_text: [
+                    result.__setitem__(0, text),
+                    dialog.accept()
+                ])
+                
+                buttonLayout.addWidget(btn)
+                if i < len(buttons) - 1:
+                    buttonLayout.addSpacing(10)
+            
+            buttonLayout.addStretch()
+            layout.addLayout(buttonLayout)
+            
+            # Show dialog
+            dialog.exec()
+            
+            return result[0] or default_button
+            
+        except Exception as e:
+            # Fallback to Maya's confirmDialog
+            print(f"[INFO] Using Maya fallback dialog: {e}")
+            return cmds.confirmDialog(
+                title=title,
+                message=message,
+                button=buttons,
+                defaultButton=default_button
+            )
+
     def _show_about_dialog(self, *args):
-        """Show about dialog"""
-        cmds.confirmDialog(
-            title="About NEO Script Editor",
-            message=(
-                "NEO Script Editor v3.2 Beta\n"
-                '"I can only show you the door. You\'re the one that has to walk through it."\n\n'
-                "[FEATURES]\n"
-                "• Maya standalone integration (always on top)\n"
-                "• AI assistant (OpenAI/Claude)\n"
-                "• 320+ Maya command validation\n"
-                "• VSCode-style editor\n"
-                "• Real-time error detection\n\n"
-                "[INFO] Developer: Mayj Amilano (@mayjackass)\n"
-                "[WEB] GitHub: github.com/mayjackass/AI_Maya_ScriptEditor\n"
-                "[DATE] Release: October 2025\n"
-                "[TIME] Beta Expires: January 31, 2026\n\n"
-                "Thank you for using NEO Script Editor!"
-            ),
-            button=["Close"],
-            defaultButton="Close"
-        )
+        """Show about dialog using NEO's standard about dialog"""
+        try:
+            # Try to import the shared about dialog
+            import sys
+            import os
+            
+            # Add the ui directory to path
+            ui_path = os.path.join(self.project_source_dir, "ui")
+            if ui_path not in sys.path:
+                sys.path.insert(0, ui_path)
+            
+            from dialog_styles import show_about_dialog
+            show_about_dialog(None)  # No parent for standalone dialog
+            
+        except Exception as e:
+            # Fallback to Maya dialog if importing fails
+            print(f"[INFO] Using fallback about dialog: {e}")
+            cmds.confirmDialog(
+                title="About NEO Script Editor",
+                message=(
+                    "NEO Script Editor v3.2 Beta\n"
+                    '"I can only show you the door. You\'re the one that has to walk through it."\n\n'
+                    "[FEATURES]\n"
+                    "• Maya standalone integration (always on top)\n"
+                    "• AI assistant (OpenAI/Claude)\n"
+                    "• 320+ Maya command validation\n"
+                    "• VSCode-style editor\n"
+                    "• Real-time error detection\n\n"
+                    "[INFO] Developer: Mayj Amilano (@mayjackass)\n"
+                    "[WEB] GitHub: github.com/mayjackass/AI_Maya_ScriptEditor\n"
+                    "[DATE] Release: October 2025\n"
+                    "[TIME] Beta Expires: January 31, 2026\n\n"
+                    "Thank you for using NEO Script Editor!"
+                ),
+                button=["Close"],
+                defaultButton="Close"
+            )
 
 
 # =============================================================================
