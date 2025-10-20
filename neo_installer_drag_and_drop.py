@@ -718,39 +718,12 @@ try:
     def launch_neo_editor():
         """Launch standalone NEO"""
         complete_neo_setup()
-    
-    def create_neo_shelf():
-        """Create NEO shelf (minimal)"""
-        print("Creating minimal NEO shelf...")
-        
-        # Create or get NEO shelf
-        shelf_name = "NEO"
-        if cmds.shelfLayout(shelf_name, exists=True):
-            cmds.deleteUI(shelf_name, layout=True)
-        
-        shelf = cmds.shelfLayout(shelf_name, parent="ShelfLayout")
-        
-        # Add NEO button
-        cmds.shelfButton(
-            parent=shelf,
-            label="NEO",
-            annotation="Launch NEO Script Editor (Minimal)",
-            image="pythonFamily.png",
-            command="complete_neo_setup()",
-            sourceType="python"
-        )
-        
-        print("✅ Minimal NEO shelf created")
-        return True
 
 except ImportError:
     def complete_neo_setup():
         print("NEO Script Editor requires Maya environment")
     
     def launch_neo_editor():
-        print("NEO Script Editor requires Maya environment")
-        
-    def create_neo_shelf():
         print("NEO Script Editor requires Maya environment")
 '''
         self._write_file("scripts/maya/complete_setup.py", setup_content)
@@ -776,12 +749,11 @@ def setup_neo_editor():
         
         # Import NEO functions
         try:
-            from scripts.maya.complete_setup import complete_neo_setup, create_neo_shelf, launch_neo_editor
+            from scripts.maya.complete_setup import complete_neo_setup, launch_neo_editor
             
             # Make functions globally available
             import __main__
             __main__.complete_neo_setup = complete_neo_setup
-            __main__.create_neo_shelf = create_neo_shelf  
             __main__.launch_neo_editor = launch_neo_editor
             
             print("🚀 NEO Script Editor ready! Use: launch_neo_editor()")
@@ -912,7 +884,6 @@ WHAT GETS INSTALLED:
 
 MAYA COMMANDS (Available after installation):
 • complete_neo_setup()  - Everything at once
-• create_neo_shelf()    - Create NEO shelf  
 • launch_neo_editor()   - Standalone window (always on top)
 
 PERFECT WORKFLOW:
