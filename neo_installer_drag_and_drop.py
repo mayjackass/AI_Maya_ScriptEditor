@@ -239,10 +239,28 @@ class NEOInstaller:
     def _install_files(self):
         """Install NEO Script Editor files to Maya scripts directory"""
         try:
-            # Remove existing installation if it exists
+            # Remove existing installation if it exists (with better error handling)
             if os.path.exists(self.neo_install_dir):
                 print(f"Removing existing installation: {self.neo_install_dir}")
-                shutil.rmtree(self.neo_install_dir, ignore_errors=True)
+                try:
+                    # Try to remove read-only attributes first
+                    for root, dirs, files in os.walk(self.neo_install_dir):
+                        for file in files:
+                            file_path = os.path.join(root, file)
+                            try:
+                                os.chmod(file_path, 0o777)
+                            except:
+                                pass
+                    shutil.rmtree(self.neo_install_dir)
+                except Exception as remove_error:
+                    print(f"Warning: Could not remove some files: {remove_error}")
+                    # Try to rename the old folder instead
+                    backup_name = self.neo_install_dir + "_backup_" + str(int(os.path.getmtime(self.neo_install_dir)))
+                    try:
+                        os.rename(self.neo_install_dir, backup_name)
+                        print(f"Moved existing installation to: {backup_name}")
+                    except:
+                        print("Could not remove or rename existing installation - will try to continue anyway")
             
             # Copy files from project folder to Maya scripts directory (excluding VCS files)
             print(f"Copying files from {self.project_source_dir} to {self.neo_install_dir}")
@@ -251,7 +269,9 @@ class NEOInstaller:
             def ignore_patterns(dir, files):
                 ignore_list = []
                 for file in files:
-                    if file.startswith('.git') or file == '__pycache__' or file.endswith('.pyc'):
+                    if (file.startswith('.git') or file == '__pycache__' or 
+                        file.endswith('.pyc') or file.startswith('.vscode') or
+                        file == '.gitignore' or file == '.gitattributes'):
                         ignore_list.append(file)
                 return ignore_list
             
