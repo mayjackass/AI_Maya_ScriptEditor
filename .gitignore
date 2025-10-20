@@ -62,10 +62,10 @@ SECURITY_SUMMARY.md
 create_distribution_simple.ps1
 create_distribution.ps1
 DISTRIBUTION_GUIDE.md
-scripts/
+scripts/*.ps1
 cleanup_project.ps1
 
-# Documentation (Keep Local)
+# Documentation (Keep Local Development Only)
 INSTALLATION_GUIDE.md
 INSTALLATION_GUIDE.txt
 QUICKSTART.md
@@ -79,9 +79,7 @@ CLEANUP_SUMMARY.md
 *.mel.backup
 
 # Local development only (not on GitHub)
-docs/
 archive/
-tests/
 SIMPLE_GITHUB_UPDATE.md
 userSetup.py
 
