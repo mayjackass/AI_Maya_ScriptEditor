@@ -49,7 +49,7 @@ class NEOInstaller:
         self.project_source_dir = os.path.dirname(installer_path)
         
         print("=" * 80)
-        print("🚀 NEO Script Editor - Drag & Drop Installer v" + INSTALLER_VERSION)
+        print("NEO Script Editor - Drag & Drop Installer v" + INSTALLER_VERSION)
         print("=" * 80)
         print(f"Project Source Directory: {self.project_source_dir}")
         print(f"Maya Scripts Directory: {self.maya_scripts_dir}")
@@ -61,7 +61,7 @@ class NEOInstaller:
         try:
             # Show welcome dialog
             if not self._show_welcome_dialog():
-                print("❌ Installation cancelled by user")
+                print("[ERROR] Installation cancelled by user")
                 return False
             
             # Create progress window
@@ -114,7 +114,7 @@ class NEOInstaller:
             return True
             
         except Exception as e:
-            print(f"❌ Installation failed: {e}")
+            print(f"[ERROR] Installation failed: {e}")
             import traceback
             traceback.print_exc()
             self._show_error_dialog(str(e))

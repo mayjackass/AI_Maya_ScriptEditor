@@ -38,11 +38,11 @@ def complete_neo_setup():
         print("[!] This function requires Maya")
         return False
     
-    print("🚀 Starting complete NEO Script Editor setup...")
+    print("[NEO] Starting complete NEO Script Editor setup...")
     
     try:
         # Step 1: Setup functions (like userSetup.py would do)
-        print("📦 [1/3] Setting up NEO functions...")
+        print("[NEO] [1/3] Setting up NEO functions...")
         
         def launch_neo_editor():
             """Launch NEO Script Editor as standalone window"""
@@ -100,24 +100,25 @@ def complete_neo_setup():
         __main__.hide_neo_docked = hide_neo_docked
         __main__.delete_neo_docked = delete_neo_docked
         __main__.create_neo_shelf = create_neo_shelf
+        __main__.complete_neo_setup = complete_neo_setup  # Register this function too
         
-        print("   ✅ NEO functions installed globally")
+        print("   [NEO] NEO functions installed globally")
         
         # Step 2: Create NEO shelf with logo buttons
-        print("🎨 [2/3] Creating NEO shelf with logo buttons...")
+        print("[NEO] [2/3] Creating NEO shelf with logo buttons...")
         shelf_success = create_neo_shelf()
         
         if shelf_success:
-            print("   ✅ NEO shelf created with logo buttons")
+            print("   [NEO] NEO shelf created with logo buttons")
         else:
-            print("   ⚠️ NEO shelf creation had issues (but functions still work)")
+            print("   [NEO] NEO shelf creation had issues (but functions still work)")
         
         # Step 3: Launch dockable NEO Script Editor
-        print("🪟 [3/3] Launching dockable NEO Script Editor...")
+        print("[NEO] [3/3] Launching dockable NEO Script Editor...")
         editor_control = launch_neo_docked()
         
         if editor_control:
-            print("   ✅ NEO Script Editor launched and docked")
+            print("   [NEO] NEO Script Editor launched and docked")
         else:
             print("   ⚠️ NEO Script Editor launch had issues")
         
