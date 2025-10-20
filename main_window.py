@@ -104,21 +104,23 @@ class AiScriptEditor(QtWidgets.QMainWindow):
             if maya_main_window_ptr:
                 maya_main_window = shiboken6.wrapInstance(int(maya_main_window_ptr), QtWidgets.QWidget)
                 self.setParent(maya_main_window)
-                # Use window flags that work well with Maya
+                # Use window flags that work well with Maya - stay on top of Maya only
                 self.setWindowFlags(
-                    QtCore.Qt.Tool |  # Tool windows stay on top and don't appear in taskbar
+                    QtCore.Qt.Window |  # Use Window instead of Tool for full controls
                     QtCore.Qt.WindowCloseButtonHint |
                     QtCore.Qt.WindowMinimizeButtonHint |
-                    QtCore.Qt.WindowMaximizeButtonHint
+                    QtCore.Qt.WindowMaximizeButtonHint |
+                    QtCore.Qt.WindowTitleHint
                 )
             else:
-                # Fallback if Maya main window not found
+                # Fallback if Maya main window not found - still use always on top
                 self.setWindowFlags(
                     QtCore.Qt.Window | 
                     QtCore.Qt.WindowStaysOnTopHint |
                     QtCore.Qt.WindowCloseButtonHint |
                     QtCore.Qt.WindowMinimizeButtonHint |
-                    QtCore.Qt.WindowMaximizeButtonHint
+                    QtCore.Qt.WindowMaximizeButtonHint |
+                    QtCore.Qt.WindowTitleHint
                 )
         except ImportError:
             # Not running in Maya, use standard always-on-top
@@ -127,7 +129,8 @@ class AiScriptEditor(QtWidgets.QMainWindow):
                 QtCore.Qt.WindowStaysOnTopHint |
                 QtCore.Qt.WindowCloseButtonHint |
                 QtCore.Qt.WindowMinimizeButtonHint |
-                QtCore.Qt.WindowMaximizeButtonHint
+                QtCore.Qt.WindowMaximizeButtonHint |
+                QtCore.Qt.WindowTitleHint
             )
         
         self.resize(1200, 700)
@@ -839,12 +842,39 @@ class AiScriptEditor(QtWidgets.QMainWindow):
 
 
 def main():
-    """Main entry point"""
+    """Main entry point with single-instance check"""
     import sys
-    app = QtWidgets.QApplication(sys.argv)
+    import time
+    
+    app = QtWidgets.QApplication.instance()
+    if not app:
+        app = QtWidgets.QApplication(sys.argv)
+    
+    # Close any existing NEO windows before creating new one
+    closed_any = False
+    for widget in app.allWidgets():
+        if widget.__class__.__name__ == "AiScriptEditor":
+            try:
+                print("[INFO] Closing existing NEO window...")
+                widget.close()
+                widget.deleteLater()
+                closed_any = True
+            except:
+                pass
+    
+    # Wait for windows to fully close
+    if closed_any:
+        app.processEvents()
+        time.sleep(0.1)
+    
+    # Create and show new window
     window = AiScriptEditor()
     window.show()
-    return app.exec()
+    
+    if __name__ == "__main__":
+        return app.exec()
+    else:
+        return window
 
 
 if __name__ == "__main__":

@@ -40,16 +40,59 @@ class NEOInstaller:
         self.project_source_dir = None
         self.success = False
         
-        # Maya paths
-        self.maya_scripts_dir = cmds.internalVar(userScriptDir=True)
+        # Maya paths - use global scripts directory for all Maya versions
+        version_specific_dir = cmds.internalVar(userScriptDir=True)
+        print(f"[DEBUG] Maya version-specific dir: {version_specific_dir}")
+        
+        # Extract the base maya directory and use global scripts folder
+        # Handle different Maya directory structures:
+        # Windows: C:\Users\Username\Documents\maya\2026\scripts -> C:\Users\Username\Documents\maya\scripts
+        # The version_specific_dir ends with something like "maya/2026/scripts" or "maya\\2026\\scripts"
+        
+        # Split the path and find the maya directory
+        path_parts = version_specific_dir.replace('\\', '/').split('/')
+        maya_index = -1
+        for i, part in enumerate(path_parts):
+            if part == 'maya':
+                maya_index = i
+                break
+        
+        if maya_index >= 0:
+            # Reconstruct path up to maya directory, then add scripts
+            maya_base_parts = path_parts[:maya_index + 1]  # Include 'maya' folder
+            maya_base_dir = '/'.join(maya_base_parts)
+            if os.name == 'nt':  # Windows
+                maya_base_dir = maya_base_dir.replace('/', '\\')
+            self.maya_scripts_dir = os.path.join(maya_base_dir, "scripts")
+        else:
+            # Fallback: use version-specific directory (safer than failing)
+            print("[WARNING] Could not find 'maya' in path, using version-specific directory")
+            self.maya_scripts_dir = version_specific_dir
+            
         self.neo_install_dir = os.path.join(self.maya_scripts_dir, "ai_script_editor")
+        
+        # Ensure the global scripts directory exists
+        if not os.path.exists(self.maya_scripts_dir):
+            os.makedirs(self.maya_scripts_dir)
+            print(f"Created global Maya scripts directory: {self.maya_scripts_dir}")
+        
+        print(f"Installation paths:")
+        print(f"  Version-specific dir: {version_specific_dir}")
+        print(f"  Global scripts dir: {self.maya_scripts_dir}")
+        print(f"  NEO install dir: {self.neo_install_dir}")
+        
+        # Verify the path is actually global, not version-specific
+        if "2026" in self.maya_scripts_dir or "2025" in self.maya_scripts_dir or "2024" in self.maya_scripts_dir:
+            print(f"[WARNING] Installation path appears to be version-specific: {self.maya_scripts_dir}")
+        else:
+            print(f"[SUCCESS] Using global Maya scripts directory: {self.maya_scripts_dir}")
         
         # Find the project source directory (where this installer is located)
         installer_path = __file__ if '__file__' in globals() else os.path.abspath(__file__)
         self.project_source_dir = os.path.dirname(installer_path)
         
         print("=" * 80)
-        print("🚀 NEO Script Editor - Drag & Drop Installer v" + INSTALLER_VERSION)
+        print("NEO Script Editor - Drag & Drop Installer v" + INSTALLER_VERSION)
         print("=" * 80)
         print(f"Project Source Directory: {self.project_source_dir}")
         print(f"Maya Scripts Directory: {self.maya_scripts_dir}")
@@ -107,8 +150,16 @@ class NEOInstaller:
             self._update_progress(progress_win, 100, "Installation complete!")
             self._close_progress(progress_win)
             
-            # Show success dialog
-            self._show_success_dialog()
+            # Print success message to console
+            print("\n" + "="*60)
+            print("🎉 NEO SCRIPT EDITOR INSTALLATION COMPLETE! 🎉")
+            print("="*60)
+            print("✅ NEO Script Editor files installed")
+            print("✅ Maya integration configured")
+            print("✅ NEO shelf with matrix icon created")
+            print("✅ Ready to code with NEO Script Editor!")
+            print("="*60)
+            
             self.success = True
             
             return True
@@ -127,7 +178,7 @@ class NEOInstaller:
             message=(
                 "Welcome to NEO Script Editor v3.2 Beta!\n\n"
                 "[FEATURES]\n"
-                "• Maya standalone integration (always on top)\n"
+                "• Maya integration for seamless workflow\n"
                 "• AI assistant with OpenAI/Claude support\n"
                 "• 320+ Maya command validation\n"
                 "• VSCode-style editor with syntax highlighting\n"
@@ -175,12 +226,12 @@ class NEOInstaller:
         return window
     
     def _update_progress(self, window, value, status):
-        """Update progress window"""
+        """Update Maya progress window"""
         if cmds.window(window, exists=True):
             cmds.progressBar("progressBar", edit=True, progress=value)
             cmds.text("statusLabel", edit=True, label=status)
             cmds.refresh()
-            print(f"[{value:3d}%] {status}")
+        print(f"[{value:3d}%] {status}")
     
     def _close_progress(self, window):
         """Close progress window"""
@@ -233,16 +284,44 @@ class NEOInstaller:
     def _install_files(self):
         """Install NEO Script Editor files to Maya scripts directory"""
         try:
-            # Remove existing installation if it exists
+            # Check if NEO Script Editor is already installed
             if os.path.exists(self.neo_install_dir):
-                print(f"Removing existing installation: {self.neo_install_dir}")
+                # Check if it's a valid NEO installation
+                main_window_path = os.path.join(self.neo_install_dir, "main_window.py")
+                if os.path.exists(main_window_path):
+                    # Existing installation found - ask user what to do
+                    choice = self._create_themed_dialog(
+                        title="Existing NEO Installation Found",
+                        message=(
+                            f"NEO Script Editor is already installed at:\n{self.neo_install_dir}\n\n"
+                            "Choose how to proceed:\n\n"
+                            "• Update: Replace with new version (recommended)\n"
+                            "• Cancel: Keep existing installation\n\n"
+                            "Note: Your settings and preferences will be preserved."
+                        ),
+                        buttons=["Update", "Cancel"],
+                        default_button="Update"
+                    )
+                    
+                    if choice != "Update":
+                        print("[INFO] Installation cancelled - keeping existing NEO Script Editor")
+                        return False
+                    
+                    print(f"[UPDATE] Updating existing NEO Script Editor installation")
+                    # Backup user settings before update
+                    self._backup_user_settings()
+                else:
+                    print(f"[CLEANUP] Removing invalid/corrupted installation at: {self.neo_install_dir}")
+                
+                # Remove existing installation
                 shutil.rmtree(self.neo_install_dir)
             
             # Copy files from project folder to Maya scripts directory
-            print(f"Copying files from {self.project_source_dir} to {self.neo_install_dir}")
-            
-            # Copy the entire project folder
+            print(f"[INSTALL] Installing NEO Script Editor to: {self.neo_install_dir}")
             shutil.copytree(self.project_source_dir, self.neo_install_dir)
+            
+            # Restore user settings if they were backed up
+            self._restore_user_settings()
             
             # Verify essential files exist
             essential_files = [
@@ -354,25 +433,45 @@ class NEOInstaller:
             print(f"[ERROR] userSetup.py setup failed: {e}")
             return False
 
-    def _create_minimal_user_setup(self, user_setup_path):
-        """Create minimal userSetup.py with NEO integration"""
-        user_setup_content = '''"""
+    def _get_user_setup_content(self):
+        """Generate the userSetup.py content - used by both create and append methods"""
+        return '''"""
 NEO Script Editor - Maya Startup Integration
 Auto-generated by NEO installer
 """
 
 def setup_neo_editor():
-    """Setup NEO Script Editor in Maya"""
+    """Setup NEO Script Editor in Maya - runs every time Maya starts"""
     try:
         import sys
         import os
+        import maya.cmds as cmds
+        import maya.mel as mel
+        from functools import partial
         
         # Add NEO to Python path
-        maya_scripts = cmds.internalVar(userScriptDir=True) if 'cmds' in globals() else None
-        if maya_scripts:
-            neo_path = os.path.join(maya_scripts, "ai_script_editor")
-            if neo_path not in sys.path and os.path.exists(neo_path):
-                sys.path.insert(0, neo_path)
+        maya_scripts = cmds.internalVar(userScriptDir=True)
+        # Get global scripts directory (not version-specific)
+        path_parts = maya_scripts.replace('\\\\', '/').split('/')
+        maya_index = -1
+        for i, part in enumerate(path_parts):
+            if part == 'maya':
+                maya_index = i
+                break
+        
+        if maya_index >= 0:
+            maya_base_parts = path_parts[:maya_index + 1]
+            maya_base_dir = '/'.join(maya_base_parts)
+            if os.name == 'nt':  # Windows
+                maya_base_dir = maya_base_dir.replace('/', '\\\\')
+            global_scripts_dir = os.path.join(maya_base_dir, "scripts")
+            neo_path = os.path.join(global_scripts_dir, "ai_script_editor")
+        else:
+            # Fallback to version-specific
+            neo_path = os.path.join(os.path.dirname(maya_scripts), "ai_script_editor")
+        
+        if neo_path not in sys.path and os.path.exists(neo_path):
+            sys.path.insert(0, neo_path)
         
         # Import NEO functions
         try:
@@ -383,21 +482,182 @@ def setup_neo_editor():
             __main__.complete_neo_setup = complete_neo_setup
             __main__.launch_neo_editor = launch_neo_editor
             
-            print("🚀 NEO Script Editor ready! Use: launch_neo_editor()")
+            # Define about dialog function that uses the main UI's dialog
+            def show_neo_about_dialog():
+                """Show NEO about dialog using the main UI's dialog"""
+                try:
+                    # Import from NEO UI module
+                    neo_ui_path = os.path.join(neo_path, "ui")
+                    if neo_ui_path not in sys.path:
+                        sys.path.insert(0, neo_ui_path)
+                    
+                    from dialog_styles import show_about_dialog
+                    show_about_dialog()
+                    print("[SUCCESS] Showed NEO about dialog from main UI")
+                    
+                except Exception as e:
+                    print(f"[WARNING] Could not show main UI about dialog: {e}")
+                    # Fallback to Matrix-themed Maya dialog
+                    try:
+                        result = cmds.confirmDialog(
+                            title="About NEO Script Editor",
+                            message="NEO Script Editor v3.2 Beta\\\\n\\\\nAI-Powered Script Editor for Maya\\\\nBy Mayj Amilano\\\\n\\\\nBeta License expires: January 31, 2026",
+                            button=["OK"],
+                            defaultButton="OK",
+                            backgroundColor=[0.051, 0.067, 0.090]  # Matrix dark theme
+                        )
+                    except:
+                        # Final fallback without theming
+                        result = cmds.confirmDialog(
+                            title="About NEO Script Editor",
+                            message="NEO Script Editor v3.2 Beta\\\\n\\\\nBy Mayj Amilano",
+                            button=["OK"],
+                            defaultButton="OK"
+                        )
+            
+            # Define single-instance launch function
+            def launch_neo_editor_single():
+                """Launch NEO editor with single-instance management"""
+                try:
+                    # Close any existing NEO windows first
+                    from PySide6 import QtWidgets
+                    import time
+                    app = QtWidgets.QApplication.instance()
+                    if app:
+                        closed_any = False
+                        for widget in app.allWidgets():
+                            if widget.__class__.__name__ == "NEOMainWindow":
+                                try:
+                                    widget.close()
+                                    widget.deleteLater()
+                                    closed_any = True
+                                    print("[INFO] Closed existing NEO window")
+                                except:
+                                    pass
+                        
+                        # Wait for windows to close
+                        if closed_any:
+                            app.processEvents()
+                            time.sleep(0.1)
+                    
+                    # Launch new instance
+                    return launch_neo_editor()
+                    
+                except Exception as e:
+                    print(f"[WARNING] Single-instance check failed: {e}")
+                    # Fallback to regular launch
+                    return launch_neo_editor()
+            
+            # Make functions globally available
+            __main__.show_neo_about_dialog = show_neo_about_dialog
+            __main__.launch_neo_editor_single = launch_neo_editor_single
+            
+            # Create NEO menu bar (every Maya startup)
+            def create_neo_menu():
+                try:
+                    main_menu = mel.eval('$tempVar = $gMainWindow')
+                    
+                    # Remove existing menu if it exists
+                    if cmds.menu("neoScriptEditorMenu", exists=True):
+                        cmds.deleteUI("neoScriptEditorMenu", menu=True)
+                    
+                    # Create NEO menu
+                    neo_menu = cmds.menu(
+                        "neoScriptEditorMenu",
+                        label="NEO",
+                        parent=main_menu,
+                        tearOff=True
+                    )
+                    
+                    # Add menu items
+                    cmds.menuItem(
+                        label="Launch NEO Script Editor",
+                        command="launch_neo_editor_single()",
+                        parent=neo_menu,
+                        image="pythonFamily.png"
+                    )
+                    
+                    cmds.menuItem(divider=True, parent=neo_menu)
+                    
+                    cmds.menuItem(
+                        label="Complete NEO Setup",
+                        command="complete_neo_setup()",
+                        parent=neo_menu
+                    )
+                    
+                    cmds.menuItem(divider=True, parent=neo_menu)
+                    
+                    cmds.menuItem(
+                        label="About NEO Script Editor",
+                        command="show_neo_about_dialog()",
+                        parent=neo_menu
+                    )
+                    
+                except Exception as e:
+                    print(f"[WARNING] NEO menu creation failed: {e}")
+            
+            # Create NEO shelf (every Maya startup)
+            def create_neo_shelf():
+                try:
+                    # Create or get NEO shelf
+                    shelf_name = "NEO"
+                    if cmds.shelfLayout(shelf_name, exists=True):
+                        # Shelf exists, check if it has our button
+                        buttons = cmds.shelfLayout(shelf_name, query=True, childArray=True) or []
+                        neo_button_exists = False
+                        for button in buttons:
+                            if cmds.shelfButton(button, query=True, exist=True):
+                                label = cmds.shelfButton(button, query=True, label=True)
+                                if label == "NEO":
+                                    neo_button_exists = True
+                                    break
+                        
+                        if neo_button_exists:
+                            return  # NEO button already exists
+                    else:
+                        # Create new shelf
+                        shelf = cmds.shelfLayout(shelf_name, parent="ShelfLayout")
+                    
+                    # Add NEO button
+                    matrix_icon = os.path.join(neo_path, "assets", "matrix.png")
+                    icon = matrix_icon if os.path.exists(matrix_icon) else "pythonFamily.png"
+                    
+                    cmds.shelfButton(
+                        parent=shelf_name,
+                        label="NEO",
+                        annotation="Launch NEO Script Editor (Single Instance)",
+                        image=icon,
+                        command="launch_neo_editor_single()",
+                        sourceType="python"
+                    )
+                    
+                except Exception as e:
+                    print(f"[WARNING] NEO shelf creation failed: {e}")
+            
+            # Set up menu and shelf on Maya startup
+            create_neo_menu()
+            create_neo_shelf()
+            
+            print("✅ NEO Script Editor ready! Menu: NEO | Shelf: NEO | Command: launch_neo_editor_single()")
             
         except ImportError as e:
-            print(f"NEO Script Editor import failed: {e}")
+            print(f"[ERROR] NEO Script Editor import failed: {e}")
             
     except Exception as e:
-        print(f"NEO Script Editor setup failed: {e}")
+        print(f"[ERROR] NEO Script Editor setup failed: {e}")
 
 # Run setup when Maya starts
 try:
     import maya.cmds as cmds
-    setup_neo_editor()
+    # Use evalDeferred to ensure Maya UI is fully loaded
+    cmds.evalDeferred("setup_neo_editor()")
 except:
     pass
 '''
+    
+    def _create_minimal_user_setup(self, user_setup_path):
+        """Create minimal userSetup.py with NEO integration"""
+        user_setup_content = self._get_user_setup_content()
         with open(user_setup_path, 'w', encoding='utf-8') as f:
             f.write(user_setup_content)
     
@@ -413,48 +673,17 @@ except:
                 print("[INFO] NEO setup already present in userSetup.py")
                 return
             
-            # NEO integration content
-            neo_content = '''
-
-def setup_neo_editor():
-    """Setup NEO Script Editor in Maya"""
-    try:
-        import sys
-        import os
-        
-        # Add NEO to Python path
-        maya_scripts = cmds.internalVar(userScriptDir=True) if 'cmds' in globals() else None
-        if maya_scripts:
-            neo_path = os.path.join(maya_scripts, "ai_script_editor")
-            if neo_path not in sys.path and os.path.exists(neo_path):
-                sys.path.insert(0, neo_path)
-        
-        # Import NEO functions
-        try:
-            from scripts.maya.complete_setup import complete_neo_setup, launch_neo_editor
+            # Get NEO integration content from helper method (without the file docstring)
+            user_setup_content = self._get_user_setup_content()
+            # Remove the file-level docstring, keep only the function and execution code
+            parts = user_setup_content.split('"""')
+            if len(parts) >= 3:
+                # Reconstruct without file docstring: skip first """ block
+                neo_content = parts[2].lstrip()
+            else:
+                neo_content = user_setup_content
             
-            # Make functions globally available
-            import __main__
-            __main__.complete_neo_setup = complete_neo_setup
-            __main__.launch_neo_editor = launch_neo_editor
-            
-            print("[SUCCESS] NEO Script Editor ready! Use: launch_neo_editor()")
-            
-        except ImportError as e:
-            print(f"[ERROR] NEO Script Editor import failed: {e}")
-            
-    except Exception as e:
-        print(f"[ERROR] NEO Script Editor setup failed: {e}")
-
-# Run setup when Maya starts
-try:
-    import maya.cmds as cmds
-    setup_neo_editor()
-except:
-    pass
-'''
-            
-            # Append NEO setup
+            # Append NEO setup with header
             combined_content = existing_content + "\n\n" + "# " + "="*50 + "\n"
             combined_content += "# NEO Script Editor Integration (Auto-added by installer)\n"
             combined_content += "# " + "="*50 + "\n\n"
@@ -488,7 +717,7 @@ try:
     
     def complete_neo_setup():
         """Complete NEO setup"""
-        print("🚀 NEO Script Editor - Complete Setup")
+        print("NEO Script Editor - Complete Setup")
         
         # Add to Python path
         neo_dir = os.path.dirname(os.path.dirname(__file__))
@@ -541,7 +770,7 @@ try:
         cmds.shelfButton(
             parent=shelf,
             label="NEO",
-            annotation="Launch NEO Script Editor",
+            annotation="Launch NEO Script Editor (Single Instance)",
             image="pythonFamily.png",
             command="complete_neo_setup()",
             sourceType="python"
@@ -576,43 +805,20 @@ except ImportError:
         try:
             # Import the shelf creator from installed files
             maya_scripts_path = os.path.join(self.neo_install_dir, "scripts", "maya")
-            print(f"📋 Adding shelf creator path: {maya_scripts_path}")
             
             if maya_scripts_path not in sys.path:
                 sys.path.insert(0, maya_scripts_path)
             
-            print("📋 Importing maya_shelf_creator...")
-            from maya_shelf_creator import force_recreate_shelf, debug_shelf_info
+            from maya_shelf_creator import force_recreate_shelf
             
-            print("[SHELF] Creating NEO shelf with matrix icon...")
-            print("[DEBUG] Pre-creation shelf state:")
-            debug_shelf_info()
-            
-            # Force recreate to ensure clean shelf with only NEO button
+            # Force recreate to ensure clean shelf
             success = force_recreate_shelf()
             
             if success:
-                print("[SUCCESS] NEO shelf created")
-                print("[DEBUG] Final shelf state:")
-                debug_shelf_info()
+                print("[SUCCESS] NEO shelf created successfully")
                 return True
             else:
-                print("[WARNING] NEO shelf creation had issues, trying fallback...")
-                
-                # Fallback to basic creation
-                from maya_shelf_creator import create_neo_shelf
-                return create_neo_shelf()
-        
-        except ImportError as e:
-            print(f"[ERROR] Could not import updated shelf creator: {e}")
-            print("[INFO] Trying fallback shelf creation...")
-            
-            # Fallback to basic shelf creation
-            try:
-                from maya_shelf_creator import create_neo_shelf
-                return create_neo_shelf()
-            except Exception as e2:
-                print(f"[ERROR] Fallback shelf creation failed: {e2}")
+                print("[ERROR] NEO shelf creation failed")
                 return False
         
         except Exception as e:
@@ -642,7 +848,7 @@ except ImportError:
             # Add menu items
             cmds.menuItem(
                 label="Launch NEO Script Editor",
-                command="launch_neo_editor()",
+                command=partial(self._launch_neo_editor_single_instance),
                 parent=neo_menu,
                 image="pythonFamily.png"
             )
@@ -668,7 +874,7 @@ except ImportError:
         except Exception as e:
             print(f"⚠️ Menu bar integration failed: {e}")
             # Don't fail installation for menu issues
-    
+
     def _launch_neo_editor(self):
         """Launch NEO Script Editor"""
         try:
@@ -686,31 +892,37 @@ except ImportError:
             print(f"[WARNING] NEO Script Editor launch failed: {e}")
             print("You can launch it manually with: complete_neo_setup()")
     
-    def _show_success_dialog(self):
-        """Show installation success dialog"""
-        self._create_themed_dialog(
-            title="Installation Complete!",
-            message=(
-                "NEO Script Editor v3.2 Beta installed successfully!\n\n"
-                "[INSTALLED]\n"
-                "• NEO Script Editor files\n"
-                "• Maya integration (userSetup.py)\n"
-                "• NEO shelf with matrix icon\n"
-                "• NEO menu in menu bar\n"
-                "• Standalone NEO Script Editor (always on top)\n\n"
-                "[QUICK START]\n"
-                "• Use the NEO shelf button for easy access\n"
-                "• Editor stays on top for easy workflow\n"
-                "• Set your AI API key in Tools → Settings\n\n"
-                "[NEXT STEPS]\n"
-                "• Restart Maya to ensure full integration\n"
-                "• Check out the docs/ folder for guides\n"
-                "• Report issues on GitHub\n\n"
-                "Enjoy coding with NEO!"
-            ),
-            buttons=["Awesome!"],
-            default_button="Awesome!"
-        )
+    def _launch_neo_editor_single_instance(self, *args):
+        """Launch NEO editor with single-instance management - simple approach"""
+        try:
+            # Check if NEO window already exists - if yes, close it
+            from PySide6 import QtWidgets
+            import time
+            app = QtWidgets.QApplication.instance()
+            if app:
+                closed_any = False
+                for widget in app.allWidgets():
+                    if widget.__class__.__name__ == "NEOMainWindow":
+                        try:
+                            widget.close()
+                            widget.deleteLater()
+                            closed_any = True
+                            print("[INFO] Closed existing NEO window")
+                        except:
+                            pass
+                
+                # Wait for windows to close
+                if closed_any:
+                    app.processEvents()
+                    time.sleep(0.1)
+            
+            # Launch new instance
+            self._launch_neo_editor()
+            
+        except Exception as e:
+            print(f"[WARNING] Single-instance check failed: {e}")
+            # Fallback to regular launch
+            self._launch_neo_editor()
     
     def _show_error_dialog(self, error_message):
         """Show installation error dialog"""
@@ -831,7 +1043,7 @@ try:
     
     def complete_neo_setup():
         """Complete NEO setup - minimal version"""
-        print("🚀 NEO Script Editor - Minimal Setup")
+        print("NEO Script Editor - Minimal Setup")
         
         # Add to Python path
         neo_dir = os.path.dirname(os.path.dirname(__file__))
@@ -841,8 +1053,8 @@ try:
         try:
             from main_window import launch_neo_editor
             launch_neo_editor()
-            print("✅ NEO Script Editor launched (minimal version)")
-            print("💡 Download full version from GitHub for complete features")
+            print("NEO Script Editor launched (minimal version)")
+            print("Download full version from GitHub for complete features")
         except Exception as e:
             print(f"❌ Launch failed: {e}")
     
@@ -962,7 +1174,7 @@ except:
 
     def _create_themed_dialog(self, title, message, buttons=["OK"], default_button="OK"):
         """
-        Create a themed dialog using NEO's styling when possible, fallback to Maya
+        Create a Matrix-themed dialog using Maya's confirmDialog with dark styling
         
         Args:
             title: Dialog title
@@ -974,116 +1186,132 @@ except:
             str: Selected button name
         """
         try:
-            # Try to use PySide6 with NEO theming
-            import sys
-            import os
+            # Matrix color scheme - dark background matching main UI
+            matrix_dark_bg = [0.051, 0.067, 0.090]  # #0d1117 converted to RGB 0-1 range
             
-            # Add the ui directory to path
-            ui_path = os.path.join(self.project_source_dir, "ui")
-            if ui_path not in sys.path:
-                sys.path.insert(0, ui_path)
+            # Use Maya's confirmDialog with Matrix dark background
+            result = cmds.confirmDialog(
+                title=f"🔲 {title}",  # Add Matrix-style icon
+                message=message,
+                button=buttons,
+                defaultButton=default_button,
+                cancelButton=buttons[-1] if len(buttons) > 1 else default_button,
+                dismissString=buttons[-1] if len(buttons) > 1 else default_button,
+                backgroundColor=matrix_dark_bg,  # Dark Matrix background
+                messageAlign="left"  # Better text alignment
+            )
             
-            from PySide6 import QtWidgets, QtCore
-            from dialog_styles import create_themed_dialog, apply_dark_theme
-            
-            # Create themed dialog
-            dialog = create_themed_dialog(None, title, 500, 300)
-            layout = QtWidgets.QVBoxLayout(dialog)
-            layout.setContentsMargins(20, 20, 20, 20)
-            layout.setSpacing(15)
-            
-            # Message label
-            messageLabel = QtWidgets.QLabel(message)
-            messageLabel.setWordWrap(True)
-            messageLabel.setStyleSheet("""
-                font-size: 13px;
-                color: #f0f6fc;
-                line-height: 1.4;
-            """)
-            layout.addWidget(messageLabel)
-            
-            # Buttons
-            buttonLayout = QtWidgets.QHBoxLayout()
-            buttonLayout.addStretch()
-            
-            result = [None]  # Use list to store result from lambda
-            
-            for i, button_text in enumerate(buttons):
-                btn = QtWidgets.QPushButton(button_text)
-                btn.setMinimumWidth(80)
-                btn.setCursor(QtCore.Qt.PointingHandCursor)
-                
-                # Set as default button
-                if button_text == default_button:
-                    btn.setDefault(True)
-                    btn.setFocus()
-                
-                # Create lambda with proper closure
-                btn.clicked.connect(lambda checked=False, text=button_text: [
-                    result.__setitem__(0, text),
-                    dialog.accept()
-                ])
-                
-                buttonLayout.addWidget(btn)
-                if i < len(buttons) - 1:
-                    buttonLayout.addSpacing(10)
-            
-            buttonLayout.addStretch()
-            layout.addLayout(buttonLayout)
-            
-            # Show dialog
-            dialog.exec()
-            
-            return result[0] or default_button
+            return result
             
         except Exception as e:
-            # Fallback to Maya's confirmDialog
-            print(f"[INFO] Using Maya fallback dialog: {e}")
-            return cmds.confirmDialog(
+            print(f"[ERROR] Matrix dialog theming failed: {e}")
+            # Fallback to standard dialog without theming
+            result = cmds.confirmDialog(
                 title=title,
                 message=message,
                 button=buttons,
                 defaultButton=default_button
             )
-
+            return result
+    
     def _show_about_dialog(self, *args):
-        """Show about dialog using NEO's standard about dialog"""
+        """Show about dialog using the standardized NEO about dialog from main UI"""
         try:
-            # Try to import the shared about dialog
-            import sys
-            import os
-            
-            # Add the ui directory to path
-            ui_path = os.path.join(self.project_source_dir, "ui")
-            if ui_path not in sys.path:
-                sys.path.insert(0, ui_path)
+            # Import from the installed NEO UI module
+            neo_ui_path = os.path.join(self.neo_install_dir, "ui")
+            if neo_ui_path not in sys.path:
+                sys.path.insert(0, neo_ui_path)
             
             from dialog_styles import show_about_dialog
-            show_about_dialog(None)  # No parent for standalone dialog
+            show_about_dialog()
+            print("[SUCCESS] Showed NEO about dialog from main UI")
             
         except Exception as e:
-            # Fallback to Maya dialog if importing fails
-            print(f"[INFO] Using fallback about dialog: {e}")
-            cmds.confirmDialog(
-                title="About NEO Script Editor",
-                message=(
-                    "NEO Script Editor v3.2 Beta\n"
-                    '"I can only show you the door. You\'re the one that has to walk through it."\n\n'
-                    "[FEATURES]\n"
-                    "• Maya standalone integration (always on top)\n"
-                    "• AI assistant (OpenAI/Claude)\n"
-                    "• 320+ Maya command validation\n"
-                    "• VSCode-style editor\n"
-                    "• Real-time error detection\n\n"
-                    "[INFO] Developer: Mayj Amilano (@mayjackass)\n"
-                    "[WEB] GitHub: github.com/mayjackass/AI_Maya_ScriptEditor\n"
-                    "[DATE] Release: October 2025\n"
-                    "[TIME] Beta Expires: January 31, 2026\n\n"
-                    "Thank you for using NEO Script Editor!"
-                ),
-                button=["Close"],
-                defaultButton="Close"
-            )
+            print(f"[WARNING] Could not show main UI about dialog: {e}")
+            # Fallback to Matrix-themed Maya dialog
+            try:
+                result = cmds.confirmDialog(
+                    title="About NEO Script Editor",
+                    message=(
+                        "NEO Script Editor v3.2 Beta\n"
+                        '"I can only show you the door. You\'re the one that has to walk through it."\n\n'
+                        "[FEATURES]\n"
+                        "• Maya integration for seamless workflow\n"
+                        "• AI assistant (OpenAI/Claude)\n"
+                        "• 320+ Maya command validation\n"
+                        "• VSCode-style editor\n"
+                        "• Real-time error detection\n\n"
+                        "[INFO] Developer: Mayj Amilano (@mayjackass)\n"
+                        "[WEB] GitHub: github.com/mayjackass/AI_Maya_ScriptEditor\n"
+                        "[LICENSE] Beta version expires January 31, 2026\n\n"
+                        "Enjoy coding with NEO!"
+                    ),
+                    button=["OK"],
+                    defaultButton="OK",
+                    dismissString="OK",
+                    backgroundColor=[0.051, 0.067, 0.090]  # Matrix dark theme
+                )
+            except:
+                # Final fallback without theming
+                result = cmds.confirmDialog(
+                    title="About NEO Script Editor",
+                    message="NEO Script Editor v3.2 Beta\n\nAI-Powered Script Editor for Maya\nBy Mayj Amilano",
+                    button=["OK"],
+                    defaultButton="OK"
+                )
+    
+    def _backup_user_settings(self):
+        """Backup user settings and preferences before update"""
+        try:
+            # Define settings files to preserve
+            settings_files = [
+                "settings.json",
+                "user_preferences.json", 
+                "api_keys.json",
+                "workspace_settings.json"
+            ]
+            
+            backup_dir = os.path.join(self.maya_scripts_dir, "neo_backup_temp")
+            if not os.path.exists(backup_dir):
+                os.makedirs(backup_dir)
+            
+            backed_up_files = []
+            for settings_file in settings_files:
+                source_path = os.path.join(self.neo_install_dir, settings_file)
+                if os.path.exists(source_path):
+                    backup_path = os.path.join(backup_dir, settings_file)
+                    shutil.copy2(source_path, backup_path)
+                    backed_up_files.append(settings_file)
+            
+            if backed_up_files:
+                print(f"[BACKUP] Preserved user settings: {', '.join(backed_up_files)}")
+            
+        except Exception as e:
+            print(f"[WARNING] Settings backup failed: {e}")
+    
+    def _restore_user_settings(self):
+        """Restore user settings and preferences after update"""
+        try:
+            backup_dir = os.path.join(self.maya_scripts_dir, "neo_backup_temp")
+            if not os.path.exists(backup_dir):
+                return
+            
+            restored_files = []
+            for backup_file in os.listdir(backup_dir):
+                if backup_file.endswith('.json'):
+                    backup_path = os.path.join(backup_dir, backup_file)
+                    restore_path = os.path.join(self.neo_install_dir, backup_file)
+                    shutil.copy2(backup_path, restore_path)
+                    restored_files.append(backup_file)
+            
+            if restored_files:
+                print(f"[RESTORE] Restored user settings: {', '.join(restored_files)}")
+            
+            # Clean up backup directory
+            shutil.rmtree(backup_dir)
+            
+        except Exception as e:
+            print(f"[WARNING] Settings restoration failed: {e}")
 
 
 # =============================================================================
@@ -1096,7 +1324,7 @@ def onMayaDroppedPythonFile(*args, **kwargs):
     This is the entry point for the drag & drop installer.
     """
     print("\n" + "="*80)
-    print("🎯 NEO Script Editor Drag & Drop Installer Activated!")
+    print("NEO Script Editor Drag & Drop Installer Activated!")
     print("="*80)
     
     # Create and run installer
@@ -1105,10 +1333,10 @@ def onMayaDroppedPythonFile(*args, **kwargs):
     
     if success:
         print("\n" + "="*80)
-        print("🎉 NEO Script Editor installation completed successfully!")
+        print("NEO Script Editor installation completed successfully!")
         print("="*80)
-        print("💡 Restart Maya to ensure full integration")
-        print("🚀 Start coding with NEO Script Editor!")
+        print("Restart Maya to ensure full integration")
+        print("Start coding with NEO Script Editor!")
     else:
         print("\n" + "="*80)
         print("❌ NEO Script Editor installation failed")
@@ -1142,7 +1370,7 @@ if __name__ == "__main__":
 # =============================================================================
 
 """
-🎯 NEO SCRIPT EDITOR - DRAG & DROP INSTALLER
+ NEO SCRIPT EDITOR - DRAG & DROP INSTALLER
 
 EASY INSTALLATION (Drag & Drop):
 1. Extract the NEO Script Editor project ZIP file
@@ -1165,12 +1393,12 @@ WHAT GETS INSTALLED:
 
 MAYA COMMANDS (Available after installation):
 • complete_neo_setup()  - Everything at once
-• launch_neo_editor()   - Standalone window (always on top)
+• launch_neo_editor()   - Standalone window (stays within Maya)
 
 PERFECT WORKFLOW:
 1. Run complete_neo_setup()
 2. Use launch_neo_editor() for standalone editing
-3. Enjoy AI-powered script editing with always-on-top behavior!
+3. Enjoy AI-powered script editing within Maya!
 
 REQUIREMENTS:
 • Maya 2022+ (Windows/Mac/Linux)

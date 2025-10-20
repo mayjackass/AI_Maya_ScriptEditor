@@ -4,7 +4,7 @@ NEO Script Editor - Complete Maya Setup
 One-click setup for NEO Script Editor with shelf integration.
 
 Run this once in Maya to set up everything:
-- Standalone NEO Script Editor (always on top)
+- Standalone NEO Script Editor (stays within Maya)
 - NEO shelf tab with buttons using NEO logo
 - All convenience functions
 """
@@ -32,21 +32,43 @@ def complete_neo_setup():
     Complete setup for NEO Script Editor in Maya
     - Creates shelf tab with NEO logo buttons (if needed)
     - Sets up all convenience functions  
-    - Launches standalone NEO Script Editor (always on top)
+    - Launches standalone NEO Script Editor (stays within Maya)
     """
     if not MAYA_AVAILABLE:
         print("[!] This function requires Maya")
         return False
     
-    print("🚀 Starting complete NEO Script Editor setup...")
+    print("Starting complete NEO Script Editor setup...")
     
     try:
         # Step 1: Setup functions (like userSetup.py would do)
-        print("📦 [1/3] Setting up NEO functions...")
+        print("[1/3] Setting up NEO functions...")
         
         def launch_neo_editor():
-            """Launch NEO Script Editor as standalone window"""
+            """Launch NEO Script Editor as standalone window (single instance)"""
             try:
+                # Check if window already exists - close it first
+                from PySide6 import QtWidgets
+                import time
+                app = QtWidgets.QApplication.instance()
+                if app:
+                    closed_any = False
+                    for widget in app.allWidgets():
+                        if widget.__class__.__name__ == "AiScriptEditor":
+                            try:
+                                print("[INFO] Closing existing NEO window...")
+                                widget.close()
+                                widget.deleteLater()
+                                closed_any = True
+                            except:
+                                pass
+                    
+                    # Wait for window to fully close
+                    if closed_any:
+                        app.processEvents()
+                        time.sleep(0.1)
+                
+                # Launch new instance
                 from main_window import AiScriptEditor
                 window = AiScriptEditor()
                 window.show()
@@ -54,6 +76,8 @@ def complete_neo_setup():
                 return window
             except Exception as e:
                 print(f"❌ [NEO] Standalone launch failed: {e}")
+                import traceback
+                traceback.print_exc()
                 return None
         
         def create_neo_shelf():
@@ -73,14 +97,14 @@ def complete_neo_setup():
         print("   ✅ NEO functions installed globally")
         
         # Step 2: Ensure NEO shelf exists (recreate if missing)
-        print("🎨 [2/3] Checking NEO shelf...")
+        print("[2/3] Checking NEO shelf...")
         
         # Check if shelf already exists
         if cmds.shelfLayout("NEO", exists=True):
             print("   ✅ NEO shelf already exists")
             shelf_success = True
         else:
-            print("   📋 Creating NEO shelf...")
+            print("   Creating NEO shelf...")
             shelf_success = create_neo_shelf()
             
             if shelf_success:
@@ -89,7 +113,7 @@ def complete_neo_setup():
                 print("   ⚠️ NEO shelf creation had issues (but functions still work)")
         
         # Step 3: Launch standalone NEO Script Editor
-        print("🪟 [3/3] Launching standalone NEO Script Editor...")
+        print(" [3/3] Launching standalone NEO Script Editor...")
         editor_window = launch_neo_editor()
         
         if editor_window:
@@ -99,13 +123,13 @@ def complete_neo_setup():
         
         # Success summary
         print("")
-        print("🎉 NEO Script Editor setup complete!")
-        print("📖 What's available:")
+        print(" NEO Script Editor setup complete!")
+        print(" What's available:")
         print("   • NEO shelf tab with logo buttons")
-        print("   • Standalone NEO Script Editor (always on top)")
+        print("   • Standalone NEO Script Editor (stays within Maya)")
         print("   • Global convenience functions")
         print("")
-        print("🎯 Available commands:")
+        print(" Available commands:")
         print("   • launch_neo_editor()  - Launch standalone editor")
         print("   • create_neo_shelf()   - Recreate shelf if needed")
         print("")
@@ -169,6 +193,6 @@ if __name__ == "__main__":
         complete_neo_setup()
     else:
         print("[!] This module is designed to run inside Maya")
-        print("📖 Usage in Maya:")
+        print(" Usage in Maya:")
         print("   from complete_setup import complete_neo_setup")
         print("   complete_neo_setup()")

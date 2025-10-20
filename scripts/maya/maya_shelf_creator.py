@@ -85,17 +85,36 @@ def create_neo_shelf():
         
         # Create the NEO Script Editor button
         cmds.shelfButton(
-            annotation="Launch NEO Script Editor (Standalone)",
+            annotation="Launch NEO Script Editor (Single Instance)",
             image1=icon_path,
             label="NEO",
             command="""
-# NEO Script Editor - Standalone Launch
+# NEO Script Editor - Single Instance Launch
 try:
+    # Close any existing NEO windows
+    from PySide6 import QtWidgets
+    import time
+    app = QtWidgets.QApplication.instance()
+    if app:
+        closed_any = False
+        for widget in app.allWidgets():
+            if widget.__class__.__name__ == "NEOMainWindow":
+                try:
+                    widget.close()
+                    widget.deleteLater()
+                    closed_any = True
+                except:
+                    pass
+        if closed_any:
+            app.processEvents()
+            time.sleep(0.1)
+    
+    # Launch new instance
     launch_neo_editor()
     print("[NEO] Script Editor launched!")
 except:
     print("[NEO] Not available. Make sure userSetup.py is installed.")
-    print("[TIP] Try: launch_neo_editor() or check Maya Script Editor for errors.")
+    print("[TIP] Try: launch_neo_editor_single() or check Maya Script Editor for errors.")
             """,
             parent=new_shelf,
             width=35,
