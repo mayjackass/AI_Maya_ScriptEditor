@@ -242,13 +242,21 @@ class NEOInstaller:
             # Remove existing installation if it exists
             if os.path.exists(self.neo_install_dir):
                 print(f"Removing existing installation: {self.neo_install_dir}")
-                shutil.rmtree(self.neo_install_dir)
+                shutil.rmtree(self.neo_install_dir, ignore_errors=True)
             
-            # Copy files from project folder to Maya scripts directory
+            # Copy files from project folder to Maya scripts directory (excluding VCS files)
             print(f"Copying files from {self.project_source_dir} to {self.neo_install_dir}")
             
-            # Copy the entire project folder
-            shutil.copytree(self.project_source_dir, self.neo_install_dir)
+            # Define patterns to ignore (VCS and temp files)
+            def ignore_patterns(dir, files):
+                ignore_list = []
+                for file in files:
+                    if file.startswith('.git') or file == '__pycache__' or file.endswith('.pyc'):
+                        ignore_list.append(file)
+                return ignore_list
+            
+            # Copy the entire project folder with ignore patterns
+            shutil.copytree(self.project_source_dir, self.neo_install_dir, ignore=ignore_patterns)
             
             # Verify essential files exist
             essential_files = [
