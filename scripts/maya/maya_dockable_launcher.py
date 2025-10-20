@@ -58,88 +58,66 @@ class MayaDockableNeoEditor(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         self.setObjectName(self.CONTROL_NAME)
         self.setWindowTitle(self.WINDOW_TITLE)
         
+        # Apply NEO dark theme
+        self.setStyleSheet("""
+            QWidget { 
+                background: #1E1E1E; 
+                color: #DDD; 
+                font-family: Consolas, Monaco, monospace; 
+            }
+            QTextEdit { 
+                background: #2D2D30; 
+                border: 1px solid #3E3E42; 
+                color: #EEE; 
+                font-family: Consolas, Monaco, monospace;
+                font-size: 11pt;
+            }
+            QSplitter::handle {
+                background: #3E3E42;
+            }
+        """)
+        
         # Create main layout
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         
-        # Create a simple placeholder for now and launch separate window
+        # Create the actual NEO Script Editor content properly
         try:
-            print("[Maya] Creating dockable NEO Script Editor placeholder...")
+            print("[Maya] Creating embedded NEO Script Editor...")
             
-            # Create a simple button that launches the actual NEO Script Editor
-            launch_layout = QtWidgets.QVBoxLayout()
+            # Import the main components we need
+            from editor.code_editor import CodeEditor
+            from ui.output_console import OutputConsole
             
-            # Title
-            title_label = QtWidgets.QLabel("NEO Script Editor")
-            title_label.setAlignment(QtCore.Qt.AlignCenter)
-            title_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #00ff41; margin: 20px;")
+            # Create a simple version of the NEO editor interface
+            main_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
             
-            # Launch button
-            launch_button = QtWidgets.QPushButton("Launch NEO Script Editor")
-            launch_button.setStyleSheet("""
-                QPushButton {
-                    background: #2D2D30;
-                    color: #00ff41;
-                    border: 2px solid #00ff41;
-                    border-radius: 8px;
-                    padding: 10px 20px;
-                    font-size: 14px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background: #00ff41;
-                    color: #000;
-                }
-            """)
-            launch_button.clicked.connect(self._launch_standalone_neo)
+            # Create code editor
+            self.code_editor = CodeEditor()
+            self.code_editor.setPlainText("# NEO Script Editor - Dockable Version\n# Write your Maya Python/MEL code here\n\nimport maya.cmds as cmds\ncmds.polySphere()")
             
-            # Status label
-            status_label = QtWidgets.QLabel("Click the button above to launch the full NEO Script Editor")
-            status_label.setAlignment(QtCore.Qt.AlignCenter)
-            status_label.setStyleSheet("color: #888; margin: 10px;")
+            # Create output console
+            self.output_console = OutputConsole()
             
-            # Add widgets to layout
-            launch_layout.addStretch()
-            launch_layout.addWidget(title_label)
-            launch_layout.addWidget(launch_button)
-            launch_layout.addWidget(status_label)
-            launch_layout.addStretch()
+            # Add to splitter
+            main_splitter.addWidget(self.code_editor)
+            main_splitter.addWidget(self.output_console)
+            main_splitter.setSizes([400, 200])
             
-            # Create container widget
-            container = QtWidgets.QWidget()
-            container.setLayout(launch_layout)
-            layout.addWidget(container)
+            # Add splitter to main layout
+            layout.addWidget(main_splitter)
             
-            print("[Maya] NEO Script Editor dockable launcher created")
+            print("[Maya] NEO Script Editor content created successfully")
             
         except Exception as e:
             print(f"[ERROR] Failed to create NEO Script Editor: {e}")
             error_label = QtWidgets.QLabel(f"Error creating NEO Script Editor:\n{str(e)}")
             layout.addWidget(error_label)
     
-    def _launch_standalone_neo(self):
-        """Launch the standalone NEO Script Editor"""
-        try:
-            # Import and launch the standalone version
-            if AiScriptEditor is not None:
-                self.standalone_neo = AiScriptEditor()
-                self.standalone_neo.show()
-                print("[Maya] Standalone NEO Script Editor launched")
-            else:
-                print("[ERROR] Could not launch NEO Script Editor - import failed")
-        except Exception as e:
-            print(f"[ERROR] Failed to launch NEO Script Editor: {e}")
-
     def dockCloseEventTriggered(self):
         """Called when the dock is closed"""
         print("[Maya] NEO Script Editor dock closed")
-        # Close any standalone windows
-        if hasattr(self, 'standalone_neo'):
-            try:
-                self.standalone_neo.close()
-            except:
-                pass
 
 
 def create_workspace_control():
