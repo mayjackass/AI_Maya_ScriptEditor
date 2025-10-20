@@ -63,45 +63,83 @@ class MayaDockableNeoEditor(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         
-        # Create the NEO Script Editor instance properly embedded
+        # Create a simple placeholder for now and launch separate window
         try:
-            print("[Maya] Creating NEO Script Editor for dockable use...")
+            print("[Maya] Creating dockable NEO Script Editor placeholder...")
             
-            # Create NEO Script Editor instance
-            self.neo_editor = AiScriptEditor()
-            print("[Maya] NEO Script Editor instance created")
+            # Create a simple button that launches the actual NEO Script Editor
+            launch_layout = QtWidgets.QVBoxLayout()
             
-            # CRITICAL: Hide the standalone window that gets created automatically
-            self.neo_editor.hide()
+            # Title
+            title_label = QtWidgets.QLabel("NEO Script Editor")
+            title_label.setAlignment(QtCore.Qt.AlignCenter)
+            title_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #00ff41; margin: 20px;")
             
-            # Extract the central widget content instead of trying to embed the whole window
-            central_widget = self.neo_editor.centralWidget()
-            if central_widget:
-                # Remove from original parent and add to our layout
-                central_widget.setParent(None)
-                central_widget.setParent(self)
-                layout.addWidget(central_widget)
-                print("[Maya] NEO Script Editor content embedded successfully")
-            else:
-                # Fallback: embed the whole editor but force it to be a widget
-                self.neo_editor.setParent(self)
-                self.neo_editor.setWindowFlags(QtCore.Qt.Widget)
-                layout.addWidget(self.neo_editor)
-                print("[Maya] NEO Script Editor embedded as fallback")
+            # Launch button
+            launch_button = QtWidgets.QPushButton("Launch NEO Script Editor")
+            launch_button.setStyleSheet("""
+                QPushButton {
+                    background: #2D2D30;
+                    color: #00ff41;
+                    border: 2px solid #00ff41;
+                    border-radius: 8px;
+                    padding: 10px 20px;
+                    font-size: 14px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background: #00ff41;
+                    color: #000;
+                }
+            """)
+            launch_button.clicked.connect(self._launch_standalone_neo)
             
-            print("[Maya] NEO Script Editor embedded in workspace control")
+            # Status label
+            status_label = QtWidgets.QLabel("Click the button above to launch the full NEO Script Editor")
+            status_label.setAlignment(QtCore.Qt.AlignCenter)
+            status_label.setStyleSheet("color: #888; margin: 10px;")
+            
+            # Add widgets to layout
+            launch_layout.addStretch()
+            launch_layout.addWidget(title_label)
+            launch_layout.addWidget(launch_button)
+            launch_layout.addWidget(status_label)
+            launch_layout.addStretch()
+            
+            # Create container widget
+            container = QtWidgets.QWidget()
+            container.setLayout(launch_layout)
+            layout.addWidget(container)
+            
+            print("[Maya] NEO Script Editor dockable launcher created")
             
         except Exception as e:
             print(f"[ERROR] Failed to create NEO Script Editor: {e}")
             error_label = QtWidgets.QLabel(f"Error creating NEO Script Editor:\n{str(e)}")
             layout.addWidget(error_label)
     
+    def _launch_standalone_neo(self):
+        """Launch the standalone NEO Script Editor"""
+        try:
+            # Import and launch the standalone version
+            if AiScriptEditor is not None:
+                self.standalone_neo = AiScriptEditor()
+                self.standalone_neo.show()
+                print("[Maya] Standalone NEO Script Editor launched")
+            else:
+                print("[ERROR] Could not launch NEO Script Editor - import failed")
+        except Exception as e:
+            print(f"[ERROR] Failed to launch NEO Script Editor: {e}")
+
     def dockCloseEventTriggered(self):
         """Called when the dock is closed"""
         print("[Maya] NEO Script Editor dock closed")
-        # Save session before closing
-        if hasattr(self.neo_editor, '_save_session'):
-            self.neo_editor._save_session()
+        # Close any standalone windows
+        if hasattr(self, 'standalone_neo'):
+            try:
+                self.standalone_neo.close()
+            except:
+                pass
 
 
 def create_workspace_control():
