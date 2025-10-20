@@ -126,7 +126,7 @@ class NEOInstaller:
             title="NEO Script Editor Installer",
             message=(
                 "Welcome to NEO Script Editor v3.2 Beta!\n\n"
-                "🔥 Features:\n"
+                "FEATURES:\n"
                 "• Maya dockable integration (like built-in Script Editor)\n"
                 "• AI assistant with OpenAI/Claude support\n"
                 "• 320+ Maya command validation\n"
@@ -636,22 +636,22 @@ except ImportError:
         cmds.confirmDialog(
             title="Installation Complete!",
             message=(
-                "🎉 NEO Script Editor v3.2 Beta installed successfully!\n\n"
-                "✅ What was installed:\n"
+                "INSTALLATION COMPLETE - NEO Script Editor v3.2 Beta installed successfully!\n\n"
+                "WHAT WAS INSTALLED:\n"
                 "• NEO Script Editor files\n"
                 "• Maya integration (userSetup.py)\n"
                 "• NEO shelf with logo buttons\n"
                 "• NEO menu in menu bar\n"
                 "• Dockable NEO Script Editor (currently open)\n\n"
-                "💡 Quick Start:\n"
+                "QUICK START:\n"
                 "• Use the NEO shelf buttons for easy access\n"
                 "• Drag the editor to the top for perfect workflow\n"
                 "• Set your AI API key in Tools → Settings\n\n"
-                "🔄 Next Steps:\n"
+                "NEXT STEPS:\n"
                 "• Restart Maya to ensure full integration\n"
                 "• Check out the docs/ folder for guides\n"
                 "• Report issues on GitHub\n\n"
-                "Enjoy coding with NEO! 🚀"
+                "Enjoy coding with NEO!"
             ),
             button=["Awesome!"],
             defaultButton="Awesome!"

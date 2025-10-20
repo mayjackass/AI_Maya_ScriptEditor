@@ -25,10 +25,14 @@ def create_neo_shelf():
     
     try:
         # Get the main shelf tab layout
+        print("[NEO] Getting shelf tab layout...")
         shelf_tab_layout = mel.eval('$gShelfTopLevel')
+        print(f"[NEO] Shelf tab layout: {shelf_tab_layout}")
         
         # Check if NEO shelf already exists and delete it
         existing_shelves = cmds.shelfTabLayout(shelf_tab_layout, query=True, childArray=True) or []
+        print(f"[NEO] Existing shelves: {existing_shelves}")
+        
         if "NEO" in existing_shelves:
             print("[NEO] Removing existing NEO shelf...")
             cmds.deleteUI("NEO", layout=True)
@@ -36,13 +40,16 @@ def create_neo_shelf():
         # Create new NEO shelf tab
         print("[NEO] Creating new NEO shelf tab...")
         shelf = cmds.shelfLayout("NEO", parent=shelf_tab_layout)
+        print(f"[NEO] Created shelf: {shelf}")
         
         # Get the assets path for icons
         assets_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets")
         neo_icon = os.path.join(assets_path, "matrix.png") if os.path.exists(os.path.join(assets_path, "matrix.png")) else "pythonFamily.png"
+        print(f"[NEO] Using icon: {neo_icon}")
         
         # Add NEO button
-        cmds.shelfButton(
+        print("[NEO] Adding NEO button...")
+        button = cmds.shelfButton(
             parent=shelf,
             label="NEO",
             annotation="Launch NEO Script Editor",
@@ -50,6 +57,7 @@ def create_neo_shelf():
             command="complete_neo_setup()",
             sourceType="python"
         )
+        print(f"[NEO] Created button: {button}")
         
         # Set the new shelf as active
         cmds.shelfTabLayout(shelf_tab_layout, edit=True, selectTab="NEO")

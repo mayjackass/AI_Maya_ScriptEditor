@@ -64,15 +64,26 @@ class MayaDockableNeoEditor(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         layout.setSpacing(0)
         
         # Create the NEO Script Editor instance
-        self.neo_editor = AiScriptEditor()
-        
-        # Remove the window frame since we're embedding it
-        self.neo_editor.setWindowFlags(QtCore.Qt.Widget)
-        
-        # Add to our layout
-        layout.addWidget(self.neo_editor)
-        
-        print("[Maya] NEO Script Editor embedded in workspace control")
+        try:
+            self.neo_editor = AiScriptEditor()
+            print("[Maya] NEO Script Editor instance created successfully")
+            
+            # Remove the window frame since we're embedding it
+            self.neo_editor.setWindowFlags(QtCore.Qt.Widget)
+            
+            # Force the widget to show and update
+            self.neo_editor.show()
+            self.neo_editor.update()
+            
+            # Add to our layout
+            layout.addWidget(self.neo_editor)
+            
+            print("[Maya] NEO Script Editor embedded in workspace control")
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to create NEO Script Editor: {e}")
+            error_label = QtWidgets.QLabel(f"Error creating NEO Script Editor:\n{str(e)}")
+            layout.addWidget(error_label)
     
     def dockCloseEventTriggered(self):
         """Called when the dock is closed"""
