@@ -1,7 +1,7 @@
-# NEO Script Editor v3.1 Beta
+# NEO Script Editor v3.2 Beta - Now with Maya Dockable Integration!
 ### *"I can only show you the door. You're the one that has to walk through it."*
 
-[![Version](https://img.shields.io/badge/version-3.1--beta-orange.svg)](https://github.com/mayjackass/AI_Maya_ScriptEditor)
+[![Version](https://img.shields.io/badge/version-3.2--beta-orange.svg)](https://github.com/mayjackass/AI_Maya_ScriptEditor)
 [![Status](https://img.shields.io/badge/status-beta--testing-yellow.svg)](https://github.com/mayjackass/AI_Maya_ScriptEditor)
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/)
 [![Maya](https://img.shields.io/badge/maya-320%2B%20commands-green.svg)](https://github.com/mayjackass/AI_Maya_ScriptEditor)
@@ -10,13 +10,22 @@
 **Developed by:** Mayj Amilano ([mayjackass](https://github.com/mayjackass))  
 **Built for:** Autodesk Maya 2022+  
 **Framework:** PySide6 (Qt6) | Python 3.9+  
-**Release Date:** October 13, 2025  
+**Release Date:** October 20, 2025  
 **Beta Expires:** January 31, 2026  
 **Status:** Free Beta Testing
 
 > **BETA NOTICE**: This is a time-limited beta release for testing and evaluation. Please report issues on [GitHub Issues](https://github.com/mayjackass/AI_Maya_ScriptEditor/issues).
 
 A next-generation AI-powered Maya script editor with **Morpheus AI** integration, VSCode-style features, and **THE MOST COMPREHENSIVE Maya command validation** of any IDE! Experience coding like using GitHub Copilot, but built specifically for Maya Python and MEL with **intelligent error detection** for all 320+ Maya commands.
+
+## 🆕 NEW in v3.2: Maya Dockable Integration!
+
+**Perfect Maya Workflow:** Editor on top, viewport below! 
+
+- **🔥 Maya Workspace Control**: Docks like built-in Maya panels (Script Editor, Outliner, etc.)
+- **🎨 NEO Shelf Tab**: Dedicated shelf with NEO logo buttons for one-click access
+- **📌 Native Integration**: Tabs with other panels, remembers position, saves in workspace layouts
+- **⚡ Perfect Workflow**: Dock at top for editor-above, viewport-below setup
 
 ---
 
@@ -78,6 +87,11 @@ A next-generation AI-powered Maya script editor with **Morpheus AI** integration
 - Advanced autocomplete with Tab confirmation
 - Syntax highlighting for Python & MEL
 
+**Maya Integration Options**
+- **🔥 Dockable Mode**: Integrates into Maya's UI like built-in Script Editor
+- **🪟 Standalone Mode**: Traditional floating window for multi-monitor setups
+- **🎨 NEO Shelf**: Dedicated shelf tab with logo buttons for easy access
+
 **Smart Code Analysis**
 - Multi-pass error detection algorithm
 - Column-based error positioning
@@ -94,12 +108,24 @@ A next-generation AI-powered Maya script editor with **Morpheus AI** integration
 
 ## Quick Start
 
+### Option 1: Maya Dockable Mode (Recommended) 🔥
+
+1. **Copy `userSetup_enhanced.py` to:** `Documents/maya/scripts/userSetup.py`
+2. **Restart Maya**
+3. **Run in Maya Script Editor:**
+   ```python
+   complete_neo_setup()  # Creates shelf + launches docked editor
+   ```
+4. **Perfect Workflow:** Drag NEO editor to top of Maya for editor-above, viewport-below!
+
+### Option 2: Standalone Mode
+
 ```bash
 # Clone the repository
 git clone https://github.com/mayjackass/AI_Maya_ScriptEditor.git
 cd AI_Maya_ScriptEditor
 
-# Install dependencies
+# Install dependencies  
 pip install -r requirements.txt
 
 # Launch the editor
@@ -108,9 +134,15 @@ python run.py
 
 **First Time Setup:**
 1. Set your OpenAI or Anthropic API key in `Tools → Settings`
-2. Open Morpheus chat from the toolbar or `View → Morpheus Chat`
+2. Open Morpheus chat from the toolbar or `View → Morpheus Chat`  
 3. Start coding - Morpheus automatically sees your code!
 4. Toggle offline mode if you want to work without API connection
+
+### Maya Commands Available:
+- `complete_neo_setup()` - Complete setup: shelf + docked editor
+- `neo_docked()` - Launch dockable editor
+- `create_neo_shelf()` - Create NEO shelf tab with logo buttons
+- `launch_neo_editor()` - Launch standalone window
 
 ---
 
@@ -147,9 +179,16 @@ ai_script_editor/
 ├── utils/                 # Utilities
 │   └── redirect_output.py # Output redirection
 │
+├── maya_dockable_launcher.py    # 🆕 Maya dockable integration
+├── maya_shelf_creator.py        # 🆕 NEO shelf tab with logo buttons  
+├── complete_setup.py            # 🆕 One-click complete setup
+├── userSetup_enhanced.py        # 🆕 Enhanced Maya userSetup.py
+├── MAYA_DOCKABLE_SETUP.md       # 🆕 Dockable setup guide
+├── SHELF_INTEGRATION.md         # 🆕 Shelf integration guide
+│
 ├── tests/                 # Test suite
 ├── docs/                  # Documentation
-└── assets/               # Icons and resources
+└── assets/               # Icons and resources (includes NEO logos)
 ```
 │
 ├── tests/                 # Test files and legacy tests
