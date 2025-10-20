@@ -18,9 +18,15 @@
 
 A next-generation AI-powered Maya script editor with **Morpheus AI** integration, VSCode-style features, and **THE MOST COMPREHENSIVE Maya command validation** of any IDE! Experience coding like using GitHub Copilot, but built specifically for Maya Python and MEL with **intelligent error detection** for all 320+ Maya commands.
 
-## 🆕 NEW in v3.2: Maya Dockable Integration!
+## 🆕 NEW in v3.2: Maya Dockable Integration + Drag & Drop Installers!
 
-**Perfect Maya Workflow:** Editor on top, viewport below! 
+### 🎯 Drag & Drop Installation
+**No more manual setup! Just drag and drop into Maya:**
+- `neo_installer.py` - Full installation with all features
+- `neo_quick_installer.py` - Lightweight instant setup
+
+### 🔥 Perfect Maya Workflow  
+**Editor on top, viewport below!**
 
 - **🔥 Maya Workspace Control**: Docks like built-in Maya panels (Script Editor, Outliner, etc.)
 - **🎨 NEO Shelf Tab**: Dedicated shelf with NEO logo buttons for one-click access
@@ -108,17 +114,28 @@ A next-generation AI-powered Maya script editor with **Morpheus AI** integration
 
 ## Quick Start
 
-### Option 1: Maya Dockable Mode (Recommended) 🔥
+### 🎯 Drag & Drop Installation (Easiest)
 
-1. **Copy `scripts/maya/userSetup.py` to:** `Documents/maya/scripts/userSetup.py`
-2. **Restart Maya**  
-3. **Run in Maya Script Editor:**
+**Option A: Full Installation**
+1. Download `neo_installer.py` 
+2. Drag into Maya viewport
+3. Follow wizard → Restart Maya
+4. Run `complete_neo_setup()` in Maya
+
+**Option B: Quick Setup**  
+1. Download `neo_quick_installer.py`
+2. Drag into Maya viewport  
+3. Start coding immediately!
+
+### 🔥 Maya Dockable Mode (Perfect Workflow)
+
+1. **After installation, run:**
    ```python
    complete_neo_setup()  # Creates shelf + launches docked editor
    ```
-4. **Perfect Workflow:** Drag NEO editor to top of Maya for editor-above, viewport-below!
+2. **Perfect Workflow:** Drag NEO editor to top of Maya for editor-above, viewport-below!
 
-### Option 2: Standalone Mode
+### 🪟 Standalone Mode
 
 ```bash
 # Clone the repository
@@ -247,14 +264,32 @@ ai_script_editor/
 
 ## Installation
 
-### Requirements
+### 🎯 Method 1: Full Drag & Drop Installer (Recommended)
+**Complete NEO Script Editor with all features:**
+1. Download `neo_installer.py` from this repository
+2. Drag the file into Maya's viewport  
+3. Follow the installation wizard (auto-downloads from GitHub)
+4. Restart Maya and run `complete_neo_setup()`
+5. Done! NEO is fully integrated with dockable interface and shelf
+
+### ⚡ Method 2: Quick Drag & Drop Installer  
+**For immediate lightweight usage:**
+1. Download `neo_quick_installer.py` from this repository
+2. Drag the file into Maya's viewport
+3. Start using NEO immediately (no restart needed)
+4. Creates basic editor + NEO shelf for instant workflow enhancement
+5. Upgrade to full version anytime
+
+### 🛠️ Method 3: Manual Installation
+
+#### Requirements
 - **Python 3.8+** (built-in with Maya 2020+)
 - **PySide6** (Qt6 framework)
 - **API Keys** (optional, for Morpheus AI):
   - OpenAI API key (GPT-4o, GPT-4o-mini)
   - OR Anthropic API key (Claude Sonnet)
 
-### Setup Steps
+#### Setup Steps
 
 1. **Install Dependencies**
 ```bash
