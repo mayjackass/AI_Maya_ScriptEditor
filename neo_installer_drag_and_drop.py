@@ -263,6 +263,21 @@ class NEOInstaller:
                 print("Creating basic Maya integration files...")
                 self._create_basic_maya_integration()
             
+            # Verify assets folder and matrix icon
+            assets_path = os.path.join(self.neo_install_dir, "assets")
+            matrix_icon_path = os.path.join(assets_path, "matrix.png")
+            
+            if not os.path.exists(assets_path):
+                print("[WARNING] Assets folder not found in installation")
+                print("Creating assets folder with matrix icon...")
+                self._create_assets_folder()
+            elif not os.path.exists(matrix_icon_path):
+                print("[WARNING] Matrix icon not found in assets folder")
+                print("Creating matrix icon...")
+                self._create_matrix_icon(matrix_icon_path)
+            else:
+                print(f"[SUCCESS] Matrix icon found at: {matrix_icon_path}")
+            
             # Verify files
             missing_files = []
             for file_path in essential_files:
@@ -271,7 +286,7 @@ class NEOInstaller:
                     missing_files.append(file_path)
             
             if missing_files:
-                print(f"⚠️ Some files missing after installation: {missing_files}")
+                print(f"[WARNING] Some files missing after installation: {missing_files}")
                 print("Creating minimal replacements...")
                 self._create_minimal_files()
             
@@ -570,9 +585,10 @@ except ImportError:
             from maya_shelf_creator import force_recreate_shelf, debug_shelf_info
             
             print("[SHELF] Creating NEO shelf with matrix icon...")
-            print("[DEBUG] Shelf creation debug info:")
+            print("[DEBUG] Pre-creation shelf state:")
             debug_shelf_info()
             
+            # Force recreate to ensure clean shelf with only NEO button
             success = force_recreate_shelf()
             
             if success:
@@ -581,11 +597,26 @@ except ImportError:
                 debug_shelf_info()
                 return True
             else:
-                print("[WARNING] NEO shelf creation had issues")
-                return False
+                print("[WARNING] NEO shelf creation had issues, trying fallback...")
+                
+                # Fallback to basic creation
+                from maya_shelf_creator import create_neo_shelf
+                return create_neo_shelf()
+        
+        except ImportError as e:
+            print(f"[ERROR] Could not import updated shelf creator: {e}")
+            print("[INFO] Trying fallback shelf creation...")
             
+            # Fallback to basic shelf creation
+            try:
+                from maya_shelf_creator import create_neo_shelf
+                return create_neo_shelf()
+            except Exception as e2:
+                print(f"[ERROR] Fallback shelf creation failed: {e2}")
+                return False
+        
         except Exception as e:
-            print(f"❌ NEO shelf creation failed: {e}")
+            print(f"[ERROR] NEO shelf creation failed: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -880,6 +911,54 @@ except:
         with open(full_path, 'w', encoding='utf-8') as f:
             f.write(content)
         print(f"[SUCCESS] Created: {relative_path}")
+
+    def _create_assets_folder(self):
+        """Create assets folder with essential icons"""
+        try:
+            assets_path = os.path.join(self.neo_install_dir, "assets")
+            os.makedirs(assets_path, exist_ok=True)
+            
+            # Create matrix icon
+            matrix_icon_path = os.path.join(assets_path, "matrix.png")
+            self._create_matrix_icon(matrix_icon_path)
+            
+            print(f"[SUCCESS] Created assets folder at: {assets_path}")
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to create assets folder: {e}")
+
+    def _create_matrix_icon(self, icon_path):
+        """Create a simple matrix-style icon if the original is missing"""
+        try:
+            # For a complete installer, we should embed the actual matrix.png data here
+            # For now, create a fallback that Maya can use
+            
+            # Create directory if needed
+            os.makedirs(os.path.dirname(icon_path), exist_ok=True)
+            
+            # Try to copy from source project first
+            source_icon = os.path.join(self.project_source_dir, "assets", "matrix.png")
+            if os.path.exists(source_icon):
+                import shutil
+                shutil.copy2(source_icon, icon_path)
+                print(f"[SUCCESS] Copied matrix icon from source: {icon_path}")
+                return
+            
+            # If source not available, create a minimal placeholder
+            # This is a fallback - the real matrix.png should be embedded in production
+            print(f"[WARNING] Source matrix.png not found at: {source_icon}")
+            print(f"[INFO] Creating fallback icon placeholder")
+            
+            # Create a simple text file as placeholder
+            placeholder_path = icon_path.replace('.png', '_placeholder.txt')
+            with open(placeholder_path, 'w') as f:
+                f.write("NEO")
+            
+            print(f"[NOTE] Created placeholder at: {placeholder_path}")
+            print("[NOTE] For full matrix icon, ensure assets/matrix.png is in source project")
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to create matrix icon: {e}")
 
     def _create_themed_dialog(self, title, message, buttons=["OK"], default_button="OK"):
         """
