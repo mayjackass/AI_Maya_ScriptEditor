@@ -1,5 +1,4 @@
-# NEO Script Editor v3.2 Beta - Now with Maya Dockable Integration!
-### *"I can only show you the door. You're the one that has to walk through it."*
+# NEO Script Editor v3.2 Beta - New Drag & Drop Installers
 
 [![Version](https://img.shields.io/badge/version-3.2--beta-orange.svg)](https://github.com/mayjackass/AI_Maya_ScriptEditor)
 [![Status](https://img.shields.io/badge/status-beta--testing-yellow.svg)](https://github.com/mayjackass/AI_Maya_ScriptEditor)
@@ -18,7 +17,7 @@
 
 A next-generation AI-powered Maya script editor with **Morpheus AI** integration, VSCode-style features, and **THE MOST COMPREHENSIVE Maya command validation** of any IDE! Experience coding like using GitHub Copilot, but built specifically for Maya Python and MEL with **intelligent error detection** for all 320+ Maya commands.
 
-## NEW in v3.2: Maya Dockable Integration + Drag & Drop Installers!
+## NEW in v3.2: Drag & Drop Installers
 
 ### Drag & Drop Installation
 **No more manual setup! Just drag and drop into Maya:**
