@@ -1964,17 +1964,32 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
     
     def _on_morpheus_hover_timeout(self):
         """Called after hovering on error for 2 seconds - uses Problems window data."""
+        print(f"[DEBUG] _on_morpheus_hover_timeout triggered")
+        print(f"[DEBUG] _current_suggestion_line: {self._current_suggestion_line}")
+        print(f"[DEBUG] Has _hover_error_info: {hasattr(self, '_hover_error_info')}")
+        
         if self._current_suggestion_line and hasattr(self, '_hover_error_info') and self._hover_error_info:
+            # Check if Morpheus is available BEFORE requesting
+            if not self._is_morpheus_available():
+                print("[DEBUG] Morpheus not available - skipping suggestion request")
+                return
+                
+            print(f"[DEBUG] Requesting Morpheus suggestion for line {self._current_suggestion_line}")
             # Use the error info from Problems window that we stored
             self._request_morpheus_suggestion(self._hover_error_info, self._current_suggestion_line)
+        else:
+            print(f"[DEBUG] Conditions not met for Morpheus suggestion")
     
     def _request_morpheus_suggestion(self, error_info, line_number):
         """Request AI suggestion from Morpheus using Problems window data.
         
         The error_info already comes from Problems window, so we use it directly.
         """
-        # Check if Morpheus is available
+        print(f"[DEBUG] _request_morpheus_suggestion called for line {line_number}")
+        
+        # Check if Morpheus is available (already checked in timeout, but double-check)
         if not self._is_morpheus_available():
+            print("[DEBUG] Morpheus not available in _request_morpheus_suggestion")
             return
         
         # Use the error_info that was passed from Problems window
@@ -2050,13 +2065,24 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
     def _request_morpheus_fix_async(self, error_message, line_text, context, line_number):
         """Request fix from Morpheus AI asynchronously."""
         try:
-            # Get main window
-            main_window = self.parent()
-            while main_window.parent():
-                main_window = main_window.parent()
+            print(f"[DEBUG] _request_morpheus_fix_async called")
             
-            if not hasattr(main_window, 'chat_manager') or not main_window.chat_manager:
+            # Use the helper method to get main window
+            main_window = self._get_main_window()
+            
+            if not main_window:
+                print("[DEBUG] Could not find main window")
                 return
+            
+            if not hasattr(main_window, 'chat_manager'):
+                print("[DEBUG] Main window has no chat_manager attribute")
+                return
+                
+            if not main_window.chat_manager:
+                print("[DEBUG] Main window chat_manager is None")
+                return
+            
+            print(f"[DEBUG] Main window and chat_manager found, sending request")
             
             # Create prompt for Morpheus - be extremely specific
             prompt = f"""Fix this syntax error. Return ONLY the corrected code line.
@@ -2072,7 +2098,9 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
             QtCore.QTimer.singleShot(100, lambda: self._send_morpheus_request(main_window, prompt, line_number, line_text))
             
         except Exception as e:
-            print(f"Error requesting Morpheus suggestion: {e}")
+            print(f"[ERROR] Error requesting Morpheus suggestion: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _send_morpheus_request(self, main_window, prompt, line_number, original_line):
         """Send request to Morpheus and handle response."""
