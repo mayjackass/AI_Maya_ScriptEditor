@@ -341,9 +341,9 @@ class MenuManager:
             self.parent.beta_manager.show_about_beta(self.parent)
     
     def _open_documentation(self):
-        """Open documentation URL"""
+        """Open NEO Script Editor documentation"""
         import webbrowser
-        webbrowser.open("https://github.com/mayjackass/AI_Maya_ScriptEditor#readme")
+        webbrowser.open("https://mayjamilano.com/posts/neo-script-editor-8rggd")
     
     def _open_python_docs(self):
         """Open Python official documentation"""
