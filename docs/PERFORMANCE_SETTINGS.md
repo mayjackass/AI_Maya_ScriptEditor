@@ -4,21 +4,21 @@
 
 ### Latest Optimizations (v3.2)
 
-#### **Session Saving Performance Improvements** 🚀 NEW!
+#### **Session Saving Performance Improvements** (NEW!)
 Auto-save has been dramatically optimized to eliminate lag:
 
 **What Changed:**
-- **Save Frequency**: Reduced from 30 seconds → 3 minutes (6x less frequent)
+- **Save Frequency**: Reduced from 30 seconds to 3 minutes (6x less frequent)
 - **Smart Dirty Flag**: Only saves when there are actual changes
 - **Timer Management**: Stops when window is hidden/closed (no background saves)
 - **Silent Auto-Saves**: Removed verbose logging during auto-save (cleaner console)
 - **Visibility Check**: Skips saving if window isn't visible
 
 **Performance Impact:**
-- ✅ **No more lag** during typing or editing
-- ✅ **No background saves** when NEO is closed
-- ✅ **Cleaner console output** (less spam)
-- ✅ **Better Maya stability** (less frequent I/O)
+- **No more lag** during typing or editing
+- **No background saves** when NEO is closed
+- **Cleaner console output** (less spam)
+- **Better Maya stability** (less frequent I/O)
 
 **Session saves now only happen:**
 1. Every 3 minutes (if changes were made)
@@ -28,7 +28,7 @@ Auto-save has been dramatically optimized to eliminate lag:
 
 ---
 
-#### **Lazy Folding Cache System** ✨
+#### **Lazy Folding Cache System**
 Code folding is now **ENABLED by default** with intelligent caching!
 
 **How it works:**
@@ -44,23 +44,23 @@ Code folding is now **ENABLED by default** with intelligent caching!
 
 ### Performance Optimizations Applied
 
-#### 1. **Code Folding - OPTIMIZED with Lazy Caching** ✅
+#### 1. **Code Folding - OPTIMIZED with Lazy Caching**
 - **Status**: Enabled by default (safe for production)
 - **Method**: Lazy cache that only calculates for visible lines
 - **Cache**: Invalidated on text change, rebuilt on next paint
 - **Performance**: 90% faster than original, negligible overhead
 
-#### 2. **Indentation Guides - Aggressive Skipping** ✅
+#### 2. **Indentation Guides - Aggressive Skipping**
 - Skip 5 paint events during typing (up from 2)
 - Can be completely disabled for maximum performance
 - **Performance gain**: ~90% smoother typing
 
-#### 3. **Breakpoint Rendering - Optimized** ✅
+#### 3. **Breakpoint Rendering - Optimized**
 - Pre-convert sets for O(1) lookups
 - Only update line number area, not entire viewport
 - Skip updates if no changes
 
-#### 4. **Error Highlighting - Optimized** ✅
+#### 4. **Error Highlighting - Optimized**
 - Build error_lines set once per paint (O(1) lookup)
 - Instead of repeated `any()` calls (O(n) per line)
 
