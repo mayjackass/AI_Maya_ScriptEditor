@@ -2,7 +2,7 @@
 GitHub Copilot-style Inline Diff System
 Shows red highlight on error + floating widget with suggestion
 """
-from PySide6 import QtCore, QtGui, QtWidgets
+from qt_compat import QtCore, QtGui, QtWidgets
 
 
 class SuggestionWidget(QtWidgets.QWidget):

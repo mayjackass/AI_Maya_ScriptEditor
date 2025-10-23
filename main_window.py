@@ -1,9 +1,15 @@
 """
 AI Script Editor - Refactored Modular Version
 Main window now delegates to manager modules for clean architecture
+
+Compatible with:
+- Maya 2022-2024 (PySide2 / Qt 5)
+- Maya 2025+ (PySide6 / Qt 6)
 """
 import os
-from PySide6 import QtWidgets, QtCore, QtGui
+
+# Qt compatibility layer - works with both PySide2 and PySide6
+from qt_compat import QtWidgets, QtCore, QtGui, QT_VERSION
 
 # --- Ensure OpenAI key is loaded before Morpheus init ---
 settings = QtCore.QSettings("AI_Script_Editor", "settings")

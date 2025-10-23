@@ -1,4 +1,4 @@
-from PySide6 import QtWidgets, QtCore, QtGui
+from qt_compat import QtWidgets, QtCore, QtGui
 import sys
 import traceback
 from datetime import datetime

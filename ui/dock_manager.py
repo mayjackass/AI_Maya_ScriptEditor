@@ -3,7 +3,7 @@ Dock Manager
 Handles all dock widget creation and visibility management
 """
 import os
-from PySide6 import QtWidgets, QtCore, QtGui
+from qt_compat import QtWidgets, QtCore, QtGui
 
 
 class VSCodeStyleDelegate(QtWidgets.QStyledItemDelegate):

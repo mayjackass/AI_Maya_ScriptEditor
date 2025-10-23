@@ -3,7 +3,7 @@ AI Morpheus Manager — Phase 4
 Manages global AI context, conversation memory, and inline completions for NEO Script Editor.
 """
 import os, json, time, threading
-from PySide6 import QtCore
+from qt_compat import QtCore
 try:
     from openai import OpenAI
 except ImportError:

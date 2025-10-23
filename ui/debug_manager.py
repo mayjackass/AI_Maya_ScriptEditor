@@ -5,7 +5,7 @@ Handles debugging functionality with breakpoints (VSCode-style)
 import sys
 import traceback
 import os
-from PySide6 import QtWidgets, QtCore, QtGui
+from qt_compat import QtWidgets, QtCore, QtGui
 
 
 class DebugStopException(Exception):

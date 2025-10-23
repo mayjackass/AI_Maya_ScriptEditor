@@ -3,7 +3,7 @@ Menu Manager
 Handles all menu bar creation and menu actions
 """
 import os
-from PySide6 import QtWidgets, QtGui, QtCore
+from qt_compat import QtWidgets, QtGui, QtCore
 
 
 class MenuManager:

@@ -5,7 +5,7 @@ import html
 import re
 import threading
 import os
-from PySide6 import QtCore, QtWidgets, QtGui
+from qt_compat import QtCore, QtWidgets, QtGui
 
 # Try to import both providers
 try:

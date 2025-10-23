@@ -4,7 +4,7 @@ Handles expiration checking, warnings, and upgrade prompts
 """
 import os
 from datetime import datetime, timedelta
-from PySide6 import QtWidgets, QtCore, QtGui
+from qt_compat import QtWidgets, QtCore, QtGui
 from .license_core import get_license, is_dev_mode
 
 

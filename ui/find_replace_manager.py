@@ -3,7 +3,7 @@ Find/Replace Manager - VS Code Style
 Handles all find/replace widget creation and operations
 """
 import os
-from PySide6 import QtWidgets, QtCore, QtGui
+from qt_compat import QtWidgets, QtCore, QtGui
 
 
 class FindReplaceManager:

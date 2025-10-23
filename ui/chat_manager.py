@@ -8,7 +8,7 @@ import re
 import uuid
 import difflib
 import traceback
-from PySide6 import QtWidgets, QtCore, QtGui
+from qt_compat import QtWidgets, QtCore, QtGui
 
 
 class ChatManager:

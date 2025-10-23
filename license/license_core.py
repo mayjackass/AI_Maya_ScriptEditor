@@ -7,7 +7,7 @@ import sys
 import hashlib
 import base64
 from datetime import datetime, timedelta
-from PySide6 import QtCore
+from qt_compat import QtCore
 
 
 class LicenseCore:

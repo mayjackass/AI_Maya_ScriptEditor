@@ -3,7 +3,7 @@ File Manager
 Handles all file operations (new, open, save, tab management)
 """
 import os
-from PySide6 import QtWidgets, QtCore, QtGui
+from qt_compat import QtWidgets, QtCore, QtGui
 
 
 class FileManager:

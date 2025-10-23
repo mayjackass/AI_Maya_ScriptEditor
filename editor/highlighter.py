@@ -2,7 +2,7 @@
 Python syntax highlighter — VS Code Dark+ theme.
 """
 import re
-from PySide6 import QtGui
+from qt_compat import QtGui
 
 class PythonHighlighter(QtGui.QSyntaxHighlighter):
     def __init__(self, doc):

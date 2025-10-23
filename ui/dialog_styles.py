@@ -3,7 +3,7 @@ Dialog Styles
 Centralized styling for all dialogs to maintain consistent theme
 """
 import os
-from PySide6 import QtGui
+from qt_compat import QtGui
 
 # Dark theme matching the AI Provider Settings dialog
 DARK_DIALOG_STYLE = """
@@ -267,7 +267,7 @@ def create_message_box(parent, title, message, icon_type="information"):
     Returns:
         QtWidgets.QMessageBox: Configured message box
     """
-    from PySide6 import QtWidgets
+    from qt_compat import QtWidgets
     
     msg_box = QtWidgets.QMessageBox(parent)
     msg_box.setWindowTitle(title)
@@ -295,7 +295,7 @@ def show_about_dialog(parent=None):
     Args:
         parent: Parent widget (can be None for standalone use)
     """
-    from PySide6 import QtWidgets, QtCore, QtGui
+    from qt_compat import QtWidgets, QtCore, QtGui
     
     dialog = QtWidgets.QDialog(parent)
     dialog.setWindowTitle("About NEO Script Editor")
@@ -547,7 +547,7 @@ def create_themed_dialog(parent, title, width=400, height=300):
     Returns:
         QtWidgets.QDialog: Themed dialog
     """
-    from PySide6 import QtWidgets
+    from qt_compat import QtWidgets
     
     dialog = QtWidgets.QDialog(parent)
     dialog.setWindowTitle(title)

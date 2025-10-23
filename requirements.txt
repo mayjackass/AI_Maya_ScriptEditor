@@ -1,0 +1,20 @@
+# NEO Script Editor Requirements
+# Compatible with Maya 2022-2026+
+
+# Qt Framework - Choose based on your Maya version:
+# - Maya 2022-2024: Use PySide2 (Qt 5)
+# - Maya 2025+: Use PySide6 (Qt 6)
+# The app will auto-detect and use whichever is available
+
+# For Maya 2025+ (PySide6 already included in Maya)
+PySide6>=6.5.0; python_version >= '3.9'
+
+# For Maya 2022-2024 (PySide2 already included in Maya)
+# PySide2>=5.15.0; python_version < '3.9'
+
+# AI Providers (optional - for Morpheus AI assistant)
+openai>=1.0.0
+anthropic>=0.7.0
+
+# Note: Maya already includes PySide2 or PySide6
+# You typically don't need to install Qt bindings manually

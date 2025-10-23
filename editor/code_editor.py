@@ -3,7 +3,7 @@ Advanced Code Editor with VSCode-style Syntax Highlighting & Error Detection
 Comprehensive Python, PySide6/Qt, and Maya support with real-time error highlighting
 """
 import os, ast, sys, traceback
-from PySide6 import QtCore, QtGui, QtWidgets
+from qt_compat import QtCore, QtGui, QtWidgets
 try:
     import shiboken6
 except ImportError:
@@ -2217,7 +2217,7 @@ If the error is "expected ':'" on "if x == 5", reply with: if x == 5:"""
     
     def _show_morpheus_suggestion(self, suggestion, line_number, original_line):
         """Show Morpheus suggestion with green highlighting and action buttons."""
-        from PySide6 import QtCore, QtGui, QtWidgets
+        from qt_compat import QtCore, QtGui, QtWidgets
         import os
         
         # Hide any existing suggestion widget
