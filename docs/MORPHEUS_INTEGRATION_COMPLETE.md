@@ -1,4 +1,4 @@
-# 🧠 Morpheus Maya Knowledge - Complete Integration
+# Morpheus Maya Knowledge - Complete Integration
 
 ## ✅ CONFIRMED: Morpheus is Now a Maya Master
 
@@ -13,7 +13,7 @@ Morpheus has been upgraded with **complete Maya expertise** covering all three m
 
 ---
 
-## 🎯 System Integration
+## System Integration
 
 ### 1. Knowledge Base Module
 **File:** `ai/maya_knowledge.py`
@@ -41,9 +41,9 @@ class MayaKnowledge:
 
 Morpheus's system prompt now includes:
 ```
-🎯 MAYA MASTERY - YOUR CORE EXPERTISE:
+MAYA MASTERY - YOUR CORE EXPERTISE:
 
-1️⃣ maya.cmds (100+ commands documented):
+1. maya.cmds (100+ commands documented):
    • Creation: polySphere, polyCube, polyCylinder...
    • Selection: select, ls, filterExpand...
    • Attributes: setAttr, getAttr, connectAttr...
@@ -51,12 +51,12 @@ Morpheus's system prompt now includes:
    • Lights: pointLight, spotLight, directionalLight...
    • Rendering: render, arnoldRender...
 
-2️⃣ PyMEL (60+ methods documented):
+2. PyMEL (60+ methods documented):
    • Object-oriented Python interface
    • PyNode objects, cleaner syntax
    • Pipeline operator: source.attr >> dest.attr
 
-3️⃣ OpenMaya API 2.0 (80+ classes documented):
+3. OpenMaya API 2.0 (80+ classes documented):
    • 10-100x faster than cmds
    • Function Sets: MFnMesh, MFnTransform...
    • Iterators: MItDag, MItMeshVertex...
@@ -75,7 +75,7 @@ Morpheus's system prompt now includes:
 
 ---
 
-## 🎓 What Morpheus Can Do Now
+## What Morpheus Can Do Now
 
 ### 1. Answer Maya Questions
 Ask anything about:
@@ -127,7 +127,7 @@ Morpheus understands:
 
 ---
 
-## 📊 Knowledge Coverage
+## Knowledge Coverage
 
 ### maya.cmds (100+ commands)
 Categories covered:
@@ -162,7 +162,7 @@ Categories covered:
 
 ---
 
-## 🔥 Example Conversations
+## Example Conversations
 
 ### Material Creation
 **You:** "How do I create a shader and assign it?"
@@ -241,7 +241,7 @@ Categories covered:
 
 ---
 
-## 🎯 Testing Morpheus's Knowledge
+## Testing Morpheus's Knowledge
 
 ### Test 1: Command Knowledge
 Open chat and ask:
@@ -322,7 +322,7 @@ How do I iterate mesh vertices with OpenMaya API?
 
 ---
 
-## 🎬 Production Ready
+## Production Ready
 
 Morpheus is now a **complete Maya expert** suitable for:
 
@@ -358,7 +358,7 @@ Morpheus is now a **complete Maya expert** suitable for:
 
 ---
 
-## 📚 Documentation Quick Reference
+## Documentation Quick Reference
 
 **For Users:**
 - `docs/MORPHEUS_MAYA_MASTERY.md` - Complete guide to Morpheus's knowledge
@@ -375,7 +375,7 @@ Morpheus is now a **complete Maya expert** suitable for:
 
 ---
 
-## 🚀 Next Steps
+## Next Steps
 
 ### 1. Test Morpheus
 Open the app, open chat, and ask Morpheus about Maya:
@@ -398,7 +398,7 @@ If you find missing commands:
 
 ---
 
-## 🎯 Final Confirmation
+## Final Confirmation
 
 **Morpheus Maya Mastery Status: ✅ COMPLETE**
 
@@ -417,6 +417,6 @@ If you find missing commands:
 
 ---
 
-*"What is Maya but the 3D Matrix? And what is Morpheus but your guide to reshape it with Python. The path is clear. Follow the white rabbit." 🕶️*
+*"What is Maya but the 3D Matrix? And what is Morpheus but your guide to reshape it with Python. The path is clear. Follow the white rabbit."*
 
 — Integration Complete
