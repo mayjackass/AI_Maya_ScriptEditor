@@ -2,7 +2,31 @@
 
 ## NEO Script Editor - Performance Optimization Guide
 
-### Latest Optimizations (v3.0 Final)
+### Latest Optimizations (v3.2)
+
+#### **Session Saving Performance Improvements** 🚀 NEW!
+Auto-save has been dramatically optimized to eliminate lag:
+
+**What Changed:**
+- **Save Frequency**: Reduced from 30 seconds → 3 minutes (6x less frequent)
+- **Smart Dirty Flag**: Only saves when there are actual changes
+- **Timer Management**: Stops when window is hidden/closed (no background saves)
+- **Silent Auto-Saves**: Removed verbose logging during auto-save (cleaner console)
+- **Visibility Check**: Skips saving if window isn't visible
+
+**Performance Impact:**
+- ✅ **No more lag** during typing or editing
+- ✅ **No background saves** when NEO is closed
+- ✅ **Cleaner console output** (less spam)
+- ✅ **Better Maya stability** (less frequent I/O)
+
+**Session saves now only happen:**
+1. Every 3 minutes (if changes were made)
+2. When you close the window
+3. When you hide the window
+4. Never when the window isn't visible
+
+---
 
 #### **Lazy Folding Cache System** ✨
 Code folding is now **ENABLED by default** with intelligent caching!
