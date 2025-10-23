@@ -101,98 +101,71 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         if os.path.exists(icon_path):
             self.setWindowIcon(QtGui.QIcon(icon_path))
         
-        # Set window flags to keep it on top of Maya (like Maya's script editor)
-        try:
-            # Try to get Maya's main window as parent for better integration
-            import maya.OpenMayaUI as omui
-            import shiboken6
-            maya_main_window_ptr = omui.MQtUtil.mainWindow()
-            if maya_main_window_ptr:
-                maya_main_window = shiboken6.wrapInstance(int(maya_main_window_ptr), QtWidgets.QWidget)
-                self.setParent(maya_main_window)
-                # Use window flags that work well with Maya - stay on top of Maya only
-                self.setWindowFlags(
-                    QtCore.Qt.Window |  # Use Window instead of Tool for full controls
-                    QtCore.Qt.WindowCloseButtonHint |
-                    QtCore.Qt.WindowMinimizeButtonHint |
-                    QtCore.Qt.WindowMaximizeButtonHint |
-                    QtCore.Qt.WindowTitleHint
-                )
-            else:
-                # Fallback if Maya main window not found - still use always on top
-                self.setWindowFlags(
-                    QtCore.Qt.Window | 
-                    QtCore.Qt.WindowStaysOnTopHint |
-                    QtCore.Qt.WindowCloseButtonHint |
-                    QtCore.Qt.WindowMinimizeButtonHint |
-                    QtCore.Qt.WindowMaximizeButtonHint |
-                    QtCore.Qt.WindowTitleHint
-                )
-        except ImportError:
-            # Not running in Maya, use standard always-on-top
-            self.setWindowFlags(
-                QtCore.Qt.Window | 
-                QtCore.Qt.WindowStaysOnTopHint |
-                QtCore.Qt.WindowCloseButtonHint |
-                QtCore.Qt.WindowMinimizeButtonHint |
-                QtCore.Qt.WindowMaximizeButtonHint |
-                QtCore.Qt.WindowTitleHint
+        # CRITICAL FIX: Don't parent to Maya main window - causes severe lag
+        # Use standalone window with stay-on-top flag instead
+        # This prevents NEO from blocking Maya's UI thread and causing lag
+        self.setWindowFlags(
+            QtCore.Qt.Window |  # Independent window
+            QtCore.Qt.WindowStaysOnTopHint |  # Stay above Maya
+            QtCore.Qt.WindowCloseButtonHint |
+            QtCore.Qt.WindowMinimizeButtonHint |
+            QtCore.Qt.WindowMaximizeButtonHint |
+            QtCore.Qt.WindowTitleHint
                 )
         
-        # Performance optimizations to reduce lag during window operations
-        self.setAttribute(QtCore.Qt.WA_OpaquePaintEvent, True)  # Optimize painting
-        self.setAttribute(QtCore.Qt.WA_NoSystemBackground, False)  # Allow background
-        self.setAttribute(QtCore.Qt.WA_DontCreateNativeAncestors, True)  # Reduce overhead
+        # CRITICAL: Performance optimizations to prevent Maya lag
+        # These attributes significantly reduce rendering overhead
+        self.setAttribute(QtCore.Qt.WA_OpaquePaintEvent, True)  # Faster painting
+        self.setAttribute(QtCore.Qt.WA_NoSystemBackground, False)  # Use background
+        self.setAttribute(QtCore.Qt.WA_DontCreateNativeAncestors, True)  # Less overhead
+        self.setAttribute(QtCore.Qt.WA_TranslucentBackground, False)  # No transparency
+        self.setAttribute(QtCore.Qt.WA_PaintOnScreen, False)  # Use backing store
         
-        # Critical Maya performance fix - use faster update mode
+        # Optimize for Maya's rendering pipeline
         self.setUpdatesEnabled(True)
         
-        # Optimize window for compositing (reduces lag during drag)
-        try:
-            self.setAttribute(QtCore.Qt.WA_TranslucentBackground, False)  # Disable transparency
-            self.setAttribute(QtCore.Qt.WA_NoChildEventsForParent, True)  # Reduce event propagation
-        except:
-            pass  # Skip if not available in this Qt version
-        
+        # Set size BEFORE setting stylesheet to avoid repainting
         self.resize(1200, 700)
+        
+        # Apply stylesheet (expensive operation, do once)
         self.setStyleSheet(DARK_STYLE)        # Track problems per editor/tab
         self.editor_problems = {}  # Dictionary: editor_id -> list of problems
         
         # Track file paths for tabs (for session persistence)
         self.tab_file_paths = {}  # Dictionary: tab_index -> file_path
         
-        # Initialize components
-        self._setup_central_widget()
-        self._setup_floating_code_actions()
-        
-        # Initialize all manager modules
-        self._init_managers()
-        
-        # Setup UI using managers
-        self._setup_ui_with_managers()
-        
-        # Show beta notice if needed (non-blocking)
-        QtCore.QTimer.singleShot(500, lambda: self.beta_manager.show_startup_notice(self))
-        
-        # Setup status bar with beta info
-        self._setup_status_bar()
-        
-        # Restore previous session (tabs and files) - DEFERRED for faster startup
-        QtCore.QTimer.singleShot(500, self._restore_session)
-        
-        # Initialize chat manager (deferred for faster startup - AI loading is slow)
-        QtCore.QTimer.singleShot(100, self._init_chat_manager_deferred)
-        
         # Track if session needs saving (dirty flag for performance)
         self._session_dirty = False
         
-        # Auto-save session every 3 minutes (reduced frequency for better performance)
-        # Only saves if there are actual changes (_session_dirty flag)
-        self.auto_save_timer = QtCore.QTimer()
-        self.auto_save_timer.timeout.connect(lambda: self._save_session(auto_save=True))
-        self.auto_save_timer.start(180000)  # 3 minutes (180 seconds)
+        # Initialize components FIRST (lightweight, must be ready)
+        self._setup_central_widget()
+        self._setup_floating_code_actions()
         
-        print("[OK] AI Script Editor initialized with refactored modular architecture!")
+        # Initialize managers (lightweight initialization only)
+        self._init_managers()
+        
+        # Setup UI using managers (deferred heavy parts)
+        self._setup_ui_with_managers()
+        
+        # DEFERRED HEAVY OPERATIONS - run after window shows for faster startup
+        # Show window first, then load heavy stuff in background
+        
+        # Restore session - VERY DEFERRED (2 seconds) to not block startup
+        QtCore.QTimer.singleShot(2000, self._restore_session)
+        
+        # Initialize chat manager - DEFERRED (AI loading is very slow)
+        QtCore.QTimer.singleShot(1500, self._init_chat_manager_deferred)
+        
+        # Show beta notice - DEFERRED
+        QtCore.QTimer.singleShot(1000, lambda: self.beta_manager.show_startup_notice(self))
+        
+        # Setup status bar - DEFERRED
+        QtCore.QTimer.singleShot(500, self._setup_status_bar)
+        
+        # Auto-save timer - start AFTER session restore
+        QtCore.QTimer.singleShot(3000, self._start_autosave_timer)
+        
+        print("[OK] NEO Script Editor - Fast initialization complete! (Heavy operations deferred)")
     
     def keyPressEvent(self, event):
         """Handle keyboard shortcuts - Esc to close find/replace"""
@@ -345,6 +318,13 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         self.sendBtn = self.chat_manager.sendBtn
         self.morpheus = self.chat_manager.morpheus
         self.morpheus_manager = self.chat_manager.morpheus_manager
+    
+    def _start_autosave_timer(self):
+        """Start the auto-save timer after initialization is complete"""
+        print("[Session] Starting auto-save timer (3 minute interval)...")
+        self.auto_save_timer = QtCore.QTimer()
+        self.auto_save_timer.timeout.connect(lambda: self._save_session(auto_save=True))
+        self.auto_save_timer.start(180000)  # 3 minutes (180 seconds)
         self.chat_dock = self.dock_manager.chat_dock  # Store chat dock reference
         
         print("[Startup] Chat manager ready")
