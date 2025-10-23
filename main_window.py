@@ -164,10 +164,14 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         # Initialize chat manager (deferred for faster startup - AI loading is slow)
         QtCore.QTimer.singleShot(100, self._init_chat_manager_deferred)
         
-        # Auto-save session every 30 seconds (for Maya stability)
+        # Track if session needs saving (dirty flag for performance)
+        self._session_dirty = False
+        
+        # Auto-save session every 3 minutes (reduced frequency for better performance)
+        # Only saves if there are actual changes (_session_dirty flag)
         self.auto_save_timer = QtCore.QTimer()
-        self.auto_save_timer.timeout.connect(self._save_session)
-        self.auto_save_timer.start(30000)  # 30 seconds
+        self.auto_save_timer.timeout.connect(lambda: self._save_session(auto_save=True))
+        self.auto_save_timer.start(180000)  # 3 minutes (180 seconds)
         
         print("[OK] AI Script Editor initialized with refactored modular architecture!")
     
@@ -420,12 +424,21 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         """Setup all connections"""
         self.languageCombo.currentTextChanged.connect(self.file_manager.on_language_changed)
         self.tabWidget.tabCloseRequested.connect(self.file_manager.close_tab)
-        self.tabWidget.currentChanged.connect(self.file_manager.on_tab_changed)
+        self.tabWidget.currentChanged.connect(self._on_tab_changed_mark_dirty)
         self.explorerView.doubleClicked.connect(lambda index: self.file_manager.on_explorer_double_clicked(index, self.fileModel))
         self.problemsList.itemDoubleClicked.connect(self._on_problem_double_clicked)
         
         # Create initial tab (will be removed if session is restored)
         self.file_manager.new_file()
+    
+    def _on_tab_changed_mark_dirty(self, index):
+        """Called when tab changes - mark session dirty and forward to file manager"""
+        self._session_dirty = True
+        self.file_manager.on_tab_changed(index)
+    
+    def _mark_session_dirty(self):
+        """Mark session as dirty (needs saving)"""
+        self._session_dirty = True
         
     def _show_morpheus_chat(self):
         """Show Morpheus AI chat"""
@@ -677,28 +690,54 @@ class AiScriptEditor(QtWidgets.QMainWindow):
             self.statusBar().showMessage(beta_msg)
     
     def closeEvent(self, event):
-        """Save session before closing"""
+        """Save session before closing and stop auto-save timer"""
         print("[Session] closeEvent triggered")
         self._save_session()
+        # Stop the auto-save timer when closing
+        if hasattr(self, 'auto_save_timer') and self.auto_save_timer:
+            self.auto_save_timer.stop()
+            print("[Session] Auto-save timer stopped (window closed)")
         event.accept()
     
     def hideEvent(self, event):
-        """Save session when window is hidden (important for Maya)"""
+        """Save session when window is hidden and stop auto-save timer (important for Maya)"""
         print("[Session] hideEvent triggered")
         self._save_session()
+        # Stop the auto-save timer when hidden
+        if hasattr(self, 'auto_save_timer') and self.auto_save_timer:
+            self.auto_save_timer.stop()
+            print("[Session] Auto-save timer stopped (window hidden)")
         super().hideEvent(event)
     
     def showEvent(self, event):
-        """Called when window is shown"""
+        """Called when window is shown - restart auto-save timer"""
         super().showEvent(event)
-        # Don't restore here, only on init
+        # Restart the auto-save timer when window is shown
+        if hasattr(self, 'auto_save_timer') and self.auto_save_timer:
+            self.auto_save_timer.start(180000)  # 3 minutes
+            print("[Session] Auto-save timer restarted (window shown)")
     
-    def _save_session(self):
-        """Save current open tabs and content to settings"""
+    def _save_session(self, auto_save=False):
+        """Save current open tabs and content to settings
+        
+        Args:
+            auto_save: If True, this is an automatic background save (less verbose, checks dirty flag)
+        """
         try:
+            # Skip if window is not visible (closed/hidden)
+            if not self.isVisible():
+                if not auto_save:
+                    print("[Session] Window not visible, skipping session save")
+                return
+            
+            # For auto-save, skip if nothing changed (performance optimization)
+            if auto_save and not getattr(self, '_session_dirty', False):
+                return  # Silent skip - no changes to save
+            
             # Safety check: make sure widgets still exist
             if not hasattr(self, 'tabWidget') or self.tabWidget is None:
-                print("[Session] TabWidget not available, skipping session save")
+                if not auto_save:
+                    print("[Session] TabWidget not available, skipping session save")
                 return
             
             # Additional Qt object validity check
@@ -706,7 +745,8 @@ class AiScriptEditor(QtWidgets.QMainWindow):
                 # Test if the C++ object is still valid
                 _ = self.tabWidget.count()
             except RuntimeError:
-                print("[Session] TabWidget C++ object deleted, skipping session save")
+                if not auto_save:
+                    print("[Session] TabWidget C++ object deleted, skipping session save")
                 return
             
             settings = QtCore.QSettings("AI_Script_Editor", "session")
@@ -722,9 +762,11 @@ class AiScriptEditor(QtWidgets.QMainWindow):
                 root_index = self.explorerView.rootIndex()
                 root_path = self.fileModel.filePath(root_index)
                 settings.setValue("explorer_root_path", root_path)
-                print(f"[Session] Explorer root: {root_path}")
+                if not auto_save:
+                    print(f"[Session] Explorer root: {root_path}")
             
-            print(f"[Session] Saving tabs from {tab_count} total tabs...")
+            if not auto_save:
+                print(f"[Session] Saving tabs from {tab_count} total tabs...")
             
             # Save each tab's state
             saved_count = 0
@@ -737,7 +779,8 @@ class AiScriptEditor(QtWidgets.QMainWindow):
                     
                     # Skip empty untitled tabs - don't save them to session
                     if not content.strip() and not file_path:
-                        print(f"  Tab {i}: Skipping empty untitled tab")
+                        if not auto_save:
+                            print(f"  Tab {i}: Skipping empty untitled tab")
                         continue
                     
                     # Save tab data
@@ -750,7 +793,8 @@ class AiScriptEditor(QtWidgets.QMainWindow):
                     cursor = editor.textCursor()
                     settings.setValue(f"tab_{saved_count}_cursor_position", cursor.position())
                     
-                    print(f"  Tab {saved_count}: '{self.tabWidget.tabText(i)}' - {len(content)} chars, file: {file_path or 'untitled'}")
+                    if not auto_save:
+                        print(f"  Tab {saved_count}: '{self.tabWidget.tabText(i)}' - {len(content)} chars, file: {file_path or 'untitled'}")
                     saved_count += 1
             
             # Save the actual count of saved tabs (not including skipped empty tabs)
@@ -758,10 +802,16 @@ class AiScriptEditor(QtWidgets.QMainWindow):
             settings.setValue("active_tab", min(self.tabWidget.currentIndex(), saved_count - 1) if saved_count > 0 else 0)
             
             settings.sync()  # Force write to disk
-            print(f"[Session] Saved {saved_count} tabs successfully to: {settings.fileName()}")
+            
+            # Clear dirty flag after successful save
+            self._session_dirty = False
+            
+            if not auto_save:
+                print(f"[Session] Saved {saved_count} tabs successfully to: {settings.fileName()}")
             
         except Exception as e:
-            print(f"[Session] Error saving session: {e}")
+            if not auto_save:
+                print(f"[Session] Error saving session: {e}")
             # Don't crash the application if session saving fails
     
     def _restore_session(self):

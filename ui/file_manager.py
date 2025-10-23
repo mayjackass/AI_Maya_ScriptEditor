@@ -156,6 +156,10 @@ class FileManager:
         index = self.tab_widget.addTab(editor, "untitled")
         self._set_tab_icon(index, language)
         self.tab_widget.setCurrentIndex(index)
+        
+        # Mark session as dirty (tab added)
+        if hasattr(self.parent, '_mark_session_dirty'):
+            self.parent._mark_session_dirty()
     
     def open_file(self, file_path=None):
         """Open file"""
@@ -228,6 +232,10 @@ class FileManager:
                 # Track file path for this tab (for session persistence)
                 if hasattr(self.parent, 'tab_file_paths'):
                     self.parent.tab_file_paths[index] = file_path
+                
+                # Mark session as dirty (file opened)
+                if hasattr(self.parent, '_mark_session_dirty'):
+                    self.parent._mark_session_dirty()
                 
                 # Add to recent files
                 self.add_recent_file(file_path)
@@ -423,6 +431,10 @@ class FileManager:
             
             # Close the tab
             self.tab_widget.removeTab(index)
+            
+            # Mark session as dirty (tab closed)
+            if hasattr(self.parent, '_mark_session_dirty'):
+                self.parent._mark_session_dirty()
             
             # Update tab_file_paths dictionary - shift all indices after the closed tab
             if hasattr(self.parent, 'tab_file_paths'):
