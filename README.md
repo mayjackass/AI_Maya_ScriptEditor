@@ -1,23 +1,36 @@
 # NEO Script Editor v3.2 Beta
 
-[![Version](https://img.shields.io/badge/version-3.2--beta-orange.svg)](https://github.com/mayjackass/NEO_Script_Editor)
-[![Status](https://img.shields.io/badge/status-beta--testing-yellow.svg)](https://github.com/mayjackass/NEO_Script_Editor)
+[![Version](https://img.shields.io/badge/version-3.2--beta-orange.svg)](https://mayjamilano.com/digital/neo-script-editor-ai-powered-script-editor-for-maya-tsuyr)
+[![Status](https://img.shields.io/badge/status-beta--testing-yellow.svg)](https://mayjamilano.com/digital/neo-script-editor-ai-powered-script-editor-for-maya-tsuyr)
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/)
-[![Maya](https://img.shields.io/badge/maya-320%2B%20commands-green.svg)](https://github.com/mayjackass/NEO_Script_Editor)
+[![Maya](https://img.shields.io/badge/maya-320%2B%20commands-green.svg)](https://mayjamilano.com/digital/neo-script-editor-ai-powered-script-editor-for-maya-tsuyr)
 [![License](https://img.shields.io/badge/license-Beta%20License-red.svg)](BETA_LICENSE.md)
 
-**Developed by:** Mayj Amilano ([mayjackass](https://github.com/mayjackass))  
-**Built for:** Autodesk Maya 2022+  
-**Framework:** PySide6 (Qt6) | Python 3.9+  
+**Developed by:** Mayj Amilano ([Website](https://mayjamilano.com))  
+**Built for:** Autodesk Maya 2022-2026+ (Universal Compatibility)  
+**Framework:** PySide2/PySide6 (Auto-detected) | Python 3.7+  
 **Release Date:** October 23, 2025  
 **Beta Expires:** January 31, 2026  
 **Status:** Free Beta Testing
 
-> **BETA NOTICE**: This is a time-limited beta release for testing and evaluation. Please report issues on [GitHub Issues](https://github.com/mayjackass/NEO_Script_Editor/issues).
+> **BETA NOTICE**: This is a time-limited beta release for testing and evaluation. [Download and report issues here](https://mayjamilano.com/digital/neo-script-editor-ai-powered-script-editor-for-maya-tsuyr).
 
 A next-generation AI-powered Maya script editor with **Morpheus AI** integration, VSCode-style features, and **THE MOST COMPREHENSIVE Maya command validation** of any IDE! Experience coding like using GitHub Copilot, but built specifically for Maya Python and MEL with **intelligent error detection** for all 320+ Maya commands.
 
 ## What's New in v3.2
+
+### Universal Maya Compatibility
+- **One Download for All Maya Versions**: Works with Maya 2022-2026+
+- **Auto-Detection**: Automatically uses PySide2 (Maya 2022-2024) or PySide6 (Maya 2025+)
+- **No Dependencies to Install**: Uses Maya's built-in Qt framework
+- **Seamless Experience**: Same features across all Maya versions
+
+### Drag & Drop Installation
+- **2-Minute Setup**: Extract → Drag installer → Done!
+- **Smart userSetup.py Handling**: Safely detects and backs up existing files
+- **Instant Launch**: NEO opens automatically after installation (no restart needed)
+- **Three Setup Options**: Replace, Append, or Manual setup for existing userSetup.py
+- **Auto-Backup**: Your existing files backed up to `userSetup.py.backup_before_neo`
 
 ### Performance Optimizations
 - **Improved Session Saving**: Reduced auto-save frequency from 30 seconds to 3 minutes
@@ -26,16 +39,11 @@ A next-generation AI-powered Maya script editor with **Morpheus AI** integration
 - **No Background Saves**: Eliminates lag and prevents saves when window isn't visible
 - **Better Maya Stability**: Less frequent I/O operations for smoother performance
 
-### Drag & Drop Installers
-
-- `neo_installer.py` - Full installation with all features
-- `neo_quick_installer.py` - Lightweight instant setup
-
 ### Perfect Maya Workflow
 - **Maya Workspace Control**: Docks like built-in Maya panels
 - **NEO Shelf Tab**: Dedicated shelf with logo buttons
 - **Native Integration**: Tabs with other panels, saves in workspace layouts
-- **Optimized Performance**: Smart session management prevents lag
+- **Menu Integration**: Access via Windows > NEO Script Editor
 
 ---
 
@@ -117,59 +125,39 @@ A next-generation AI-powered Maya script editor with **Morpheus AI** integration
 
 ## Quick Start
 
-### Drag & Drop Installation (Easiest)
+### Drag & Drop Installation (2 Minutes!)
 
-**Option A: Full Installation**
-1. Download `neo_installer.py` 
-2. Drag into Maya viewport
-3. Follow wizard → Restart Maya
-4. Run `complete_neo_setup()` in Maya
+1. **Download** `NEO_Script_Editor_v3.2-beta.zip`
+2. **Extract** anywhere on your computer
+3. **Open Maya**
+4. **Drag and drop** `neo_installer_drag_and_drop.py` into Maya's viewport
+5. **Follow prompts** (handles existing userSetup.py safely)
+6. **Done!** NEO launches automatically
 
-**Option B: Quick Setup**  
-1. Download `neo_quick_installer.py`
-2. Drag into Maya viewport  
-3. Start coding immediately!
+**That's it!** Works with Maya 2022-2026+ automatically. No dependencies to install!
 
-### Maya Dockable Mode (Perfect Workflow)
+### What You Get After Installation
 
-1. **After installation, run:**
-   ```python
-   complete_neo_setup()  # Creates shelf + launches docked editor
-   ```
-2. **Perfect Workflow:** Drag NEO editor to top of Maya for editor-above, viewport-below!
+- **NEO Script Editor** launches immediately (no restart!)
+- **NEO Shelf** with launch buttons for future use
+- **Menu Integration** (Windows > NEO Script Editor)
+- **Optional Auto-Launch** on Maya startup (if you chose it)
 
-### Standalone Mode
+### First Time Setup (Optional - Morpheus AI)
 
-```bash
-# Clone the repository
-git clone https://github.com/mayjackass/AI_Maya_ScriptEditor.git
-cd AI_Maya_ScriptEditor
-
-# Install dependencies  
-pip install -r requirements.txt
-
-# Launch the editor
-python run.py
-```
-
-**First Time Setup:**
 1. Set your OpenAI or Anthropic API key in `Tools → Settings`
 2. Open Morpheus chat from the toolbar or `View → Morpheus Chat`  
 3. Start coding - Morpheus automatically sees your code!
 4. Toggle offline mode if you want to work without API connection
 
-### Maya Commands Available:
-- `complete_neo_setup()` - Complete setup: shelf + docked editor
-- `neo_docked()` - Launch dockable editor
-- `create_neo_shelf()` - Create NEO shelf tab with logo buttons
-- `launch_neo_editor()` - Launch standalone window
+**Note:** Basic editor works perfectly without API keys!
 
 ---
 
 ## Project Structure
 
 ```
-ai_script_editor/
+neo_script_editor/
 ├── run.py                 # Main launcher
 ├── main_window.py         # Application window
 ├── __init__.py            # Package initialization
@@ -250,52 +238,57 @@ ai_script_editor/
 
 ## Installation
 
-###  Method 1: Full Drag & Drop Installer (Recommended)
-**Complete NEO Script Editor with all features:**
-1. Download `neo_installer.py` from this repository
-2. Drag the file into Maya's viewport  
-3. Follow the installation wizard (auto-downloads from GitHub)
-4. Restart Maya and run `complete_neo_setup()`
-5. Done! NEO is fully integrated with dockable interface and shelf
+### Method 1: Drag & Drop Installer (Recommended - 2 Minutes!)
 
-###  Method 2: Quick Drag & Drop Installer  
-**For immediate lightweight usage:**
-1. Download `neo_quick_installer.py` from this repository
-2. Drag the file into Maya's viewport
-3. Start using NEO immediately (no restart needed)
-4. Creates basic editor + NEO shelf for instant workflow enhancement
-5. Upgrade to full version anytime
+1. **Download** `NEO_Script_Editor_v3.2-beta.zip`
+2. **Extract** anywhere on your computer
+3. **Open Maya** (any version 2022-2026+)
+4. **Drag and drop** `neo_installer_drag_and_drop.py` into Maya's viewport
+5. **Follow prompts**:
+   - If you have existing userSetup.py: Choose Replace/Append/Manual
+   - Your original file is backed up automatically
+6. **Done!** NEO launches immediately (no restart needed)
 
-###  Method 3: Manual Installation
+**What gets installed:**
+- NEO Script Editor files → Maya scripts directory
+- NEO shelf with launch buttons
+- Menu integration (Windows > NEO Script Editor)
+- Optional auto-launch on Maya startup
+
+### Method 2: Manual Installation (Advanced Users)
 
 #### Requirements
-- **Python 3.8+** (built-in with Maya 2020+)
-- **PySide6** (Qt6 framework)
+- **Maya**: 2022 or newer
+- **Python**: 3.7+ (included with Maya)
+- **Qt Framework**: PySide2/PySide6 (included with Maya - no installation needed!)
 - **API Keys** (optional, for Morpheus AI):
   - OpenAI API key (GPT-4o, GPT-4o-mini)
   - OR Anthropic API key (Claude Sonnet)
 
 #### Setup Steps
 
-1. **Install Dependencies**
-```bash
-pip install PySide6 openai anthropic
-```
-
-2. **Copy to Maya Scripts**
+1. **Extract to Maya Scripts Folder**
 ```bash
 # Windows
-C:\Users\<username>\Documents\maya\scripts\ai_script_editor\
+C:\Users\<username>\Documents\maya\scripts\neo_script_editor\
 
 # macOS
-~/Library/Preferences/Autodesk/maya/scripts/ai_script_editor/
+~/Library/Preferences/Autodesk/maya/scripts/neo_script_editor/
 
 # Linux
-~/maya/scripts/ai_script_editor/
+~/maya/scripts/neo_script_editor/
 ```
 
-3. **Configure API Keys**
-- Launch the editor: `python main_window.py`
+2. **Launch from Maya**
+```python
+import sys
+sys.path.insert(0, r"C:\Users\<username>\Documents\maya\scripts\neo_script_editor")
+from main_window import AiScriptEditor
+neo_window = AiScriptEditor()
+neo_window.show()
+```
+
+3. **Configure API Keys (Optional)**
 - Go to `Tools → Settings`
 - Enter your OpenAI or Anthropic API key
 - Select your preferred AI provider and model
@@ -444,7 +437,7 @@ MIT License - Free to use and modify.
 
 ## Credits
 
-**Created by:** [Mayj Amilano](https://github.com/mayjackass)  
+**Created by:** [Mayj Amilano](https://mayjamilano.com)  
 **Inspired by:** The Matrix (1999) - *"Free your mind"*  
 **Special Thanks:** The Maya community and all contributors
 

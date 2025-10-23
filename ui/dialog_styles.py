@@ -385,8 +385,8 @@ def show_about_dialog(parent=None):
     """)
     authorLabel.setAlignment(QtCore.Qt.AlignCenter)
     
-    # GitHub link
-    githubLabel = QtWidgets.QLabel('<a href="https://github.com/mayjackass/AI_Maya_ScriptEditor">GitHub Repository</a>')
+    # Website link
+    githubLabel = QtWidgets.QLabel('<a href="https://mayjamilano.com/digital/neo-script-editor-ai-powered-script-editor-for-maya-tsuyr">NEO Script Editor Website</a>')
     githubLabel.setStyleSheet("""
         font-size: 10px;
         color: #777777;

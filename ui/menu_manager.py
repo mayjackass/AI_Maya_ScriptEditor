@@ -245,7 +245,7 @@ class MenuManager:
         docs_action.triggered.connect(self._open_documentation)
         help_menu.addAction(docs_action)
         
-        github_action = QtGui.QAction("&GitHub Repository", self.parent)
+        github_action = QtGui.QAction("&NEO Website", self.parent)
         github_action.triggered.connect(self._open_github)
         help_menu.addAction(github_action)
         
@@ -361,9 +361,9 @@ class MenuManager:
         webbrowser.open("https://help.autodesk.com/view/MAYAUL/2026/ENU/?guid=GUID-703B18A2-89E5-48A8-988A-1ED815D5566F")
     
     def _open_github(self):
-        """Open GitHub repository"""
+        """Open NEO Script Editor website"""
         import webbrowser
-        webbrowser.open("https://github.com/mayjackass/AI_Maya_ScriptEditor")
+        webbrowser.open("https://mayjamilano.com/digital/neo-script-editor-ai-powered-script-editor-for-maya-tsuyr")
     
     def _show_about(self):
         """Show enhanced about dialog"""
