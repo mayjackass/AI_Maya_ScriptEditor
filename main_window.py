@@ -93,7 +93,7 @@ class AiScriptEditor(QtWidgets.QMainWindow):
             return
         
         # Update window title with beta status
-        base_title = "NEO Script Editor v3.0 - Morpheus AI"
+        base_title = "NEO Script Editor v3.2 - Morpheus AI"
         self.setWindowTitle(base_title + self.beta_manager.get_title_suffix())
         
         # Set window icon
