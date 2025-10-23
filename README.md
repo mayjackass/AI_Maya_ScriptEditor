@@ -196,8 +196,6 @@ ai_script_editor/
 ├── model/                 # Data models
 │   └── hierarchy.py      # Code structure
 │
-├── utils/                 # Utilities
-│   └── redirect_output.py # Output redirection
 │
 ├── scripts/maya/              #  Maya Integration Scripts
 │   
@@ -206,24 +204,9 @@ ai_script_editor/
 │   ├── maya_shelf_button.py          # Shelf button instructions
 │   └── userSetup.py                  # Enhanced Maya userSetup.py
 │
-├── tests/                 # Test suite
 ├── docs/                  # Documentation
 └── assets/               # Icons and resources (includes NEO logos)
-```
-│
-├── tests/                 # Test files and legacy tests
-│   ├── legacy/           # Archived test files
-│   └── *.py              # Current test files
-│
-├── docs/                  # Documentation and markdown files
-│   ├── *.md              # Feature documentation
-│   └── PROJECT_STRUCTURE.md
-│
-└── archive/               # Archived and debug files
-    ├── debug_*.py        # Debug utilities
-    ├── main_window_*.py  # Backup versions
-    └── *.py              # Other archived files
-```
+
 
 ## Key Features
 
