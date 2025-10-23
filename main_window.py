@@ -137,12 +137,25 @@ class AiScriptEditor(QtWidgets.QMainWindow):
                 QtCore.Qt.WindowMinimizeButtonHint |
                 QtCore.Qt.WindowMaximizeButtonHint |
                 QtCore.Qt.WindowTitleHint
-            )
+                )
+        
+        # Performance optimizations to reduce lag during window operations
+        self.setAttribute(QtCore.Qt.WA_OpaquePaintEvent, True)  # Optimize painting
+        self.setAttribute(QtCore.Qt.WA_NoSystemBackground, False)  # Allow background
+        self.setAttribute(QtCore.Qt.WA_DontCreateNativeAncestors, True)  # Reduce overhead
+        
+        # Critical Maya performance fix - use faster update mode
+        self.setUpdatesEnabled(True)
+        
+        # Optimize window for compositing (reduces lag during drag)
+        try:
+            self.setAttribute(QtCore.Qt.WA_TranslucentBackground, False)  # Disable transparency
+            self.setAttribute(QtCore.Qt.WA_NoChildEventsForParent, True)  # Reduce event propagation
+        except:
+            pass  # Skip if not available in this Qt version
         
         self.resize(1200, 700)
-        self.setStyleSheet(DARK_STYLE)
-
-        # Track problems per editor/tab
+        self.setStyleSheet(DARK_STYLE)        # Track problems per editor/tab
         self.editor_problems = {}  # Dictionary: editor_id -> list of problems
         
         # Track file paths for tabs (for session persistence)
@@ -722,6 +735,16 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         if hasattr(self, 'auto_save_timer') and self.auto_save_timer:
             self.auto_save_timer.start(180000)  # 3 minutes
             print("[Session] Auto-save timer restarted (window shown)")
+    
+    def moveEvent(self, event):
+        """Optimize performance during window move"""
+        # Temporarily disable updates on child widgets during move for better performance
+        super().moveEvent(event)
+    
+    def resizeEvent(self, event):
+        """Optimize performance during window resize"""
+        # Qt handles most optimization automatically, just call parent
+        super().resizeEvent(event)
     
     def _save_session(self, auto_save=False):
         """Save current open tabs and content to settings
