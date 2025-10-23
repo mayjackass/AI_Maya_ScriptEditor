@@ -1,36 +1,41 @@
-# NEO Script Editor v3.2 Beta - New Drag & Drop Installers
+# NEO Script Editor v3.2 Beta
 
-[![Version](https://img.shields.io/badge/version-3.2--beta-orange.svg)](https://github.com/mayjackass/AI_Maya_ScriptEditor)
-[![Status](https://img.shields.io/badge/status-beta--testing-yellow.svg)](https://github.com/mayjackass/AI_Maya_ScriptEditor)
+[![Version](https://img.shields.io/badge/version-3.2--beta-orange.svg)](https://github.com/mayjackass/NEO_Script_Editor)
+[![Status](https://img.shields.io/badge/status-beta--testing-yellow.svg)](https://github.com/mayjackass/NEO_Script_Editor)
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/)
-[![Maya](https://img.shields.io/badge/maya-320%2B%20commands-green.svg)](https://github.com/mayjackass/AI_Maya_ScriptEditor)
+[![Maya](https://img.shields.io/badge/maya-320%2B%20commands-green.svg)](https://github.com/mayjackass/NEO_Script_Editor)
 [![License](https://img.shields.io/badge/license-Beta%20License-red.svg)](BETA_LICENSE.md)
 
 **Developed by:** Mayj Amilano ([mayjackass](https://github.com/mayjackass))  
 **Built for:** Autodesk Maya 2022+  
 **Framework:** PySide6 (Qt6) | Python 3.9+  
-**Release Date:** October 20, 2025  
+**Release Date:** October 23, 2025  
 **Beta Expires:** January 31, 2026  
 **Status:** Free Beta Testing
 
-> **BETA NOTICE**: This is a time-limited beta release for testing and evaluation. Please report issues on [GitHub Issues](https://github.com/mayjackass/AI_Maya_ScriptEditor/issues).
+> **BETA NOTICE**: This is a time-limited beta release for testing and evaluation. Please report issues on [GitHub Issues](https://github.com/mayjackass/NEO_Script_Editor/issues).
 
 A next-generation AI-powered Maya script editor with **Morpheus AI** integration, VSCode-style features, and **THE MOST COMPREHENSIVE Maya command validation** of any IDE! Experience coding like using GitHub Copilot, but built specifically for Maya Python and MEL with **intelligent error detection** for all 320+ Maya commands.
 
-## NEW in v3.2: Drag & Drop Installers
+## What's New in v3.2
 
-### Drag & Drop Installation
-**No more manual setup! Just drag and drop into Maya:**
+### Performance Optimizations
+- **Improved Session Saving**: Reduced auto-save frequency from 30 seconds to 3 minutes
+- **Smart Dirty Flag**: Only saves when there are actual changes
+- **Timer Management**: Auto-save stops when window is hidden/closed
+- **No Background Saves**: Eliminates lag and prevents saves when window isn't visible
+- **Better Maya Stability**: Less frequent I/O operations for smoother performance
+
+### Drag & Drop Installers
+
 - `neo_installer.py` - Full installation with all features
 - `neo_quick_installer.py` - Lightweight instant setup
 
-### Perfect Maya Workflow  
-**Editor on top, viewport below!**
-
-- **Maya Workspace Control**: Docks like built-in Maya panels (Script Editor, Outliner, etc.)
-- **NEO Shelf Tab**: Dedicated shelf with NEO logo buttons for one-click access
-- **Native Integration**: Tabs with other panels, remembers position, saves in workspace layouts
-- **Perfect Workflow**: Dock at top for editor-above, viewport-below setup
+### Perfect Maya Workflow
+- **Maya Workspace Control**: Docks like built-in Maya panels
+- **NEO Shelf Tab**: Dedicated shelf with logo buttons
+- **Native Integration**: Tabs with other panels, saves in workspace layouts
+- **Optimized Performance**: Smart session management prevents lag
 
 ---
 
@@ -405,16 +410,25 @@ python run_all_tests.py
 
 ## Documentation
 
-Comprehensive guides in the `docs/` folder:
-- `COMPREHENSIVE_MAYA_VALIDATION.md` - Complete Maya validation system docs
-- `MAYA_VALIDATION_QUICK_GUIDE.md` - Quick reference for common typos
-- `MAYA_VALIDATION_SUMMARY.md` - Implementation details
-- `MORPHEUS_AI.md` - AI system configuration
-- `COMPLETE_MAYA_INTEGRATION.md` - Maya API documentation (270+ commands)
-- `SYNTAX_HIGHLIGHTING.md` - Editor features
-- `KEYBOARD_SHORTCUTS.md` - Full shortcut reference
-- `PROJECT_STRUCTURE.md` - Codebase architecture
-- Feature implementation docs and performance notes
+### Quick Start
+- **[INSTALLATION_GUIDE.md](INSTALLATION_GUIDE.md)** - Complete installation & testing guide
+- **[INSTALLATION_GUIDE.txt](INSTALLATION_GUIDE.txt)** - Plain text version
+
+### Feature Documentation (`docs/` folder)
+- **Maya Integration**
+  - `COMPLETE_MAYA_INTEGRATION.md` - Maya API documentation (270+ commands)
+  - `MORPHEUS_INTEGRATION_COMPLETE.md` - Morpheus AI Maya knowledge system
+  - `V3.1_UPDATE_NOTES.md` - Maya command validation features
+  - `MAYA_SETUP.md` - Maya integration details
+  
+- **Performance & Configuration**
+  - `PERFORMANCE_SETTINGS.md` - Performance optimizations & settings
+  - `SECURITY_IMPLEMENTATION.md` - License security system
+  - `SECURITY_SUMMARY.md` - Security overview
+  
+- **User Interface**
+  - `HELP_MENU_DOCS.md` - Documentation links
+  - `HELP_MENU_QUICK_REFERENCE.md` - Quick reference guide
 
 ## Configuration
 
