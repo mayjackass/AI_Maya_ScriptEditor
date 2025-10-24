@@ -14,21 +14,18 @@ if script_dir not in sys.path:
 
 # Import and run
 try:
-    from qt_compat import QtWidgets, QT_VERSION, app_exec
-    from main_window import AiScriptEditor
+    from main_window import main
     
     print("Starting NEO Script Editor...")
-    print(f"Using Qt version: {QT_VERSION}")
     
-    # Create application
-    app = QtWidgets.QApplication(sys.argv)
-    window = AiScriptEditor()
-    window.show()
+    # Use the main() function which handles Maya parenting
+    window = main()
     
     print("NEO Script Editor launched successfully!")
     print("Window should now be visible")
     
-    sys.exit(app_exec(app))
+    # Don't call sys.exit in Maya - it would close Maya
+    # The main() function returns the window for Maya usage
     
 except Exception as e:
     print(f"❌ Launch failed: {e}")

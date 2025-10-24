@@ -47,31 +47,9 @@ def complete_neo_setup():
         def launch_neo_editor():
             """Launch NEO Script Editor as standalone window (single instance)"""
             try:
-                # Check if window already exists - close it first
-                from PySide6 import QtWidgets
-                import time
-                app = QtWidgets.QApplication.instance()
-                if app:
-                    closed_any = False
-                    for widget in app.allWidgets():
-                        if widget.__class__.__name__ == "AiScriptEditor":
-                            try:
-                                print("[INFO] Closing existing NEO window...")
-                                widget.close()
-                                widget.deleteLater()
-                                closed_any = True
-                            except:
-                                pass
-                    
-                    # Wait for window to fully close
-                    if closed_any:
-                        app.processEvents()
-                        time.sleep(0.1)
-                
-                # Launch new instance
-                from main_window import AiScriptEditor
-                window = AiScriptEditor()
-                window.show()
+                # Use main() function which handles single-instance + Maya parenting
+                from main_window import main
+                window = main()
                 print("✅ [NEO] Standalone Script Editor launched")
                 return window
             except Exception as e:
@@ -146,20 +124,22 @@ def complete_neo_setup():
 
 
 def launch_neo_editor():
-    """Launch NEO Script Editor as standalone always-on-top window"""
+    """Launch NEO Script Editor"""
     try:
         # Add paths
         neo_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         if neo_dir not in sys.path:
             sys.path.insert(0, neo_dir)
         
-        from main_window import AiScriptEditor
-        window = AiScriptEditor()
-        window.show()
-        print("✅ [NEO] Standalone Script Editor launched")
+        # Use main() function which handles Maya parenting
+        from main_window import main
+        window = main()
+        print("✅ [NEO] Script Editor launched")
         return window
     except Exception as e:
-        print(f"❌ [NEO] Standalone launch failed: {e}")
+        print(f"❌ [NEO] Launch failed: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 

@@ -79,8 +79,8 @@ QToolButton:pressed {
 class AiScriptEditor(QtWidgets.QMainWindow):
     """NEO Script Editor - Modern Maya script editor with Morpheus AI"""
     
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
         
         # Initialize beta manager first
         self.beta_manager = BetaManager()
@@ -101,10 +101,10 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         if os.path.exists(icon_path):
             self.setWindowIcon(QtGui.QIcon(icon_path))
         
-        # Window configuration - independent window that stays above Maya only
-        # NO WindowStaysOnTopHint - we'll manage stacking manually
+        # Window flags will be set in main() after Maya parent is assigned
+        # Default flags for non-Maya usage
         self.setWindowFlags(
-            QtCore.Qt.Window |  # Independent window (not parented to Maya)
+            QtCore.Qt.Window |
             QtCore.Qt.WindowCloseButtonHint |
             QtCore.Qt.WindowMinimizeButtonHint |
             QtCore.Qt.WindowMaximizeButtonHint |
@@ -114,14 +114,13 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         # CRITICAL: Ensure window is destroyed when closed, not just hidden
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
         
-        # Track Maya main window for smart stacking
-        self._maya_main_window = None
-        
         # Set size BEFORE setting stylesheet to avoid repainting
         self.resize(1200, 700)
         
         # Apply stylesheet (expensive operation, do once)
-        self.setStyleSheet(DARK_STYLE)        # Track problems per editor/tab
+        self.setStyleSheet(DARK_STYLE)
+        
+        # Track problems per editor/tab
         self.editor_problems = {}  # Dictionary: editor_id -> list of problems
         
         # Track file paths for tabs (for session persistence)
@@ -163,9 +162,6 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         
         # Setup Maya exit callback - DEFERRED
         QtCore.QTimer.singleShot(100, self._setup_maya_exit_callback)
-        
-        # Setup smart window stacking - DEFERRED
-        QtCore.QTimer.singleShot(200, self._setup_smart_stacking)
         
         # Auto-save timer - start AFTER session restore
         QtCore.QTimer.singleShot(3000, self._start_autosave_timer)
@@ -731,14 +727,6 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         print("[Session] closeEvent triggered - cleaning up resources")
         self._save_session()
         
-        # Remove event filter from Maya main window
-        if hasattr(self, '_maya_main_window') and self._maya_main_window:
-            try:
-                self._maya_main_window.removeEventFilter(self)
-                print("[Window] Event filter removed from Maya")
-            except:
-                pass
-        
         # Remove Maya exit callback if it exists
         if hasattr(self, '_maya_exit_callback_id') and self._maya_exit_callback_id:
             try:
@@ -779,34 +767,6 @@ class AiScriptEditor(QtWidgets.QMainWindow):
             self.auto_save_timer.stop()
             print("[Session] Auto-save timer stopped (window hidden)")
         super().hideEvent(event)
-    
-    def _setup_smart_stacking(self):
-        """Setup smart window stacking to stay above Maya but not external apps"""
-        try:
-            from maya import OpenMayaUI as omui
-            maya_main_window_ptr = omui.MQtUtil.mainWindow()
-            
-            if maya_main_window_ptr:
-                try:
-                    import shiboken6
-                    self._maya_main_window = shiboken6.wrapInstance(int(maya_main_window_ptr), QtWidgets.QWidget)
-                except:
-                    try:
-                        import shiboken2
-                        self._maya_main_window = shiboken2.wrapInstance(int(maya_main_window_ptr), QtWidgets.QWidget)
-                    except:
-                        return
-                
-                # DON'T install event filter - it causes lag on every Maya event
-                # Instead, just raise NEO manually when needed
-                print("[Window] Smart stacking ready (manual mode)")
-        except:
-            pass  # Not in Maya or failed to get main window
-    
-    def eventFilter(self, obj, event):
-        """Monitor Maya window events - DISABLED to prevent lag"""
-        # Event filtering causes too much overhead, skip it
-        return super().eventFilter(obj, event)
     
     def showEvent(self, event):
         """Called when window is shown - restart auto-save timer"""
@@ -1049,8 +1009,30 @@ def main():
         time.sleep(0.2)  # Increased wait time for proper cleanup
         app.processEvents()  # Process events again
     
-    # Create and show new window (independent, with smart stacking)
-    window = AiScriptEditor()
+    # Get Maya main window for parenting (if in Maya)
+    maya_main_window = None
+    try:
+        from maya import OpenMayaUI as omui
+        maya_main_window_ptr = omui.MQtUtil.mainWindow()
+        
+        if maya_main_window_ptr:
+            # Try PySide6 first (Maya 2025+), fallback to PySide2
+            try:
+                import shiboken6
+                maya_main_window = shiboken6.wrapInstance(int(maya_main_window_ptr), QtWidgets.QWidget)
+            except:
+                import shiboken2
+                maya_main_window = shiboken2.wrapInstance(int(maya_main_window_ptr), QtWidgets.QWidget)
+    except:
+        pass  # Not in Maya, will run standalone
+    
+    # Create window with Maya parent passed to constructor (avoids reparenting issues)
+    window = AiScriptEditor(parent=maya_main_window)
+    
+    # Set window flag if in Maya
+    if maya_main_window:
+        window.setWindowFlags(QtCore.Qt.Window)
+    
     window.show()
     
     if __name__ == "__main__":
