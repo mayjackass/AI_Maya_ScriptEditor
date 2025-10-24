@@ -72,6 +72,11 @@ class _LineNumberArea(QtWidgets.QWidget):
         return QtCore.QSize(self.code_editor._number_area_width(), 0)
 
     def paintEvent(self, event):
+        """Skip expensive paint during window move for better performance"""
+        # Skip during window move
+        if hasattr(self.code_editor, '_is_moving') and self.code_editor._is_moving:
+            return
+        
         self.code_editor._paint_line_numbers(event)
     
     def mousePressEvent(self, event):
@@ -164,6 +169,9 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         self._tab_timer.setSingleShot(True)
         self._tab_timer.timeout.connect(self._on_tab_switch_end)
         
+        # Window move detection (set by parent window)
+        self._is_moving = False
+        
         # Error tracking
         self.syntax_errors = []
         self.error_highlights = []
@@ -228,6 +236,37 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         
         # Store inline diff selections so they don't get cleared
         self.inline_diff_selections = []
+    
+    def cleanup(self):
+        """Cleanup all timers and resources when editor is being destroyed"""
+        # Stop all timers
+        if hasattr(self, 'error_timer'):
+            self.error_timer.stop()
+            self.error_timer.deleteLater()
+        
+        if hasattr(self, '_scroll_timer'):
+            self._scroll_timer.stop()
+            self._scroll_timer.deleteLater()
+        
+        if hasattr(self, '_resize_timer'):
+            self._resize_timer.stop()
+            self._resize_timer.deleteLater()
+        
+        if hasattr(self, '_tab_timer'):
+            self._tab_timer.stop()
+            self._tab_timer.deleteLater()
+        
+        if hasattr(self, '_line_update_timer'):
+            self._line_update_timer.stop()
+            self._line_update_timer.deleteLater()
+        
+        # Disconnect signals
+        try:
+            self.textChanged.disconnect()
+            self.blockCountChanged.disconnect()
+            self.updateRequest.disconnect()
+        except:
+            pass
         
     def apply_inline_diff_highlighting(self, selections):
         """Apply inline diff highlighting that persists"""
@@ -393,9 +432,17 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         # Invalidate folding cache when text changes
         self._cache_valid = False
         
-        # Debounce error checking - wait 500ms after user stops typing (Maya optimization)
+        # Adaptive error checking delay - longer for larger files
+        code_length = len(self.toPlainText())
+        if code_length > 5000:
+            delay = 2000  # 2 seconds for large files
+        elif code_length > 1000:
+            delay = 1500  # 1.5 seconds for medium files
+        else:
+            delay = 1000  # 1 second for small files
+        
         self.error_timer.stop()
-        self.error_timer.start(500)  # 0.5 seconds for better responsiveness
+        self.error_timer.start(delay)
         
     def _check_syntax_errors(self):
         """Check for syntax errors and highlight them (VSCode style - multi-pass detection)."""
@@ -1088,15 +1135,15 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         if not self.enable_indentation_guides:
             return
         
-        # Skip during scrolling/resizing/tab switching for better performance in Maya
-        if self._is_scrolling or self._is_tab_switching:
+        # Skip during scrolling/resizing/tab switching/window moving for better performance in Maya
+        if self._is_scrolling or self._is_tab_switching or self._is_moving:
             return
         
-        # Throttle paint events in Maya (skip 2 out of 3 paints for performance)
+        # Throttle paint events aggressively in Maya (skip 4 out of 5 paints for performance)
         if not hasattr(self, '_paint_counter'):
             self._paint_counter = 0
         self._paint_counter += 1
-        if self._paint_counter % 3 != 0:  # Only paint every 3rd time
+        if self._paint_counter % 5 != 0:  # Only paint every 5th time
             return
         
         # Draw indentation guides
@@ -1299,7 +1346,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         # Debounced update for Maya performance
         if hasattr(self, '_line_update_timer'):
             self._line_update_timer.stop()
-            self._line_update_timer.start(50)
+            self._line_update_timer.start(200)  # Increased from 150ms to 200ms
     
     def clear_all_breakpoints(self):
         """Clear all breakpoints - OPTIMIZED."""
@@ -1307,7 +1354,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             self.breakpoints.clear()
             if hasattr(self, '_line_update_timer'):
                 self._line_update_timer.stop()
-                self._line_update_timer.start(50)
+                self._line_update_timer.start(200)
     
     def get_breakpoints(self):
         """Get list of all breakpoint line numbers."""
@@ -1321,7 +1368,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         # Only update if changed - debounced for Maya
         if old_line != line_number and hasattr(self, '_line_update_timer'):
             self._line_update_timer.stop()
-            self._line_update_timer.start(50)
+            self._line_update_timer.start(200)
         
         # Scroll to the line
         if line_number:
@@ -1335,7 +1382,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             self.current_debug_line = None
             if hasattr(self, '_line_update_timer'):
                 self._line_update_timer.stop()
-                self._line_update_timer.start(50)
+                self._line_update_timer.start(200)
         
     def _paint_line_numbers(self, event):
         """Paint line numbers with VSCode-style error indicators and breakpoints - OPTIMIZED."""

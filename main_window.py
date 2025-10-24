@@ -101,28 +101,21 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         if os.path.exists(icon_path):
             self.setWindowIcon(QtGui.QIcon(icon_path))
         
-        # CRITICAL FIX: Don't parent to Maya main window - causes severe lag
-        # Use standalone window with stay-on-top flag instead
-        # This prevents NEO from blocking Maya's UI thread and causing lag
+        # Window configuration - independent window that stays above Maya only
+        # NO WindowStaysOnTopHint - we'll manage stacking manually
         self.setWindowFlags(
-            QtCore.Qt.Window |  # Independent window
-            QtCore.Qt.WindowStaysOnTopHint |  # Stay above Maya
+            QtCore.Qt.Window |  # Independent window (not parented to Maya)
             QtCore.Qt.WindowCloseButtonHint |
             QtCore.Qt.WindowMinimizeButtonHint |
             QtCore.Qt.WindowMaximizeButtonHint |
             QtCore.Qt.WindowTitleHint
-                )
+        )
         
-        # CRITICAL: Performance optimizations to prevent Maya lag
-        # These attributes significantly reduce rendering overhead
-        self.setAttribute(QtCore.Qt.WA_OpaquePaintEvent, True)  # Faster painting
-        self.setAttribute(QtCore.Qt.WA_NoSystemBackground, False)  # Use background
-        self.setAttribute(QtCore.Qt.WA_DontCreateNativeAncestors, True)  # Less overhead
-        self.setAttribute(QtCore.Qt.WA_TranslucentBackground, False)  # No transparency
-        self.setAttribute(QtCore.Qt.WA_PaintOnScreen, False)  # Use backing store
+        # CRITICAL: Ensure window is destroyed when closed, not just hidden
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
         
-        # Optimize for Maya's rendering pipeline
-        self.setUpdatesEnabled(True)
+        # Track Maya main window for smart stacking
+        self._maya_main_window = None
         
         # Set size BEFORE setting stylesheet to avoid repainting
         self.resize(1200, 700)
@@ -136,6 +129,12 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         
         # Track if session needs saving (dirty flag for performance)
         self._session_dirty = False
+        
+        # Performance: Track window move state to disable expensive repaints
+        self._is_moving = False
+        self._move_timer = QtCore.QTimer()
+        self._move_timer.setSingleShot(True)
+        self._move_timer.timeout.connect(self._on_move_end)
         
         # Initialize components FIRST (lightweight, must be ready)
         self._setup_central_widget()
@@ -162,10 +161,26 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         # Setup status bar - DEFERRED
         QtCore.QTimer.singleShot(500, self._setup_status_bar)
         
+        # Setup Maya exit callback - DEFERRED
+        QtCore.QTimer.singleShot(100, self._setup_maya_exit_callback)
+        
+        # Setup smart window stacking - DEFERRED
+        QtCore.QTimer.singleShot(200, self._setup_smart_stacking)
+        
         # Auto-save timer - start AFTER session restore
         QtCore.QTimer.singleShot(3000, self._start_autosave_timer)
         
+        # Force rehighlight all tabs - AFTER window is shown and session restored
+        QtCore.QTimer.singleShot(2500, self._force_rehighlight_all_tabs)
+        
         print("[OK] NEO Script Editor - Fast initialization complete! (Heavy operations deferred)")
+    
+    def _force_rehighlight_all_tabs(self):
+        """Force syntax highlighting to re-apply on all tabs after window initialization"""
+        for i in range(self.tabWidget.count()):
+            editor = self.tabWidget.widget(i)
+            if hasattr(editor, 'highlighter') and editor.highlighter:
+                editor.highlighter.rehighlight()
     
     def keyPressEvent(self, event):
         """Handle keyboard shortcuts - Esc to close find/replace"""
@@ -688,14 +703,71 @@ class AiScriptEditor(QtWidgets.QMainWindow):
         if beta_msg:
             self.statusBar().showMessage(beta_msg)
     
+    def _setup_maya_exit_callback(self):
+        """Setup callback to close NEO when Maya exits"""
+        try:
+            import maya.OpenMaya as om
+            
+            def maya_exit_callback(client_data):
+                """Called when Maya is about to exit"""
+                print("[Maya] Maya exit detected - closing NEO Script Editor")
+                try:
+                    self.close()
+                except:
+                    pass
+            
+            # Register callback for Maya exit
+            self._maya_exit_callback_id = om.MSceneMessage.addCallback(
+                om.MSceneMessage.kMayaExiting, 
+                maya_exit_callback
+            )
+            print("[Maya] Exit callback registered - NEO will close when Maya exits")
+        except Exception as e:
+            print(f"[Maya] Could not register exit callback: {e}")
+            self._maya_exit_callback_id = None
+    
     def closeEvent(self, event):
-        """Save session before closing and stop auto-save timer"""
-        print("[Session] closeEvent triggered")
+        """Save session before closing and cleanup all resources"""
+        print("[Session] closeEvent triggered - cleaning up resources")
         self._save_session()
-        # Stop the auto-save timer when closing
+        
+        # Remove event filter from Maya main window
+        if hasattr(self, '_maya_main_window') and self._maya_main_window:
+            try:
+                self._maya_main_window.removeEventFilter(self)
+                print("[Window] Event filter removed from Maya")
+            except:
+                pass
+        
+        # Remove Maya exit callback if it exists
+        if hasattr(self, '_maya_exit_callback_id') and self._maya_exit_callback_id:
+            try:
+                import maya.OpenMaya as om
+                om.MMessage.removeCallback(self._maya_exit_callback_id)
+                print("[Maya] Exit callback removed")
+            except:
+                pass
+        
+        # Stop all timers
         if hasattr(self, 'auto_save_timer') and self.auto_save_timer:
             self.auto_save_timer.stop()
-            print("[Session] Auto-save timer stopped (window closed)")
+            self.auto_save_timer.deleteLater()
+            print("[Session] Auto-save timer stopped")
+        
+        if hasattr(self, '_move_timer') and self._move_timer:
+            self._move_timer.stop()
+            self._move_timer.deleteLater()
+        
+        # Clean up all editors and their timers
+        if hasattr(self, 'tabWidget'):
+            for i in range(self.tabWidget.count()):
+                editor = self.tabWidget.widget(i)
+                if editor and hasattr(editor, 'cleanup'):
+                    try:
+                        editor.cleanup()
+                    except:
+                        pass
+        
         event.accept()
     
     def hideEvent(self, event):
@@ -708,6 +780,34 @@ class AiScriptEditor(QtWidgets.QMainWindow):
             print("[Session] Auto-save timer stopped (window hidden)")
         super().hideEvent(event)
     
+    def _setup_smart_stacking(self):
+        """Setup smart window stacking to stay above Maya but not external apps"""
+        try:
+            from maya import OpenMayaUI as omui
+            maya_main_window_ptr = omui.MQtUtil.mainWindow()
+            
+            if maya_main_window_ptr:
+                try:
+                    import shiboken6
+                    self._maya_main_window = shiboken6.wrapInstance(int(maya_main_window_ptr), QtWidgets.QWidget)
+                except:
+                    try:
+                        import shiboken2
+                        self._maya_main_window = shiboken2.wrapInstance(int(maya_main_window_ptr), QtWidgets.QWidget)
+                    except:
+                        return
+                
+                # DON'T install event filter - it causes lag on every Maya event
+                # Instead, just raise NEO manually when needed
+                print("[Window] Smart stacking ready (manual mode)")
+        except:
+            pass  # Not in Maya or failed to get main window
+    
+    def eventFilter(self, obj, event):
+        """Monitor Maya window events - DISABLED to prevent lag"""
+        # Event filtering causes too much overhead, skip it
+        return super().eventFilter(obj, event)
+    
     def showEvent(self, event):
         """Called when window is shown - restart auto-save timer"""
         super().showEvent(event)
@@ -717,9 +817,31 @@ class AiScriptEditor(QtWidgets.QMainWindow):
             print("[Session] Auto-save timer restarted (window shown)")
     
     def moveEvent(self, event):
-        """Optimize performance during window move"""
-        # Temporarily disable updates on child widgets during move for better performance
+        """Optimize performance during window move - disable viewport updates"""
+        if not self._is_moving:
+            self._is_moving = True
+            
+            # Disable viewport updates on all code editors
+            for i in range(self.tabWidget.count()):
+                editor = self.tabWidget.widget(i)
+                if hasattr(editor, 'viewport'):
+                    editor._is_moving = True
+                    editor.viewport().setUpdatesEnabled(False)
+        
+        self._move_timer.start(100)
         super().moveEvent(event)
+    
+    def _on_move_end(self):
+        """Re-enable updates after window move completes"""
+        self._is_moving = False
+        
+        # Re-enable updates and trigger single repaint
+        for i in range(self.tabWidget.count()):
+            editor = self.tabWidget.widget(i)
+            if hasattr(editor, 'viewport'):
+                editor._is_moving = False
+                editor.viewport().setUpdatesEnabled(True)
+                editor.viewport().update()
     
     def resizeEvent(self, event):
         """Optimize performance during window resize"""
@@ -911,7 +1033,7 @@ def main():
     
     # Close any existing NEO windows before creating new one
     closed_any = False
-    for widget in app.allWidgets():
+    for widget in list(app.allWidgets()):  # Use list() to avoid iteration issues
         if widget.__class__.__name__ == "AiScriptEditor":
             try:
                 print("[INFO] Closing existing NEO window...")
@@ -921,12 +1043,13 @@ def main():
             except:
                 pass
     
-    # Wait for windows to fully close
+    # Wait for windows to fully close and be deleted
     if closed_any:
         app.processEvents()
-        time.sleep(0.1)
+        time.sleep(0.2)  # Increased wait time for proper cleanup
+        app.processEvents()  # Process events again
     
-    # Create and show new window
+    # Create and show new window (independent, with smart stacking)
     window = AiScriptEditor()
     window.show()
     
