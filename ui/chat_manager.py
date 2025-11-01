@@ -1691,3 +1691,160 @@ DO NOT return all {line_count} lines back - only return the problematic section.
         text_edit.selectAll()
         
         dialog.exec()
+    
+    def show_settings_dialog(self):
+        """Show settings dialog for API configuration"""
+        dialog = QtWidgets.QDialog(self.parent)
+        dialog.setWindowTitle("NEO Settings - AI API Configuration")
+        dialog.setMinimumWidth(500)
+        dialog.setStyleSheet("""
+            QDialog {
+                background: #1e1e1e;
+                color: #ddd;
+            }
+            QLabel {
+                color: #ddd;
+                font-size: 11pt;
+            }
+            QLineEdit {
+                background: #252526;
+                border: 1px solid #333;
+                color: #eee;
+                padding: 6px;
+                border-radius: 4px;
+                font-size: 11pt;
+            }
+            QPushButton {
+                background: #2d2d30;
+                color: #eee;
+                border: 1px solid #333;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-size: 11pt;
+            }
+            QPushButton:hover {
+                background: #3e3e42;
+                border-color: #00ff41;
+            }
+            QPushButton:pressed {
+                background: #252526;
+            }
+        """)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.setSpacing(12)
+        
+        # Title
+        title = QtWidgets.QLabel("🔑 OpenAI API Configuration")
+        title.setStyleSheet("font-size: 14pt; font-weight: bold; color: #00ff41;")
+        layout.addWidget(title)
+        
+        # Instructions
+        instructions = QtWidgets.QLabel(
+            "Enter your OpenAI API key below. Get your key from:\n"
+            "https://platform.openai.com/api-keys"
+        )
+        instructions.setWordWrap(True)
+        instructions.setStyleSheet("color: #8b949e;")
+        layout.addWidget(instructions)
+        
+        # API Key input
+        key_label = QtWidgets.QLabel("API Key:")
+        layout.addWidget(key_label)
+        
+        key_input = QtWidgets.QLineEdit()
+        key_input.setEchoMode(QtWidgets.QLineEdit.Password)
+        key_input.setPlaceholderText("sk-...")
+        
+        # Load existing key
+        settings = QtCore.QSettings("AI_Script_Editor", "settings")
+        existing_key = settings.value("OPENAI_API_KEY", "")
+        if existing_key:
+            key_input.setText(existing_key)
+        
+        layout.addWidget(key_input)
+        
+        # Show/Hide key button
+        show_key_layout = QtWidgets.QHBoxLayout()
+        show_key_btn = QtWidgets.QCheckBox("Show API Key")
+        show_key_btn.stateChanged.connect(
+            lambda state: key_input.setEchoMode(
+                QtWidgets.QLineEdit.Normal if state else QtWidgets.QLineEdit.Password
+            )
+        )
+        show_key_layout.addWidget(show_key_btn)
+        show_key_layout.addStretch()
+        layout.addLayout(show_key_layout)
+        
+        # Get API key link button
+        get_key_btn = QtWidgets.QPushButton("🌐 Get API Key from OpenAI")
+        get_key_btn.clicked.connect(
+            lambda: QtGui.QDesktopServices.openUrl(
+                QtCore.QUrl("https://platform.openai.com/api-keys")
+            )
+        )
+        layout.addWidget(get_key_btn)
+        
+        layout.addSpacing(10)
+        
+        # Buttons
+        button_layout = QtWidgets.QHBoxLayout()
+        button_layout.addStretch()
+        
+        cancel_btn = QtWidgets.QPushButton("Cancel")
+        cancel_btn.clicked.connect(dialog.reject)
+        
+        save_btn = QtWidgets.QPushButton("💾 Save")
+        save_btn.setStyleSheet("""
+            QPushButton {
+                background: #00ff41;
+                color: #000;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background: #00cc33;
+            }
+        """)
+        
+        def save_api_key():
+            api_key = key_input.text().strip()
+            if api_key:
+                # Save to QSettings
+                settings.setValue("OPENAI_API_KEY", api_key)
+                
+                # Set in environment for current session
+                os.environ["OPENAI_API_KEY"] = api_key
+                
+                # Show success message
+                QtWidgets.QMessageBox.information(
+                    dialog,
+                    "Success",
+                    "API key saved successfully!\n\n"
+                    "Morpheus AI is now ready to assist you."
+                )
+                
+                # Reinitialize Morpheus with new key if chat manager exists
+                if self.morpheus_manager:
+                    try:
+                        from ai.copilot_manager import MorpheusManager
+                        self.morpheus_manager = MorpheusManager()
+                        print("[OpenAI] Morpheus reinitialized with new API key")
+                    except Exception as e:
+                        print(f"[Warning] Could not reinitialize Morpheus: {e}")
+                
+                dialog.accept()
+            else:
+                QtWidgets.QMessageBox.warning(
+                    dialog,
+                    "Invalid Input",
+                    "Please enter a valid API key."
+                )
+        
+        save_btn.clicked.connect(save_api_key)
+        
+        button_layout.addWidget(cancel_btn)
+        button_layout.addWidget(save_btn)
+        layout.addLayout(button_layout)
+        
+        # Show dialog
+        dialog.exec()
